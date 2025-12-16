@@ -23,63 +23,64 @@ export class PackagehaSession {
         let reply = "";
 
         // --- RESET COMMAND ---
-        if (txt.toLowerCase() === "reset") {
+        if (txt.toLowerCase() === "reset" || txt === "إعادة" || txt === "ريست") {
             await this.state.storage.delete("memory");
-            return new Response(JSON.stringify({ reply: "♻️ Memory wiped. How can I help?" }), {
+            return new Response(JSON.stringify({ reply: "♻️ Memory wiped. How can I help? (تم مسح الذاكرة)" }), {
                 headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
             });
         }
 
-        // --- PHASE 1: SMART DISCOVERY ---
+        // --- PHASE 1: DISCOVERY (BILINGUAL) ---
         if (memory.step === "start") {
-            // 1. Get the real catalog first
             const products = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
             
             if (products.length === 0) {
-                reply = "I'm having trouble connecting to the store catalog right now.";
+                reply = "System: Cannot connect to store catalog.";
             } else {
-                // 2. Prepare the list for the AI
+                // Prepare list for AI (English + Arabic titles)
                 const inventoryList = products.map((p, index) => 
                     `ID ${index}: ${p.title} (Variants: ${p.variants.map((v:any)=>v.title).join(', ')})`
                 ).join("\n");
 
-                // 3. Ask AI to match User Input -> Inventory Item
+                // SMART PROMPT
                 const aiResponse = await this.askAI(`
+                    You are a smart bilingual sales assistant (English & Arabic).
+                    
                     Current Inventory:
                     ${inventoryList}
 
                     User Request: "${txt}"
 
-                    Task: Does the user request match any item in the inventory? 
-                    - Ignore plural/singular differences (e.g. "Boxes" matches "Abstract Box").
-                    - If it matches, return the ID number only.
-                    - If it's a greeting like "hi", return "GREETING".
-                    - If no match found, return "NONE".
+                    Task: Match the user's request to an Inventory ID based on MEANING.
+                    - If user says "Photography" and we have "خدمة تصوير", that is a MATCH.
+                    - If user says "Boxes" and we have "Abstract Box", that is a MATCH.
+                    - If user says "hi" or "مرحبا", return "GREETING".
+                    - If no semantic match found, return "NONE".
+                    
+                    Return ONLY the ID number (e.g. "5") or "GREETING" or "NONE".
                 `);
 
                 const decision = aiResponse.trim();
 
                 if (decision.includes("GREETING")) {
-                    reply = "Hello! I can help you with packaging. We have Boxes, Bags, and more. What do you need?";
+                    reply = "Hello! I can help you with packaging or services. What do you need? (أهلا بك، كيف يمكنني مساعدتك؟)";
                 } else if (decision.includes("NONE")) {
-                    reply = "I couldn't find a product like that in our catalog. Try asking for 'Boxes' or 'Bags'.";
+                    reply = "I couldn't find a matching product. Try 'Boxes' or 'Photography'. (لم أجد منتجًا مطابقًا)";
                 } else {
                     const index = parseInt(decision.replace(/\D/g, ''));
                     if (!isNaN(index) && products[index]) {
                         const product = products[index];
                         
-                        // Save to Memory
                         memory.productName = product.title;
                         memory.variants = product.variants.map((v: any) => ({
                             id: v.id, title: v.title, price: v.price
                         }));
 
-                        // Ask for Variant
                         const options = memory.variants.map(v => `${v.title}`).join(", ");
-                        reply = `We have **${product.title}** (${options}). Which size/option would you like?`;
+                        reply = `We have **${product.title}** (${options}). Which option do you want?`;
                         memory.step = "ask_variant";
                     } else {
-                        reply = "I'm confusing myself. Let's try again. What are you looking for?";
+                        reply = "I am confused. Please try again.";
                     }
                 }
             }
@@ -87,10 +88,10 @@ export class PackagehaSession {
 
         // --- PHASE 2: VARIANT SELECTION ---
         else if (memory.step === "ask_variant") {
-            // Context Switching Check
-            if (txt.toLowerCase().includes("box") || txt.toLowerCase().includes("bag")) {
+            // Check for Context Switch
+            if (txt.includes("box") || txt.includes("bag") || txt.includes("علب") || txt.includes("كيس")) {
                  await this.state.storage.delete("memory"); 
-                 return new Response(JSON.stringify({ reply: "Let's start over. What product do you need?" })); 
+                 return new Response(JSON.stringify({ reply: "Switching topics... What do you need? (جاري التبديل... ماذا تحتاج؟)" })); 
             }
 
             const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
@@ -100,14 +101,15 @@ export class PackagehaSession {
                 Available Options:
                 ${optionsContext}
                 
-                Task: Return the ID of the option the user selected.
-                If they say "Small", match it to "Small" or "S".
-                If they say "The cheap one", pick the lowest price.
+                Task: Return the ID of the option the user wants.
+                - Match "Small" to "S" or "صغير".
+                - Match "Default Title" if they imply "the only one" or "yes".
+                
                 Return ONLY the ID number. If unsure, return "UNKNOWN".
             `);
 
             if (aiDecision.includes("UNKNOWN")) {
-                reply = "I'm not sure which option you mean. Please type the name from the list above.";
+                reply = "Please select one of the options above. (الرجاء اختيار أحد الخيارات)";
             } else {
                 const index = parseInt(aiDecision.replace(/\D/g, ''));
                 if (!isNaN(index) && memory.variants[index]) {
@@ -116,20 +118,21 @@ export class PackagehaSession {
                     memory.selectedVariantPrice = selected.price;
                     memory.selectedVariantName = selected.title;
                     
-                    reply = `Got it: ${selected.title}. How many do you need?`;
+                    reply = `Selected: ${selected.title}. How many do you need? (العدد المطلوب؟)`;
                     memory.step = "ask_qty";
                 } else {
-                    reply = "Please select one of the available options.";
+                    reply = "Invalid selection.";
                 }
             }
         }
 
         // --- PHASE 3: CHECKOUT ---
         else if (memory.step === "ask_qty") {
+            // Extract number (English or Arabic digits)
             const qty = parseInt(txt.replace(/\D/g, ''));
             
             if (!qty) {
-                 reply = "Please enter a valid number (e.g., 10, 20).";
+                 reply = "Please enter a number. (الرجاء كتابة رقم)";
             } else {
                 const result = await createDraftOrder(
                     this.env.SHOP_URL,
@@ -140,7 +143,7 @@ export class PackagehaSession {
 
                 if (result.startsWith("http")) {
                     const total = (parseFloat(memory.selectedVariantPrice) * qty).toFixed(2);
-                    reply = `✅ Order Created!<br><b>${qty} x ${memory.productName}</b><br>Total: ${total} SAR<br><br><a href="${result}" target="_blank" style="background:black; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">Pay Now ➔</a>`;
+                    reply = `✅ Order Ready!<br><b>${qty} x ${memory.productName}</b><br>Total: ${total} SAR<br><br><a href="${result}" target="_blank" style="background:#000; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px;">Pay Now (ادفع الآن) ➔</a>`;
                     memory.step = "start";
                 } else {
                     reply = `⚠️ Error: ${result}`;
@@ -149,7 +152,6 @@ export class PackagehaSession {
         }
 
         await this.state.storage.put("memory", memory);
-        
         return new Response(JSON.stringify({ reply: reply }), {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
@@ -159,7 +161,7 @@ export class PackagehaSession {
         try {
             const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
                 messages: [
-                    { role: "system", content: "You are a smart inventory assistant." },
+                    { role: "system", content: "You are a bilingual e-commerce assistant." },
                     { role: "user", content: prompt }
                 ]
             });

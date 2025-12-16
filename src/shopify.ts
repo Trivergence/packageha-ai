@@ -1,8 +1,8 @@
 export async function getActiveProducts(shopUrl: string, token: string): Promise<any[]> {
     let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     
-    // FETCH TOP 20 PRODUCTS (No query)
-    const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=20`;
+    // INCREASED LIMIT TO 50 to catch your full catalog
+    const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=50`;
 
     try {
         const response = await fetch(url, {
