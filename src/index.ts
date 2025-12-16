@@ -1,4 +1,4 @@
-// WORKER: STUDIUM AGENT (DEBUG MODE)
+// WORKER: SELF-HEALING STUDIUM AGENT
 export interface Env {
   PackagehaSession: DurableObjectNamespace;
   SHOPIFY_ACCESS_TOKEN: string;
@@ -41,9 +41,17 @@ export class PackagehaSession {
   async fetch(request: Request) {
     let memory = await this.state.storage.get("memory") || { step: "start", product: "none" };
     const body = await request.json() as { message?: string };
-    const txt = (body.message || "").toLowerCase();
+    const txt = (body.message || "").toLowerCase().trim();
     
     let reply = "I didn't understand that.";
+
+    // --- EMERGENCY RESET ---
+    if (txt === "reset" || txt === "restart") {
+        await this.state.storage.delete("memory");
+        return new Response(JSON.stringify({ reply: "♻️ Memory wiped. Let's start over. Do you need Boxes or Bags?" }), {
+            headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" }
+        });
+    }
 
     // --- CONVERSATION FLOW ---
     
@@ -58,7 +66,7 @@ export class PackagehaSession {
         memory.product = "Bag";
         reply = "Sure. What size bag? (Small, Medium, Large)";
       } else {
-        reply = "Welcome! I can help you with Boxes or Bags. Which one?";
+        reply = "Welcome! I can help you with Boxes or Bags. Which one? (Type 'reset' if stuck)";
       }
     }
     
@@ -71,18 +79,15 @@ export class PackagehaSession {
 
     // Step 2: Ask Quantity -> CREATE ORDER
     else if (memory.step === "ask_qty") {
-      const qty = parseInt(txt.replace(/\D/g,'')) || 100;
+      const qty = parseInt(txt.replace(/\D/g,'')) || 50; // Default to 50 if text is weird
       
-      // --- DEBUGGING THE HANDS ---
-      // We will return the RAW error to the chat window
       const result = await this.createDraftOrder(memory.product, memory.size, qty);
       
       if (result.startsWith("http")) {
-        reply = `SUCCESS! Here is your quote: <a href="${result}" target="_blank" style="color:blue;">Click to Pay</a>`;
+        reply = `✅ Quote Ready! Order for ${qty} ${memory.size} ${memory.product}s: <a href="${result}" target="_blank" style="color:blue; text-decoration:underline;">Click Here to Pay</a>`;
         memory.step = "start"; 
       } else {
-        // THIS IS THE IMPORTANT PART: It will show the error code
-        reply = `SHOPIFY ERROR: ${result}`; 
+        reply = `⚠️ Shopify Error: ${result}. (Try typing 'reset')`; 
       }
     }
 
@@ -94,9 +99,10 @@ export class PackagehaSession {
   }
 
   async createDraftOrder(product: string, size: string, qty: number) {
-    // 1. CLEAN THE URL (Remove https:// if user added it)
-    const cleanShopUrl = this.env.SHOP_URL.replace("https://", "").replace("/", "");
-    const url = `https://${cleanShopUrl}/admin/api/2024-01/draft_orders.json`;
+    // 1. CLEAN THE URL (The Fix)
+    // This removes 'https://' and trailing slashes so we don't get double https
+    const cleanShop = this.env.SHOP_URL.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
+    const url = `https://${cleanShop}/admin/api/2024-01/draft_orders.json`;
     
     const payload = {
       draft_order: {
@@ -104,7 +110,7 @@ export class PackagehaSession {
           {
             title: `Custom ${product} - ${size}`,
             quantity: qty,
-            price: "10.00",
+            price: "15.00",
             custom: true
           }
         ]
@@ -122,11 +128,11 @@ export class PackagehaSession {
       });
       
       if (!response.ok) {
-        return `Status ${response.status}: ${response.statusText}`;
+        return `Status ${response.status}: ${response.statusText}`; // Show specific error
       }
       
       const data: any = await response.json();
-      return data.draft_order?.invoice_url || "No Invoice URL found in response";
+      return data.draft_order?.invoice_url || "No Invoice URL returned";
     } catch (e: any) {
       return `Network Error: ${e.message}`;
     }
