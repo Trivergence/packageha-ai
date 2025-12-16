@@ -1,8 +1,7 @@
-export async function searchProducts(shopUrl: string, token: string, query: string): Promise<any[]> {
+export async function getActiveProducts(shopUrl: string, token: string): Promise<any[]> {
     let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     
-    // CHANGE 1: Fetch latest 20 products (Don't filter by title yet)
-    // This allows us to do a "Fuzzy Match" in our own code
+    // FETCH TOP 20 PRODUCTS (No query)
     const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=20`;
 
     try {
@@ -14,24 +13,14 @@ export async function searchProducts(shopUrl: string, token: string, query: stri
             }
         });
         
-        // CHANGE 2: If error, THROW it so we can see it in the chat
-        if (!response.ok) {
-            throw new Error(`Shopify API Error: ${response.status} ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const data: any = await response.json();
-        const allProducts = data.products || [];
-
-        // CHANGE 3: Perform "Fuzzy Search" manually
-        // This finds "Box" inside "Perfume Box" or "Custom Box"
-        return allProducts.filter((p: any) => 
-            p.title.toLowerCase().includes(query.toLowerCase())
-        );
+        return data.products || [];
 
     } catch (e: any) {
-        // Log it to the Cloudflare dashboard too
-        console.error("SEARCH ERROR:", e.message);
-        throw e; // Pass error to the chat
+        console.error("CATALOG ERROR:", e.message);
+        return [];
     }
 }
 
@@ -47,12 +36,7 @@ export async function createDraftOrder(
 
     const payload = {
         draft_order: {
-            line_items: [
-                {
-                    variant_id: variantId,
-                    quantity: qty
-                }
-            ]
+            line_items: [{ variant_id: variantId, quantity: qty }]
         }
     };
 
@@ -66,7 +50,7 @@ export async function createDraftOrder(
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) return `Error ${response.status}: ${response.statusText}`;
+        if (!response.ok) return `Error ${response.status}`;
         const data: any = await response.json();
         return data.draft_order?.invoice_url || "No Invoice URL";
     } catch (e: any) {
