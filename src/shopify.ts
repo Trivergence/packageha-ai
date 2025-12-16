@@ -1,8 +1,9 @@
 export async function searchProducts(shopUrl: string, token: string, query: string): Promise<any[]> {
-    // 1. Clean URL
     let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
-    // 2. Search API (Find products with title matching query, e.g., "Box")
-    const url = `https://${cleanShop}/admin/api/2024-01/products.json?title=${query}&status=active`;
+    
+    // CHANGE 1: Fetch latest 20 products (Don't filter by title yet)
+    // This allows us to do a "Fuzzy Match" in our own code
+    const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=20`;
 
     try {
         const response = await fetch(url, {
@@ -13,12 +14,24 @@ export async function searchProducts(shopUrl: string, token: string, query: stri
             }
         });
         
-        if (!response.ok) return [];
+        // CHANGE 2: If error, THROW it so we can see it in the chat
+        if (!response.ok) {
+            throw new Error(`Shopify API Error: ${response.status} ${response.statusText}`);
+        }
+
         const data: any = await response.json();
-        return data.products || [];
-    } catch (e) {
-        console.error(e);
-        return [];
+        const allProducts = data.products || [];
+
+        // CHANGE 3: Perform "Fuzzy Search" manually
+        // This finds "Box" inside "Perfume Box" or "Custom Box"
+        return allProducts.filter((p: any) => 
+            p.title.toLowerCase().includes(query.toLowerCase())
+        );
+
+    } catch (e: any) {
+        // Log it to the Cloudflare dashboard too
+        console.error("SEARCH ERROR:", e.message);
+        throw e; // Pass error to the chat
     }
 }
 
@@ -32,7 +45,6 @@ export async function createDraftOrder(
     let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     const url = `https://${cleanShop}/admin/api/2024-01/draft_orders.json`;
 
-    // We use the REAL Variant ID now. This ensures inventory is tracked correctly.
     const payload = {
         draft_order: {
             line_items: [
@@ -54,7 +66,7 @@ export async function createDraftOrder(
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) return `Error ${response.status}`;
+        if (!response.ok) return `Error ${response.status}: ${response.statusText}`;
         const data: any = await response.json();
         return data.draft_order?.invoice_url || "No Invoice URL";
     } catch (e: any) {

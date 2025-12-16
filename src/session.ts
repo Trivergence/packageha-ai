@@ -28,54 +28,50 @@ export class PackagehaSession {
 
         // --- CONVERSATION FLOW ---
         
-        // Step 0: User asks for a product (e.g., "I want a box")
         if (memory.step === "start") {
-            reply = "Searching our catalog..."; // Temporary loading message concept
+            const query = txt.includes("box") ? "box" : (txt.includes("bag") ? "bag" : txt);
             
-            // 1. Search Shopify for what they typed
-            // We search for "Box" or "Bag" based on input
-            const query = txt.includes("box") ? "Box" : (txt.includes("bag") ? "Bag" : txt);
-            const products = await searchProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN, query);
+            try {
+                // The new search logic
+                const products = await searchProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN, query);
 
-            if (products.length > 0) {
-                // Found it! Let's pick the first matching product
-                const product = products[0];
-                memory.productName = product.title;
-                memory.variants = product.variants.map((v: any) => ({
-                    id: v.id,
-                    title: v.title, // e.g., "Small", "Large"
-                    price: v.price
-                }));
-                
-                // List options to user
-                const options = memory.variants.map((v: any) => `${v.title} (${v.price} SAR)`).join(", ");
-                reply = `We have **${product.title}** available in: ${options}. Which one do you want?`;
-                memory.step = "ask_variant";
-            } else {
-                reply = "I couldn't find that product in the store. Try 'Box' or 'Bag'.";
+                if (products.length > 0) {
+                    const product = products[0];
+                    memory.productName = product.title;
+                    memory.variants = product.variants.map((v: any) => ({
+                        id: v.id,
+                        title: v.title,
+                        price: v.price
+                    }));
+                    
+                    const options = memory.variants.map((v: any) => `${v.title} (${v.price} SAR)`).join(", ");
+                    reply = `Found **${product.title}**: ${options}. Which one?`;
+                    memory.step = "ask_variant";
+                } else {
+                    reply = `I checked the store but found no products matching "${query}". (Make sure you have active products with that name!)`;
+                }
+            } catch (e: any) {
+                // NOW WE WILL SEE THE REAL ERROR
+                reply = `⚠️ System Error: ${e.message}`; 
             }
         }
         
-        // Step 1: User picks a variant (e.g., "Small")
         else if (memory.step === "ask_variant") {
-            // Find the variant that matches user text
             const selected = memory.variants.find((v: any) => txt.includes(v.title.toLowerCase()));
             
             if (selected) {
                 memory.selectedVariantId = selected.id;
                 memory.selectedVariantPrice = selected.price;
                 memory.selectedVariantName = selected.title;
-                reply = `Great choice (${selected.title} - ${selected.price} SAR). How many do you need?`;
+                reply = `Great (${selected.title}). How many?`;
                 memory.step = "ask_qty";
             } else {
-                reply = "Please choose one of the available sizes.";
+                reply = "Please choose a valid size from the list.";
             }
         }
 
-        // Step 2: Quantity -> Checkout
         else if (memory.step === "ask_qty") {
             const qty = parseInt(txt.replace(/\D/g, '')) || 10;
-            
             const result = await createDraftOrder(
                 this.env.SHOP_URL,
                 this.env.SHOPIFY_ACCESS_TOKEN,
@@ -85,10 +81,10 @@ export class PackagehaSession {
 
             if (result.startsWith("http")) {
                 const total = (parseFloat(memory.selectedVariantPrice) * qty).toFixed(2);
-                reply = `✅ Order created! ${qty} x ${memory.productName} (${memory.selectedVariantName}). Total: ${total} SAR. <a href="${result}" target="_blank" style="color:blue;">Click to Pay</a>`;
+                reply = `✅ Order for ${qty} x ${memory.productName}: ${total} SAR. <a href="${result}" target="_blank" style="color:blue;">Pay Now</a>`;
                 memory.step = "start";
             } else {
-                reply = `⚠️ Error creating order: ${result}`;
+                reply = `⚠️ Error: ${result}`;
             }
         }
 
