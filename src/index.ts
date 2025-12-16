@@ -1,45 +1,93 @@
-export interface Env { SHOPIFY_ACCESS_TOKEN: string; SHOP_URL: string; }
-
-export default { async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // 1. CORS Headers (Allows your site to talk to this worker)
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// 2. Handle Pre-flight checks
-if (request.method === "OPTIONS") {
-  return new Response(null, { headers: corsHeaders });
+// WORKER: DURABLE OBJECT (STATEFUL BRAIN)
+export interface Env {
+  PackagehaSession: DurableObjectNamespace;
+  SHOPIFY_ACCESS_TOKEN: string;
+  SHOP_URL: string;
 }
 
-// 3. Handle Chat Messages
-if (request.method === "POST") {
-  try {
-    const body = await request.json() as { message?: string };
-    const userMessage = (body.message || "").toLowerCase();
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    
+    // 1. CORS Headers
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
 
-    let reply = "I can help with boxes or bags. What do you need?";
-
-    if (userMessage.includes("box")) {
-        reply = "We have great boxes! What size? (Small, Medium, Large)";
-    } else if (userMessage.includes("bag")) {
-        reply = "We have paper and plastic bags. Do you need printing?";
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify({ reply: reply }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    if (request.method === "POST") {
+      // 2. Routing: Send user to their own private "Room" (Durable Object)
+      // We use their IP as the ID for now (Simplest way)
+      const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
+      const id = env.PackagehaSession.idFromName(ip); 
+      const stub = env.PackagehaSession.get(id);
+      
+      return stub.fetch(request);
+    }
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response("Studium Brain Online", { status: 200 });
+  }
+};
+
+// --- THE CLASS (THE MEMORY) ---
+export class PackagehaSession {
+  state: DurableObjectState;
+  
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+  }
+
+  async fetch(request: Request) {
+    // Load Memory
+    let memory = await this.state.storage.get("memory") || { step: "start", product: "none" };
+    
+    const body = await request.json() as { message?: string };
+    const txt = (body.message || "").toLowerCase();
+    
+    let reply = "I didn't understand that.";
+
+    // --- CONVERSATION LOGIC ---
+    
+    // Step 0: Start
+    if (memory.step === "start") {
+      if (txt.includes("box")) {
+        memory.step = "ask_size";
+        memory.product = "box";
+        reply = "Excellent choice. What size box do you need? (Small, Medium, Large)";
+      } else {
+        reply = "Welcome! I can help you with Boxes or Bags. Which one?";
+      }
+    }
+    
+    // Step 1: Size
+    else if (memory.step === "ask_size") {
+      if (txt.includes("large") || txt.includes("medium") || txt.includes("small")) {
+        reply = `Got it. A ${txt} ${memory.product}. How many do you need?`;
+        memory.step = "ask_qty";
+        memory.size = txt;
+      } else {
+        reply = "Please choose a size: Small, Medium, or Large.";
+      }
+    }
+
+    // Step 2: Quantity (The End)
+    else if (memory.step === "ask_qty") {
+      reply = `Perfect. I will prepare a quote for ${txt} ${memory.size} ${memory.product}s.`;
+      memory.step = "start"; // Reset for next time
+    }
+
+    // Save Memory
+    await this.state.storage.put("memory", memory);
+
+    return new Response(JSON.stringify({ reply: reply }), {
+      headers: { 
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json" 
+      }
     });
   }
 }
-
-// 4. Fallback
-return new Response(JSON.stringify({ message: "Studium Brain Online" }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" } 
-});
-},};

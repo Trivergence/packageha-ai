@@ -1,3 +1,12 @@
-name = "packageha-ai" 
-main = "src/index.ts" 
+name = "packageha-ai"
+main = "src/index.ts"
 compatibility_date = "2024-12-16"
+
+[durable_objects]
+bindings = [
+  { name = "PackagehaSession", class_name = "PackagehaSession" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["PackagehaSession"]
