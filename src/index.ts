@@ -1,4 +1,4 @@
-// WORKER: STUDIUM AGENT (WITH SHOPIFY HANDS)
+// WORKER: STUDIUM AGENT (DEBUG MODE)
 export interface Env {
   PackagehaSession: DurableObjectNamespace;
   SHOPIFY_ACCESS_TOKEN: string;
@@ -28,7 +28,7 @@ export default {
   }
 };
 
-// --- THE BRAIN (DURABLE OBJECT) ---
+// --- THE BRAIN ---
 export class PackagehaSession {
   state: DurableObjectState;
   env: Env;
@@ -40,7 +40,6 @@ export class PackagehaSession {
 
   async fetch(request: Request) {
     let memory = await this.state.storage.get("memory") || { step: "start", product: "none" };
-    
     const body = await request.json() as { message?: string };
     const txt = (body.message || "").toLowerCase();
     
@@ -72,22 +71,21 @@ export class PackagehaSession {
 
     // Step 2: Ask Quantity -> CREATE ORDER
     else if (memory.step === "ask_qty") {
-      const qty = parseInt(txt.replace(/\D/g,'')) || 100; // Extract number
+      const qty = parseInt(txt.replace(/\D/g,'')) || 100;
       
-      reply = "Generating your quote link, please wait...";
+      // --- DEBUGGING THE HANDS ---
+      // We will return the RAW error to the chat window
+      const result = await this.createDraftOrder(memory.product, memory.size, qty);
       
-      // --- THE HANDS (Shopify API Call) ---
-      const invoiceUrl = await this.createDraftOrder(memory.product, memory.size, qty);
-      
-      if (invoiceUrl) {
-        reply = `Here is your official quote for ${qty} ${memory.size} ${memory.product}s: <a href="${invoiceUrl}" target="_blank" style="color:blue; text-decoration:underline;">Click to Pay/View</a>`;
-        memory.step = "start"; // Reset
+      if (result.startsWith("http")) {
+        reply = `SUCCESS! Here is your quote: <a href="${result}" target="_blank" style="color:blue;">Click to Pay</a>`;
+        memory.step = "start"; 
       } else {
-        reply = "I had trouble contacting Shopify. Please try again.";
+        // THIS IS THE IMPORTANT PART: It will show the error code
+        reply = `SHOPIFY ERROR: ${result}`; 
       }
     }
 
-    // Save State
     await this.state.storage.put("memory", memory);
 
     return new Response(JSON.stringify({ reply: reply }), {
@@ -95,9 +93,10 @@ export class PackagehaSession {
     });
   }
 
-  // --- HELPER: TALK TO SHOPIFY ---
   async createDraftOrder(product: string, size: string, qty: number) {
-    const url = `https://${this.env.SHOP_URL}/admin/api/2024-01/draft_orders.json`;
+    // 1. CLEAN THE URL (Remove https:// if user added it)
+    const cleanShopUrl = this.env.SHOP_URL.replace("https://", "").replace("/", "");
+    const url = `https://${cleanShopUrl}/admin/api/2024-01/draft_orders.json`;
     
     const payload = {
       draft_order: {
@@ -105,11 +104,10 @@ export class PackagehaSession {
           {
             title: `Custom ${product} - ${size}`,
             quantity: qty,
-            price: "10.00", // Default placeholder price
+            price: "10.00",
             custom: true
           }
-        ],
-        use_customer_default_address: false
+        ]
       }
     };
 
@@ -123,10 +121,14 @@ export class PackagehaSession {
         body: JSON.stringify(payload)
       });
       
+      if (!response.ok) {
+        return `Status ${response.status}: ${response.statusText}`;
+      }
+      
       const data: any = await response.json();
-      return data.draft_order?.invoice_url || null; // Return the checkout link
-    } catch (e) {
-      return null;
+      return data.draft_order?.invoice_url || "No Invoice URL found in response";
+    } catch (e: any) {
+      return `Network Error: ${e.message}`;
     }
   }
 }
