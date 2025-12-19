@@ -22,7 +22,7 @@ export class PackagehaSession {
         const txt = (body.message || "").trim();
         let reply = "";
 
-        // --- RESET ---
+        // --- RESET COMMAND ---
         if (txt.toLowerCase() === "reset" || txt === "إعادة") {
             await this.state.storage.delete("memory");
             return new Response(JSON.stringify({ reply: "♻️ Memory wiped. (تم مسح الذاكرة)" }), {
@@ -33,42 +33,47 @@ export class PackagehaSession {
         // --- PHASE 1: DISCOVERY ---
         if (memory.step === "start") {
             // 1. Fetch Products
-            const products = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
+            const rawProducts = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
             
-            if (products.length === 0) {
+            if (rawProducts.length === 0) {
                 reply = "⚠️ System Error: Connected to Shopify, but found 0 active products. Check your Shopify Admin status.";
             } else {
-                // Optimize list to save AI tokens (Title only)
-                const inventoryList = products.map((p, index) => `ID ${index}: ${p.title}`).join("\n");
+                // 2. CLEAN THE DATA (Remove "TEST - ", "rs-")
+                // This helps the AI match "Box" to "TEST - Custom Box"
+                const inventoryList = rawProducts.map((p, index) => {
+                    const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
+                    return `ID ${index}: ${cleanTitle} (Original: ${p.title})`;
+                }).join("\n");
 
-                // 2. Ask AI (Aggressive Fuzzy Match)
+                // 3. Ask AI (Aggressive Fuzzy Match)
                 const aiPrompt = `
-                    Inventory:
+                    Inventory List:
                     ${inventoryList}
                     
                     User Request: "${txt}"
                     
-                    Task: Return the ID of the product that matches the User Request.
+                    Task: Find the best match ID for the user's request.
                     RULES:
-                    1. Be Flexible: "Boxes" matches "Abstract Box". "Photo" matches "Photography".
-                    2. Ignore spelling errors.
-                    3. If multiple match, pick the best one.
+                    1. IGNORE prefixes like "TEST" or "rs-".
+                    2. MATCH LOOSELY: "Box" matches "Custom Box Calculator". "Photo" matches "خدمة تصوير".
+                    3. If multiple match, pick the most relevant one.
                     4. Return ONLY the ID number (e.g., "5").
                     5. If ABSOLUTELY no match, return "NONE".
                 `;
                 
                 const decision = await this.askAI(aiPrompt);
 
-                // --- DEBUG LOGIC (Tells you why it failed) ---
-                console.log(`Debug: List size ${products.length}. AI said: "${decision}"`);
+                // --- DEBUG LOG (Tells you what happened) ---
+                console.log(`Debug: List size ${rawProducts.length}. AI said: "${decision}"`);
 
                 if (decision.includes("NONE")) {
-                    reply = `I couldn't find a match for "${txt}" in your ${products.length} products. (AI said: ${decision})`;
+                    reply = `I couldn't find a match for "${txt}" in your ${rawProducts.length} products. (AI said: ${decision})`;
+                } else if (decision.includes("ERROR")) {
+                    reply = `⚠️ AI Brain Error: ${decision}`;
                 } else {
                     const index = parseInt(decision.replace(/\D/g, ''));
-                    // Check if index is valid number AND exists in array
-                    if (!isNaN(index) && products[index]) {
-                        const product = products[index];
+                    if (!isNaN(index) && rawProducts[index]) {
+                        const product = rawProducts[index];
                         memory.productName = product.title;
                         memory.variants = product.variants.map((v: any) => ({
                             id: v.id, title: v.title, price: v.price
@@ -78,8 +83,7 @@ export class PackagehaSession {
                         reply = `Found: **${product.title}**. Options: ${options}. Which one?`;
                         memory.step = "ask_variant";
                     } else {
-                        // Fallback if AI returned garbage
-                        reply = `I am confused. AI suggested "ID ${decision}" but that product doesn't exist.`;
+                        reply = `⚠️ Logic Error: AI selected ID ${decision}, but that product doesn't exist.`;
                     }
                 }
             }
