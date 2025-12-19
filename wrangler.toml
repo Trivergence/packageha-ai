@@ -9,6 +9,11 @@ head_sampling_rate = 1
 invocation_logs = true
 persist = true
 
+[vars]
+SOVEREIGN_MODE = "COMMERCIAL" # Mode A
+
+
+
 # 1. NEW: Enable Cloudflare AI
 [ai]
 binding = "AI"

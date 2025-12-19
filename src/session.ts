@@ -1,4 +1,5 @@
 import { getActiveProducts, createDraftOrder } from "./shopify";
+import { SALES_CHARTER } from "./charter"; // <--- IMPORT THE SOUL
 
 export interface Env {
     PackagehaSession: DurableObjectNamespace;
@@ -32,42 +33,36 @@ export class PackagehaSession {
 
         // --- PHASE 1: DISCOVERY ---
         if (memory.step === "start") {
-            // 1. Fetch Products
             const rawProducts = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
             
             if (rawProducts.length === 0) {
-                reply = "⚠️ System Error: Connected to Shopify, but found 0 active products. Check your Shopify Admin status.";
+                reply = "⚠️ System Error: Connected to Shopify, but found 0 active products.";
             } else {
-                // 2. CLEAN THE DATA (Remove "TEST - ", "rs-")
-                // This helps the AI match "Box" to "TEST - Custom Box"
+                // CLEAN DATA
                 const inventoryList = rawProducts.map((p, index) => {
                     const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
                     return `ID ${index}: ${cleanTitle} (Original: ${p.title})`;
                 }).join("\n");
 
-                // 3. Ask AI (Aggressive Fuzzy Match)
+                // INJECT CHARTER (The Soul)
                 const aiPrompt = `
+                    You are: ${SALES_CHARTER.meta.tone}
+                    
                     Inventory List:
                     ${inventoryList}
                     
                     User Request: "${txt}"
                     
-                    Task: Find the best match ID for the user's request.
+                    Task: ${SALES_CHARTER.discovery.mission}
                     RULES:
-                    1. IGNORE prefixes like "TEST" or "rs-".
-                    2. MATCH LOOSELY: "Box" matches "Custom Box Calculator". "Photo" matches "خدمة تصوير".
-                    3. If multiple match, pick the most relevant one.
-                    4. Return ONLY the ID number (e.g., "5").
-                    5. If ABSOLUTELY no match, return "NONE".
+                    ${SALES_CHARTER.discovery.rules.map(r => `- ${r}`).join("\n")}
                 `;
                 
                 const decision = await this.askAI(aiPrompt);
-
-                // --- DEBUG LOG (Tells you what happened) ---
-                console.log(`Debug: List size ${rawProducts.length}. AI said: "${decision}"`);
+                console.log(`Debug: AI Decision: "${decision}"`);
 
                 if (decision.includes("NONE")) {
-                    reply = `I couldn't find a match for "${txt}" in your ${rawProducts.length} products. (AI said: ${decision})`;
+                    reply = `I couldn't find a match for "${txt}" in your ${rawProducts.length} products.`;
                 } else if (decision.includes("ERROR")) {
                     reply = `⚠️ AI Brain Error: ${decision}`;
                 } else {
@@ -93,37 +88,48 @@ export class PackagehaSession {
         else if (memory.step === "ask_variant") {
             const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
             
+            // Hardcoded safeguard for context switching, reinforced by Charter
             if (txt.toLowerCase().includes("box") || txt.toLowerCase().includes("bag")) {
                  await this.state.storage.delete("memory");
                  return new Response(JSON.stringify({ reply: "Restarting search..." }), { headers: { "Access-Control-Allow-Origin": "*" }});
             }
 
-            const aiDecision = await this.askAI(`
+            // INJECT CHARTER (The Soul)
+            const aiPrompt = `
                 Options:
                 ${optionsContext}
-                User: "${txt}"
-                Task: Return the ID of the selected option.
-                Return ONLY the ID number.
-            `);
+                
+                User Input: "${txt}"
+                
+                Task: ${SALES_CHARTER.variant.mission}
+                RULES:
+                ${SALES_CHARTER.variant.rules.map(r => `- ${r}`).join("\n")}
+            `;
 
-            const index = parseInt(aiDecision.replace(/\D/g, ''));
-            if (!isNaN(index) && memory.variants[index]) {
-                const selected = memory.variants[index];
-                memory.selectedVariantId = selected.id;
-                memory.selectedVariantPrice = selected.price;
-                memory.selectedVariantName = selected.title;
-                reply = `Selected ${selected.title}. How many?`;
-                memory.step = "ask_qty";
+            const aiDecision = await this.askAI(aiPrompt);
+
+            if (aiDecision.includes("RESTART")) {
+                await this.state.storage.delete("memory");
+                reply = "It sounds like you want to look for something else. What product are you looking for?";
             } else {
-                reply = `I didn't understand which option. (AI said: ${aiDecision})`;
+                const index = parseInt(aiDecision.replace(/\D/g, ''));
+                if (!isNaN(index) && memory.variants[index]) {
+                    const selected = memory.variants[index];
+                    memory.selectedVariantId = selected.id;
+                    memory.selectedVariantPrice = selected.price;
+                    reply = `Selected ${selected.title}. How many units do you need?`;
+                    memory.step = "ask_qty";
+                } else {
+                    reply = `I didn't quite get that. Please select one of the options above.`;
+                }
             }
         }
 
-        // --- PHASE 3: CHECKOUT ---
+        // --- PHASE 3: CHECKOUT (Pure Logic, No AI needed) ---
         else if (memory.step === "ask_qty") {
             const qty = parseInt(txt.replace(/\D/g, ''));
             if (!qty) {
-                 reply = "Please enter a number.";
+                 reply = "Please enter a valid number for quantity.";
             } else {
                 const result = await createDraftOrder(
                     this.env.SHOP_URL,
@@ -133,8 +139,9 @@ export class PackagehaSession {
                 );
                 
                 if (result.startsWith("http")) {
-                    reply = `✅ Order Ready: <a href="${result}" target="_blank">Pay Now</a>`;
-                    memory.step = "start";
+                    reply = `✅ Order Ready: <a href="${result}" target="_blank">Click here to Pay Now</a>`;
+                    // Wipe memory after success so they can start over
+                    await this.state.storage.delete("memory");
                 } else {
                     reply = `⚠️ Shopify Error: ${result}`;
                 }
@@ -153,7 +160,7 @@ export class PackagehaSession {
         try {
             const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
                 messages: [
-                    { role: "system", content: "You are a helpful assistant." },
+                    { role: "system", content: SALES_CHARTER.meta.tone },
                     { role: "user", content: prompt }
                 ]
             });
