@@ -22,117 +22,98 @@ export class PackagehaSession {
         const txt = (body.message || "").trim();
         let reply = "";
 
-        // --- RESET COMMAND ---
-        if (txt.toLowerCase() === "reset" || txt === "إعادة" || txt === "ريست") {
+        // --- RESET ---
+        if (txt.toLowerCase() === "reset" || txt === "إعادة") {
             await this.state.storage.delete("memory");
-            return new Response(JSON.stringify({ reply: "♻️ Memory wiped. How can I help? (تم مسح الذاكرة)" }), {
+            return new Response(JSON.stringify({ reply: "♻️ Memory wiped. (تم مسح الذاكرة)" }), {
                 headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
             });
         }
 
-        // --- PHASE 1: DISCOVERY (BILINGUAL) ---
+        // --- PHASE 1: DISCOVERY ---
         if (memory.step === "start") {
+            // 1. Fetch Products
             const products = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
             
             if (products.length === 0) {
-                reply = "System: Cannot connect to store catalog.";
+                reply = "⚠️ System Error: Connected to Shopify, but found 0 active products. Check your Shopify Admin status.";
             } else {
-                // Prepare list for AI (English + Arabic titles)
-                const inventoryList = products.map((p, index) => 
-                    `ID ${index}: ${p.title} (Variants: ${p.variants.map((v:any)=>v.title).join(', ')})`
-                ).join("\n");
+                // Optimize list to save AI tokens (Title only)
+                const inventoryList = products.map((p, index) => `ID ${index}: ${p.title}`).join("\n");
 
-                // SMART PROMPT
-                const aiResponse = await this.askAI(`
-                    You are a smart bilingual sales assistant (English & Arabic).
-                    
-                    Current Inventory:
+                // 2. Ask AI
+                const aiPrompt = `
+                    Inventory:
                     ${inventoryList}
-
                     User Request: "${txt}"
+                    Task: Return the ID of the matching product. If plural "Boxes", match "Box".
+                    Return ONLY the ID number. If no match, return "NONE".
+                `;
+                
+                const decision = await this.askAI(aiPrompt);
 
-                    Task: Match the user's request to an Inventory ID based on MEANING.
-                    - If user says "Photography" and we have "خدمة تصوير", that is a MATCH.
-                    - If user says "Boxes" and we have "Abstract Box", that is a MATCH.
-                    - If user says "hi" or "مرحبا", return "GREETING".
-                    - If no semantic match found, return "NONE".
-                    
-                    Return ONLY the ID number (e.g. "5") or "GREETING" or "NONE".
-                `);
+                // --- DEBUGGING OUTPUT (Customer won't see this in final version) ---
+                console.log(`Debug: Found ${products.length} products. AI said: "${decision}"`);
 
-                const decision = aiResponse.trim();
-
-                if (decision.includes("GREETING")) {
-                    reply = "Hello! I can help you with packaging or services. What do you need? (أهلا بك، كيف يمكنني مساعدتك؟)";
-                } else if (decision.includes("NONE")) {
-                    reply = "I couldn't find a matching product. Try 'Boxes' or 'Photography'. (لم أجد منتجًا مطابقًا)";
+                if (decision.includes("NONE")) {
+                    reply = `I couldn't find a match for "${txt}" in your ${products.length} products. (AI said: ${decision})`;
+                } else if (decision.includes("ERROR")) {
+                    reply = `⚠️ AI Brain Error: ${decision}`;
                 } else {
                     const index = parseInt(decision.replace(/\D/g, ''));
                     if (!isNaN(index) && products[index]) {
                         const product = products[index];
-                        
                         memory.productName = product.title;
                         memory.variants = product.variants.map((v: any) => ({
                             id: v.id, title: v.title, price: v.price
                         }));
-
-                        const options = memory.variants.map(v => `${v.title}`).join(", ");
-                        reply = `We have **${product.title}** (${options}). Which option do you want?`;
+                        
+                        const options = memory.variants.map(v => v.title).join(", ");
+                        reply = `Found: **${product.title}**. Options: ${options}. Which one?`;
                         memory.step = "ask_variant";
                     } else {
-                        reply = "I am confused. Please try again.";
+                        reply = `⚠️ Logic Error: AI selected ID ${decision}, but that product doesn't exist.`;
                     }
                 }
             }
         }
 
-        // --- PHASE 2: VARIANT SELECTION ---
+        // --- PHASE 2: VARIANT ---
         else if (memory.step === "ask_variant") {
-            // Check for Context Switch
-            if (txt.includes("box") || txt.includes("bag") || txt.includes("علب") || txt.includes("كيس")) {
-                 await this.state.storage.delete("memory"); 
-                 return new Response(JSON.stringify({ reply: "Switching topics... What do you need? (جاري التبديل... ماذا تحتاج؟)" })); 
-            }
-
             const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
             
+            // Check for reset/topic switch
+            if (txt.includes("box") || txt.includes("bag")) {
+                 await this.state.storage.delete("memory");
+                 return new Response(JSON.stringify({ reply: "Restarting search..." }));
+            }
+
             const aiDecision = await this.askAI(`
-                User Input: "${txt}"
-                Available Options:
+                Options:
                 ${optionsContext}
-                
-                Task: Return the ID of the option the user wants.
-                - Match "Small" to "S" or "صغير".
-                - Match "Default Title" if they imply "the only one" or "yes".
-                
-                Return ONLY the ID number. If unsure, return "UNKNOWN".
+                User: "${txt}"
+                Task: Return the ID of the selected option.
+                Return ONLY the ID number.
             `);
 
-            if (aiDecision.includes("UNKNOWN")) {
-                reply = "Please select one of the options above. (الرجاء اختيار أحد الخيارات)";
+            const index = parseInt(aiDecision.replace(/\D/g, ''));
+            if (!isNaN(index) && memory.variants[index]) {
+                const selected = memory.variants[index];
+                memory.selectedVariantId = selected.id;
+                memory.selectedVariantPrice = selected.price;
+                memory.selectedVariantName = selected.title;
+                reply = `Selected ${selected.title}. How many?`;
+                memory.step = "ask_qty";
             } else {
-                const index = parseInt(aiDecision.replace(/\D/g, ''));
-                if (!isNaN(index) && memory.variants[index]) {
-                    const selected = memory.variants[index];
-                    memory.selectedVariantId = selected.id;
-                    memory.selectedVariantPrice = selected.price;
-                    memory.selectedVariantName = selected.title;
-                    
-                    reply = `Selected: ${selected.title}. How many do you need? (العدد المطلوب؟)`;
-                    memory.step = "ask_qty";
-                } else {
-                    reply = "Invalid selection.";
-                }
+                reply = `I didn't understand which option. (AI said: ${aiDecision})`;
             }
         }
 
         // --- PHASE 3: CHECKOUT ---
         else if (memory.step === "ask_qty") {
-            // Extract number (English or Arabic digits)
             const qty = parseInt(txt.replace(/\D/g, ''));
-            
             if (!qty) {
-                 reply = "Please enter a number. (الرجاء كتابة رقم)";
+                 reply = "Please enter a number.";
             } else {
                 const result = await createDraftOrder(
                     this.env.SHOP_URL,
@@ -140,13 +121,12 @@ export class PackagehaSession {
                     memory.selectedVariantId,
                     qty
                 );
-
+                
                 if (result.startsWith("http")) {
-                    const total = (parseFloat(memory.selectedVariantPrice) * qty).toFixed(2);
-                    reply = `✅ Order Ready!<br><b>${qty} x ${memory.productName}</b><br>Total: ${total} SAR<br><br><a href="${result}" target="_blank" style="background:#000; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px;">Pay Now (ادفع الآن) ➔</a>`;
+                    reply = `✅ Order Ready: <a href="${result}" target="_blank">Pay Now</a>`;
                     memory.step = "start";
                 } else {
-                    reply = `⚠️ Error: ${result}`;
+                    reply = `⚠️ Shopify Error: ${result}`;
                 }
             }
         }
@@ -158,16 +138,19 @@ export class PackagehaSession {
     }
 
     async askAI(prompt: string): Promise<string> {
+        // Double check AI Binding
+        if (!this.env.AI) return "ERROR: AI Binding Missing in wrangler.toml";
+
         try {
             const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
                 messages: [
-                    { role: "system", content: "You are a bilingual e-commerce assistant." },
+                    { role: "system", content: "You are a precise data matching assistant." },
                     { role: "user", content: prompt }
                 ]
             });
             return response.response;
-        } catch (e) {
-            return "UNKNOWN";
+        } catch (e: any) {
+            return `ERROR: ${e.message}`;
         }
     }
 }
