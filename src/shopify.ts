@@ -1,6 +1,6 @@
 export async function getActiveProducts(shopUrl: string, token: string): Promise<any[]> {
     let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
-    
+
     // INCREASED LIMIT TO 50 to catch your full catalog
     const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=50`;
 
@@ -12,7 +12,7 @@ export async function getActiveProducts(shopUrl: string, token: string): Promise
                 "Content-Type": "application/json"
             }
         });
-        
+
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const data: any = await response.json();
@@ -25,18 +25,20 @@ export async function getActiveProducts(shopUrl: string, token: string): Promise
 }
 
 export async function createDraftOrder(
-    shopUrl: string, 
-    token: string, 
-    variantId: number, 
-    qty: number
+    shopUrl: string,
+    token: string,
+    variantId: number,
+    qty: number,
+    note: string = ""
 ): Promise<string> {
-    
+
     let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     const url = `https://${cleanShop}/admin/api/2024-01/draft_orders.json`;
 
     const payload = {
         draft_order: {
-            line_items: [{ variant_id: variantId, quantity: qty }]
+            line_items: [{ variant_id: variantId, quantity: qty }],
+            note: note
         }
     };
 
