@@ -10,7 +10,19 @@ invocation_logs = true
 persist = true
 
 [vars]
-SOVEREIGN_MODE = "COMMERCIAL" # Mode A
+# The Hybrid Sovereign Switch Configuration
+# Options: "COMMERCIAL" | "SOVEREIGN" | "AIR_GAPPED"
+SOVEREIGN_MODE = "COMMERCIAL" # Mode A: Cloudflare AI (US)
+
+# Mode B (SOVEREIGN) - Uncomment and configure for Vertex AI (Dammam Region)
+# SOVEREIGN_MODE = "SOVEREIGN"
+# VERTEX_AI_ENDPOINT = "https://aiplatform.googleapis.com/v1"
+# VERTEX_AI_PROJECT = "your-gcp-project-id"
+# VERTEX_AI_LOCATION = "asia-southeast1" # Dammam region
+
+# Mode C (AIR_GAPPED) - Uncomment for local Llama server
+# SOVEREIGN_MODE = "AIR_GAPPED"
+# LOCAL_LLAMA_ENDPOINT = "http://localhost:8080/v1/chat/completions"
 
 
 

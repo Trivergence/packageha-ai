@@ -1,7 +1,24 @@
-export async function getActiveProducts(shopUrl: string, token: string): Promise<any[]> {
-    let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
+/**
+ * Shopify Integration
+ * Handles product catalog and order creation
+ */
 
-    // INCREASED LIMIT TO 50 to catch your full catalog
+export interface ShopifyProduct {
+    id: number;
+    title: string;
+    variants: Array<{
+        id: number;
+        title: string;
+        price: string;
+    }>;
+}
+
+export interface ShopifyResponse {
+    products?: ShopifyProduct[];
+}
+
+export async function getActiveProducts(shopUrl: string, token: string): Promise<ShopifyProduct[]> {
+    const cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=50`;
 
     try {
@@ -13,15 +30,26 @@ export async function getActiveProducts(shopUrl: string, token: string): Promise
             }
         });
 
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Shopify API Error ${response.status}: ${errorText}`);
+        }
 
-        const data: any = await response.json();
+        const data = await response.json() as ShopifyResponse;
         return data.products || [];
 
-    } catch (e: any) {
-        console.error("CATALOG ERROR:", e.message);
-        return [];
+    } catch (error: any) {
+        console.error("[getActiveProducts] Error:", error);
+        throw new Error(`Failed to fetch products: ${error.message}`);
     }
+}
+
+export interface DraftOrderResponse {
+    draft_order?: {
+        id: number;
+        invoice_url?: string;
+        order_id?: number;
+    };
 }
 
 export async function createDraftOrder(
@@ -31,14 +59,17 @@ export async function createDraftOrder(
     qty: number,
     note: string = ""
 ): Promise<string> {
-
-    let cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
+    const cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     const url = `https://${cleanShop}/admin/api/2024-01/draft_orders.json`;
 
     const payload = {
         draft_order: {
-            line_items: [{ variant_id: variantId, quantity: qty }],
-            note: note
+            line_items: [{ 
+                variant_id: variantId, 
+                quantity: qty 
+            }],
+            note: note.trim(),
+            tags: "studium-ai-generated"
         }
     };
 
@@ -52,10 +83,21 @@ export async function createDraftOrder(
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) return `Error ${response.status}`;
-        const data: any = await response.json();
-        return data.draft_order?.invoice_url || "No Invoice URL";
-    } catch (e: any) {
-        return `Network Error: ${e.message}`;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Shopify API Error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json() as DraftOrderResponse;
+        const invoiceUrl = data.draft_order?.invoice_url;
+        
+        if (!invoiceUrl) {
+            throw new Error("No invoice URL returned from Shopify");
+        }
+
+        return invoiceUrl;
+    } catch (error: any) {
+        console.error("[createDraftOrder] Error:", error);
+        throw new Error(`Failed to create draft order: ${error.message}`);
     }
 }

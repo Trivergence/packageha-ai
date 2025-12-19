@@ -1,228 +1,418 @@
-import { getActiveProducts, createDraftOrder } from "./shopify";
-import { SALES_CHARTER } from "./charter";
+/**
+ * PackagehaSession: The Being (Agent)
+ * Stateful Durable Object that maintains conversation memory and follows the Charter
+ */
 
-export interface Env {
-    PackagehaSession: DurableObjectNamespace;
-    SHOPIFY_ACCESS_TOKEN: string;
-    SHOP_URL: string;
-    AI: any;
-}
+import { getActiveProducts, createDraftOrder } from "./shopify";
+import { SALES_CHARTER, buildCharterPrompt } from "./charter";
+import { SovereignSwitch } from "./sovereign-switch";
+import { 
+    Env, 
+    Memory, 
+    Product, 
+    Variant, 
+    AIDecision, 
+    VariantDecision, 
+    RequestBody 
+} from "./types";
+
+// Default memory template - timestamps set when creating new memory
+const DEFAULT_MEMORY_TEMPLATE: Omit<Memory, "createdAt" | "lastActivity"> = {
+    step: "start",
+    clipboard: {},
+    questionIndex: 0,
+};
+
+const GREETINGS = ["hi", "hello", "hey", "hola", "مرحبا", "هلا", "أهلا"];
+const RESET_KEYWORDS = ["reset", "إعادة", "start over", "new", "جديد"];
 
 export class PackagehaSession {
     state: DurableObjectState;
     env: Env;
+    private sovereignSwitch: SovereignSwitch;
 
     constructor(state: DurableObjectState, env: Env) {
         this.state = state;
         this.env = env;
+        this.sovereignSwitch = new SovereignSwitch(env);
     }
 
-    async fetch(request: Request) {
-        let memory = await this.state.storage.get("memory") || { 
-            step: "start", 
-            clipboard: {}, 
-            questionIndex: 0 
-        };
-        
-        const body = await request.json() as { message?: string };
-        const txt = (body.message || "").trim();
-        let reply = "";
+    async fetch(request: Request): Promise<Response> {
+        try {
+            // Parse request
+            const body = await this.parseRequestBody(request);
+            const userMessage = (body.message || "").trim();
 
-        // --- GLOBAL RESET ---
-        if (txt.toLowerCase() === "reset" || txt === "إعادة") {
-            await this.state.storage.delete("memory");
-            return new Response(JSON.stringify({ reply: "♻️ Memory wiped. Starting over." }), {
-                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-            });
+            // Handle reset
+            if (this.shouldReset(userMessage)) {
+                return await this.handleReset();
+            }
+
+            // Load or initialize memory
+            let memory = await this.loadMemory();
+
+            // Route to appropriate phase handler
+            let reply: string;
+            let memoryWasReset = false;
+            
+            switch (memory.step) {
+                case "start":
+                    reply = await this.handleDiscovery(userMessage, memory);
+                    break;
+                case "ask_variant":
+                    const variantResult = await this.handleVariantSelection(userMessage, memory);
+                    reply = variantResult.reply;
+                    memoryWasReset = variantResult.memoryReset || false;
+                    break;
+                case "consultation":
+                    const consultationResult = await this.handleConsultation(userMessage, memory);
+                    reply = consultationResult.reply;
+                    memoryWasReset = consultationResult.memoryReset || false;
+                    break;
+                default:
+                    reply = "I'm not sure what to do. Type 'reset' to start over.";
+                    const now = Date.now();
+                    memory = {
+                        step: DEFAULT_MEMORY_TEMPLATE.step,
+                        clipboard: {}, // Fresh object, not shared reference
+                        questionIndex: DEFAULT_MEMORY_TEMPLATE.questionIndex,
+                        createdAt: now,
+                        lastActivity: now,
+                    };
+            }
+
+            // Save memory if it wasn't reset (deleted)
+            // Note: We always save when !memoryWasReset because:
+            // - If memory exists in storage, we're updating it
+            // - If memory doesn't exist, it was newly created by loadMemory() and should be persisted
+            // - The only time we don't save is when memoryWasReset=true (explicitly deleted)
+            if (!memoryWasReset) {
+                // Update memory timestamp and save
+                memory.lastActivity = Date.now();
+                await this.state.storage.put("memory", memory);
+            }
+
+            return this.jsonResponse({ reply });
+
+        } catch (error: any) {
+            console.error("[PackagehaSession] Error:", error);
+            return this.jsonResponse({ 
+                reply: "I encountered an error. Please try again or type 'reset' to start over." 
+            }, 500);
+        }
+    }
+
+    // ==================== PHASE HANDLERS ====================
+
+    private async handleDiscovery(userMessage: string, memory: Memory): Promise<string> {
+        // Handle greetings locally (save AI cost)
+        if (this.isGreeting(userMessage)) {
+            return "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')";
         }
 
-        // --- PHASE 1: DISCOVERY (Smart Search) ---
-        if (memory.step === "start") {
-            const rawProducts = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
-            
-            // 1. Check for simple greetings locally (Save AI cost)
-            const greetings = ["hi", "hello", "hey", "hola", "مرحبا", "هلا"];
-            if (greetings.includes(txt.toLowerCase())) {
-                return new Response(JSON.stringify({ reply: "Hello! I can help you find packaging. What are you looking for? (e.g., 'Custom Boxes', 'Bags')" }), {
-                    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-                });
-            }
-
-            // 2. Prepare Inventory Context
-            const inventoryList = rawProducts.map((p, index) => 
-                `ID ${index}: ${p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim()}`
-            ).join("\n");
-
-            // 3. Strict JSON Prompt
-            const aiPrompt = `
-                Inventory:
-                ${inventoryList}
-                
-                User Input: "${txt}"
-                
-                You are a search router. Analyze the input and return ONLY a JSON object.
-                
-                SCENARIOS:
-                A. Exact/Fuzzy Match found -> { "type": "found", "id": 5, "reason": "Matches 'box'" }
-                B. User is just chatting/confused -> { "type": "chat", "reply": "I focus on packaging. Try searching for 'boxes'." }
-                C. No match found -> { "type": "none", "reason": "No product matches" }
-                
-                RETURN JSON ONLY. NO MARKDOWN.
-            `;
-            
-            const decisionRaw = await this.askAI(aiPrompt);
-            console.log("AI Decision:", decisionRaw); // Debug in dashboard
-
-            let decision;
-            try {
-                // Sanitize output in case AI adds markdown
-                const cleanJson = decisionRaw.replace(/```json|```/g, "").trim();
-                decision = JSON.parse(cleanJson);
-            } catch (e) {
-                // Fallback if AI fails to output JSON
-                decision = { type: "chat", reply: "I'm having trouble connecting to the catalog. Try 'reset'." };
-            }
-
-            if (decision.type === "chat") {
-                reply = decision.reply;
-            } else if (decision.type === "none") {
-                reply = "I couldn't find that product. We have Boxes, Bags, and Printing services. What do you need?";
-            } else if (decision.type === "found") {
-                const index = decision.id;
-                if (rawProducts[index]) {
-                    const product = rawProducts[index];
-                    memory.productName = product.title;
-                    memory.variants = product.variants.map((v: any) => ({
-                        id: v.id, title: v.title, price: v.price
-                    }));
-
-                    // AUTO-SKIP if only 1 variant (Fixes "Default Title" issue)
-                    if (memory.variants.length === 1) {
-                        memory.selectedVariantId = memory.variants[0].id;
-                        memory.selectedVariantName = memory.variants[0].title;
-                        
-                        memory.step = "consultation";
-                        memory.questionIndex = 0;
-                        const firstQ = SALES_CHARTER.consultation.steps[0].question;
-                        reply = `Found **${product.title}**. \n\nLet's get your details.\n${firstQ}`;
-                    } else {
-                        // Ask for variant
-                        const options = memory.variants.map(v => v.title).join(", ");
-                        reply = `Found **${product.title}**. \nWhich type?\nOptions: ${options}`;
-                        memory.step = "ask_variant";
-                    }
-                }
-            }
+        // Fetch products
+        let products;
+        try {
+            products = await getActiveProducts(
+                this.env.SHOP_URL, 
+                this.env.SHOPIFY_ACCESS_TOKEN
+            );
+        } catch (error: any) {
+            console.error("[handleDiscovery] Error fetching products:", error);
+            return "I'm having trouble accessing the product catalog. Please try again later.";
         }
 
-        // --- PHASE 2: VARIANT SELECTION ---
-        else if (memory.step === "ask_variant") {
-            const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
-            
-            // Allow restarting search
-            if (txt.toLowerCase().includes("search") || txt.toLowerCase().includes("change")) {
-                 await this.state.storage.delete("memory");
-                 return new Response(JSON.stringify({ reply: "Okay, back to the start. What are you looking for?" }), { headers: { "Access-Control-Allow-Origin": "*" }});
+        if (products.length === 0) {
+            return "I'm having trouble accessing the product catalog. Please try again later.";
+        }
+
+        // Prepare inventory context
+        const inventoryList = products.map((p, index) => 
+            `ID ${index}: ${p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim()}`
+        ).join("\n");
+
+        // Build AI prompt with Charter
+        const systemPrompt = buildCharterPrompt("discovery");
+        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"\n\nReturn JSON:\n- If match found: { "type": "found", "id": <index>, "reason": "..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
+
+        // Get AI decision
+        const decision = await this.getAIDecision(userPrompt, systemPrompt);
+
+        // Process decision
+        if (decision.type === "chat") {
+            return decision.reply || "I focus on packaging solutions. What are you looking for?";
+        }
+
+        if (decision.type === "none") {
+            return "I couldn't find that product. We offer Boxes, Bags, and Printing services. What do you need?";
+        }
+
+        if (decision.type === "found" && decision.id !== undefined) {
+            const product = products[decision.id];
+            if (!product) {
+                return "I found a match but couldn't load the product details. Please try again.";
             }
 
-            const aiPrompt = `
-                Options:
-                ${optionsContext}
-                
-                User: "${txt}"
-                
-                Return JSON ONLY:
-                { "match": true, "id": 1 } 
-                OR 
-                { "match": false, "reply": "Please pick from the list." }
-            `;
+            // Store product info
+            memory.productName = product.title;
+            memory.productId = product.id;
+            memory.variants = product.variants.map((v: any) => ({
+                id: v.id,
+                title: v.title,
+                price: v.price,
+            }));
 
-            const raw = await this.askAI(aiPrompt);
-            let decision = { match: false, reply: "Please select an option." };
-            try { decision = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch(e) {}
-
-            if (decision.match) {
-                const selected = memory.variants[decision.id];
-                memory.selectedVariantId = selected.id;
-                memory.selectedVariantName = selected.title;
-                
+            // Auto-skip variant selection if only one variant
+            if (memory.variants.length === 1) {
+                memory.selectedVariantId = memory.variants[0].id;
+                memory.selectedVariantName = memory.variants[0].title;
                 memory.step = "consultation";
                 memory.questionIndex = 0;
-                reply = `Selected **${selected.title}**. \n\n${SALES_CHARTER.consultation.steps[0].question}`;
-            } else {
-                reply = decision.reply || "Please select one of the options.";
+                return `Found **${product.title}**.\n\nLet's get your project details.\n\n${SALES_CHARTER.consultation.steps[0].question}`;
+            }
+
+            // Ask for variant selection
+            memory.step = "ask_variant";
+            const options = memory.variants.map(v => v.title).join(", ");
+            return `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}`;
+        }
+
+        return "I'm not sure how to help with that. What packaging solution are you looking for?";
+    }
+
+    private async handleVariantSelection(
+        userMessage: string, 
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        // Allow restarting search
+        if (this.shouldRestartSearch(userMessage)) {
+            await this.state.storage.delete("memory");
+            return { 
+                reply: "Okay, let's start over. What are you looking for?",
+                memoryReset: true 
+            };
+        }
+
+        if (!memory.variants || memory.variants.length === 0) {
+            return { 
+                reply: "I lost track of the product options. Type 'reset' to start over." 
+            };
+        }
+
+        // Build context
+        const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
+
+        // Get AI decision
+        const systemPrompt = buildCharterPrompt("variant");
+        const userPrompt = `Options:\n${optionsContext}\n\nUser: "${userMessage}"\n\nReturn JSON:\n- If match: { "match": true, "id": <index> }\n- If no match: { "match": false, "reply": "..." }`;
+
+        const decision = await this.getVariantDecision(userPrompt, systemPrompt);
+
+        if (decision.match && decision.id !== undefined && memory.variants[decision.id]) {
+            const selected = memory.variants[decision.id];
+            memory.selectedVariantId = selected.id;
+            memory.selectedVariantName = selected.title;
+            memory.step = "consultation";
+            memory.questionIndex = 0;
+            return { 
+                reply: `Selected **${selected.title}**.\n\n${SALES_CHARTER.consultation.steps[0].question}` 
+            };
+        }
+
+        return { 
+            reply: decision.reply || "Please select one of the options listed above." 
+        };
+    }
+
+    private async handleConsultation(
+        userMessage: string, 
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        const steps = SALES_CHARTER.consultation.steps;
+        const currentIndex = memory.questionIndex;
+
+        if (currentIndex >= steps.length) {
+            return { reply: "I've collected all the information. Generating your quote..." };
+        }
+
+        const currentStep = steps[currentIndex];
+
+        // Validate answer if validator exists
+        if (currentStep.validation) {
+            const validationResult = currentStep.validation(userMessage);
+            if (validationResult !== true) {
+                return { 
+                    reply: typeof validationResult === "string" 
+                        ? validationResult 
+                        : "Please provide a valid answer." 
+                };
             }
         }
 
-        // --- PHASE 3: CONSULTATION (The Interview) ---
-        else if (memory.step === "consultation") {
-            const steps = SALES_CHARTER.consultation.steps;
-            
-            // 1. Capture the answer to the PREVIOUS question
-            const currentStepDef = steps[memory.questionIndex];
-            memory.clipboard[currentStepDef.id] = txt;
+        // Store answer
+        memory.clipboard[currentStep.id] = userMessage;
 
-            // 2. Decide: Is there a NEXT question?
-            if (memory.questionIndex < steps.length - 1) {
-                // Yes, move to next question
-                memory.questionIndex++; 
-                const nextQ = steps[memory.questionIndex].question;
-                reply = nextQ;
-            } else {
-                // No, we are done. Generate the Order.
-                reply = "Generating your project brief and quote...";
-                
-                // Format the Project Brief for the Merchant
-                const briefNote = `
-                --- PROJECT BRIEF ---
-                Product: ${memory.selectedVariantName}
-                ${steps.map(s => `- ${s.id.toUpperCase()}: ${memory.clipboard[s.id]}`).join("\n")}
-                ---------------------
-                Generated by Studium AI Agent
-                `;
-
-                // Try to parse quantity safely
-                const qtyRaw = memory.clipboard['quantity'] || "1";
-                const qtyNum = parseInt(qtyRaw.replace(/\D/g, '')) || 1;
-
-                const result = await createDraftOrder(
-                    this.env.SHOP_URL,
-                    this.env.SHOPIFY_ACCESS_TOKEN,
-                    memory.selectedVariantId,
-                    qtyNum,
-                    briefNote // <--- Attach the interview notes here
-                );
-                
-                if (result.startsWith("http")) {
-                    reply = `✅ **Project Brief Created!**\n\nI have attached your specifications to the order. Please review and pay here:\n<a href="${result}" target="_blank">View Project Quote</a>`;
-                    // Wipe memory so they can start a new project
-                    await this.state.storage.delete("memory");
-                } else {
-                    reply = `⚠️ Shopify Error: ${result}`;
-                }
-            }
+        // Check if there are more questions
+        if (currentIndex < steps.length - 1) {
+            memory.questionIndex = currentIndex + 1;
+            const nextStep = steps[memory.questionIndex];
+            return { reply: nextStep.question };
         }
 
-        // Save state for next turn
-        await this.state.storage.put("memory", memory);
+        // All questions answered - create draft order
+        return await this.createProjectQuote(memory);
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    private async createProjectQuote(
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        if (!memory.selectedVariantId) {
+            return { 
+                reply: "Error: Missing product selection. Please type 'reset' to start over." 
+            };
+        }
+
+        const steps = SALES_CHARTER.consultation.steps;
         
-        return new Response(JSON.stringify({ reply: reply }), {
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        // Format project brief
+        const briefNote = `--- PROJECT BRIEF ---
+Product: ${memory.selectedVariantName || "Unknown"}
+${steps.map(s => `- ${s.id.toUpperCase()}: ${memory.clipboard[s.id] || "Not provided"}`).join("\n")}
+---------------------
+Generated by Studium AI Agent (${SALES_CHARTER.meta.name})
+Timestamp: ${new Date().toISOString()}
+`;
+
+        // Parse quantity safely
+        const qtyRaw = memory.clipboard['quantity'] || "1";
+        const qtyNum = parseInt(qtyRaw.replace(/\D/g, '')) || 1;
+
+        try {
+            const invoiceUrl = await createDraftOrder(
+                this.env.SHOP_URL,
+                this.env.SHOPIFY_ACCESS_TOKEN,
+                memory.selectedVariantId,
+                qtyNum,
+                briefNote
+            );
+
+            // createDraftOrder throws on error, so if we reach here, invoiceUrl is valid
+            // Reset memory for new project
+            await this.state.storage.delete("memory");
+            return { 
+                reply: `✅ **Project Brief Created!**\n\nI've attached all your specifications to the order. Please review and complete your purchase:\n\n<a href="${invoiceUrl}" target="_blank">View Project Quote & Pay</a>\n\nType 'reset' to start a new project.`,
+                memoryReset: true 
+            };
+        } catch (error: any) {
+            console.error("[createProjectQuote] Error:", error);
+            return { 
+                reply: `⚠️ I encountered an error while creating your quote. Please try again or contact support.` 
+            };
+        }
+    }
+
+    private async getAIDecision(prompt: string, systemPrompt: string): Promise<AIDecision> {
+        try {
+            const response = await this.sovereignSwitch.callAI(prompt, systemPrompt);
+            const cleanJson = this.sanitizeJSON(response);
+            const decision = JSON.parse(cleanJson) as AIDecision;
+            
+            // Validate decision structure
+            if (!decision.type || !["found", "chat", "none"].includes(decision.type)) {
+                throw new Error("Invalid decision type");
+            }
+            
+            return decision;
+        } catch (error: any) {
+            console.error("[getAIDecision] Error:", error);
+            return { 
+                type: "chat", 
+                reply: "I'm having trouble processing that. Could you rephrase your request?" 
+            };
+        }
+    }
+
+    private async getVariantDecision(prompt: string, systemPrompt: string): Promise<VariantDecision> {
+        try {
+            const response = await this.sovereignSwitch.callAI(prompt, systemPrompt);
+            const cleanJson = this.sanitizeJSON(response);
+            const decision = JSON.parse(cleanJson) as VariantDecision;
+            return decision;
+        } catch (error: any) {
+            console.error("[getVariantDecision] Error:", error);
+            return { match: false, reply: "I'm having trouble understanding. Please select an option from the list." };
+        }
+    }
+
+    private sanitizeJSON(text: string): string {
+        // Remove markdown code blocks
+        return text.replace(/```json|```/g, "").trim();
+    }
+
+    private async loadMemory(): Promise<Memory> {
+        const stored = await this.state.storage.get<Memory>("memory");
+        if (!stored) {
+            // Create new memory with fresh timestamps and a fresh clipboard object
+            // Important: Create a new clipboard object to avoid sharing references
+            const now = Date.now();
+            return {
+                step: DEFAULT_MEMORY_TEMPLATE.step,
+                clipboard: {}, // Fresh object, not shared reference
+                questionIndex: DEFAULT_MEMORY_TEMPLATE.questionIndex,
+                createdAt: now,
+                lastActivity: now,
+            };
+        }
+        return stored;
+    }
+
+    private async handleReset(): Promise<Response> {
+        await this.state.storage.delete("memory");
+        return this.jsonResponse({ 
+            reply: "♻️ Memory reset. Starting fresh! What packaging solution are you looking for?" 
         });
     }
 
-    async askAI(prompt: string): Promise<string> {
-        if (!this.env.AI) return JSON.stringify({ type: "chat", reply: "System Error: AI Disconnected" });
+    private async parseRequestBody(request: Request): Promise<RequestBody> {
         try {
-            const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
-                messages: [
-                    { role: "system", content: "You are a JSON-only API. Never output conversational text outside JSON." },
-                    { role: "user", content: prompt }
-                ]
-            });
-            return response.response;
-        } catch (e: any) {
-            return JSON.stringify({ type: "chat", reply: "Brain Freeze. Try again." });
+            return await request.json() as RequestBody;
+        } catch {
+            return {};
         }
+    }
+
+    private shouldReset(message: string): boolean {
+        const lower = message.toLowerCase().trim();
+        // Use word boundary matching to avoid false positives
+        // Match reset keywords as whole words only (not substrings)
+        return RESET_KEYWORDS.some(keyword => {
+            const keywordLower = keyword.toLowerCase();
+            // Escape special regex characters in keyword
+            const escapedKeyword = keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Match as whole word using word boundaries
+            const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+            return regex.test(lower);
+        });
+    }
+
+    private shouldRestartSearch(message: string): boolean {
+        const lower = message.toLowerCase();
+        return lower.includes("search") || lower.includes("change") || lower.includes("different");
+    }
+
+    private isGreeting(message: string): boolean {
+        return GREETINGS.includes(message.toLowerCase());
+    }
+
+    private jsonResponse(data: any, status: number = 200): Response {
+        return new Response(JSON.stringify(data), {
+            status,
+            headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        });
     }
 }
