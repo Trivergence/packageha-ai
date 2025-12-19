@@ -18,7 +18,6 @@ export class PackagehaSession {
     }
 
     async fetch(request: Request) {
-        // Initialize Memory with a "clipboard" for answers and a question tracker
         let memory = await this.state.storage.get("memory") || { 
             step: "start", 
             clipboard: {}, 
@@ -29,7 +28,7 @@ export class PackagehaSession {
         const txt = (body.message || "").trim();
         let reply = "";
 
-        // --- RESET COMMAND ---
+        // --- GLOBAL RESET ---
         if (txt.toLowerCase() === "reset" || txt === "إعادة") {
             await this.state.storage.delete("memory");
             return new Response(JSON.stringify({ reply: "♻️ Memory wiped. Starting over." }), {
@@ -37,56 +36,80 @@ export class PackagehaSession {
             });
         }
 
-        // --- PHASE 1: DISCOVERY (Find the Product) ---
+        // --- PHASE 1: DISCOVERY (Smart Search) ---
         if (memory.step === "start") {
             const rawProducts = await getActiveProducts(this.env.SHOP_URL, this.env.SHOPIFY_ACCESS_TOKEN);
             
-            if (rawProducts.length === 0) {
-                reply = "⚠️ System Error: Connected to Shopify, but found 0 active products.";
-            } else {
-                // 1. CLEAN THE DATA (Remove "TEST - ", "rs-")
-                const inventoryList = rawProducts.map((p, index) => {
-                    const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
-                    return `ID ${index}: ${cleanTitle} (Original: ${p.title})`;
-                }).join("\n");
+            // 1. Check for simple greetings locally (Save AI cost)
+            const greetings = ["hi", "hello", "hey", "hola", "مرحبا", "هلا"];
+            if (greetings.includes(txt.toLowerCase())) {
+                return new Response(JSON.stringify({ reply: "Hello! I can help you find packaging. What are you looking for? (e.g., 'Custom Boxes', 'Bags')" }), {
+                    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+                });
+            }
 
-                // 2. INJECT CHARTER (The Soul)
-                const aiPrompt = `
-                    You are: ${SALES_CHARTER.meta.tone}
-                    
-                    Inventory List:
-                    ${inventoryList}
-                    
-                    User Request: "${txt}"
-                    
-                    Task: ${SALES_CHARTER.discovery.mission}
-                    RULES:
-                    ${SALES_CHARTER.discovery.rules.map(r => `- ${r}`).join("\n")}
-                `;
-                
-                const decision = await this.askAI(aiPrompt);
-                
-                // Debugging Log
-                console.log(`Debug: User said "${txt}" -> AI decided: "${decision}"`);
+            // 2. Prepare Inventory Context
+            const inventoryList = rawProducts.map((p, index) => 
+                `ID ${index}: ${p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim()}`
+            ).join("\n");
 
-                if (decision.includes("NONE")) {
-                    reply = `I couldn't find a match for "${txt}" in our product list. Could you describe it differently?`;
-                } else if (decision.includes("ERROR")) {
-                    reply = `⚠️ AI Brain Error: ${decision}`;
-                } else {
-                    const index = parseInt(decision.replace(/\D/g, ''));
-                    if (!isNaN(index) && rawProducts[index]) {
-                        const product = rawProducts[index];
-                        memory.productName = product.title;
-                        memory.variants = product.variants.map((v: any) => ({
-                            id: v.id, title: v.title, price: v.price
-                        }));
+            // 3. Strict JSON Prompt
+            const aiPrompt = `
+                Inventory:
+                ${inventoryList}
+                
+                User Input: "${txt}"
+                
+                You are a search router. Analyze the input and return ONLY a JSON object.
+                
+                SCENARIOS:
+                A. Exact/Fuzzy Match found -> { "type": "found", "id": 5, "reason": "Matches 'box'" }
+                B. User is just chatting/confused -> { "type": "chat", "reply": "I focus on packaging. Try searching for 'boxes'." }
+                C. No match found -> { "type": "none", "reason": "No product matches" }
+                
+                RETURN JSON ONLY. NO MARKDOWN.
+            `;
+            
+            const decisionRaw = await this.askAI(aiPrompt);
+            console.log("AI Decision:", decisionRaw); // Debug in dashboard
+
+            let decision;
+            try {
+                // Sanitize output in case AI adds markdown
+                const cleanJson = decisionRaw.replace(/```json|```/g, "").trim();
+                decision = JSON.parse(cleanJson);
+            } catch (e) {
+                // Fallback if AI fails to output JSON
+                decision = { type: "chat", reply: "I'm having trouble connecting to the catalog. Try 'reset'." };
+            }
+
+            if (decision.type === "chat") {
+                reply = decision.reply;
+            } else if (decision.type === "none") {
+                reply = "I couldn't find that product. We have Boxes, Bags, and Printing services. What do you need?";
+            } else if (decision.type === "found") {
+                const index = decision.id;
+                if (rawProducts[index]) {
+                    const product = rawProducts[index];
+                    memory.productName = product.title;
+                    memory.variants = product.variants.map((v: any) => ({
+                        id: v.id, title: v.title, price: v.price
+                    }));
+
+                    // AUTO-SKIP if only 1 variant (Fixes "Default Title" issue)
+                    if (memory.variants.length === 1) {
+                        memory.selectedVariantId = memory.variants[0].id;
+                        memory.selectedVariantName = memory.variants[0].title;
                         
-                        const options = memory.variants.map(v => v.title).join(", ");
-                        reply = `Found: **${product.title}**. \n\nOptions available: ${options}. \n\nWhich one would you like?`;
-                        memory.step = "ask_variant";
+                        memory.step = "consultation";
+                        memory.questionIndex = 0;
+                        const firstQ = SALES_CHARTER.consultation.steps[0].question;
+                        reply = `Found **${product.title}**. \n\nLet's get your details.\n${firstQ}`;
                     } else {
-                        reply = `⚠️ Logic Error: AI selected ID ${decision}, but that product doesn't exist.`;
+                        // Ask for variant
+                        const options = memory.variants.map(v => v.title).join(", ");
+                        reply = `Found **${product.title}**. \nWhich type?\nOptions: ${options}`;
+                        memory.step = "ask_variant";
                     }
                 }
             }
@@ -96,55 +119,46 @@ export class PackagehaSession {
         else if (memory.step === "ask_variant") {
             const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
             
-            // Context Switching Check (safeguard)
-            if (txt.toLowerCase().includes("box") || txt.toLowerCase().includes("bag") || txt.toLowerCase() === "restart") {
+            // Allow restarting search
+            if (txt.toLowerCase().includes("search") || txt.toLowerCase().includes("change")) {
                  await this.state.storage.delete("memory");
-                 return new Response(JSON.stringify({ reply: "Sure, let's start over. What product are you looking for?" }), { headers: { "Access-Control-Allow-Origin": "*" }});
+                 return new Response(JSON.stringify({ reply: "Okay, back to the start. What are you looking for?" }), { headers: { "Access-Control-Allow-Origin": "*" }});
             }
 
-            // INJECT CHARTER (The Soul)
             const aiPrompt = `
                 Options:
                 ${optionsContext}
                 
-                User Input: "${txt}"
+                User: "${txt}"
                 
-                Task: ${SALES_CHARTER.variant.mission}
-                RULES:
-                ${SALES_CHARTER.variant.rules.map(r => `- ${r}`).join("\n")}
+                Return JSON ONLY:
+                { "match": true, "id": 1 } 
+                OR 
+                { "match": false, "reply": "Please pick from the list." }
             `;
 
-            const aiDecision = await this.askAI(aiPrompt);
+            const raw = await this.askAI(aiPrompt);
+            let decision = { match: false, reply: "Please select an option." };
+            try { decision = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch(e) {}
 
-            if (aiDecision.includes("RESTART")) {
-                await this.state.storage.delete("memory");
-                reply = "It sounds like you want to look for something else. What product are you looking for?";
+            if (decision.match) {
+                const selected = memory.variants[decision.id];
+                memory.selectedVariantId = selected.id;
+                memory.selectedVariantName = selected.title;
+                
+                memory.step = "consultation";
+                memory.questionIndex = 0;
+                reply = `Selected **${selected.title}**. \n\n${SALES_CHARTER.consultation.steps[0].question}`;
             } else {
-                const index = parseInt(aiDecision.replace(/\D/g, ''));
-                if (!isNaN(index) && memory.variants[index]) {
-                    const selected = memory.variants[index];
-                    memory.selectedVariantId = selected.id;
-                    memory.selectedVariantName = selected.title;
-                    memory.selectedVariantPrice = selected.price;
-                    
-                    // --- TRANSITION TO CONSULTATION LOOP ---
-                    memory.step = "consultation";
-                    memory.questionIndex = 0; // Start at first question
-                    
-                    const firstQ = SALES_CHARTER.consultation.steps[0].question;
-                    reply = `Great choice: **${selected.title}**. \n\nTo prepare your project quote, I need a few details.\n\n${firstQ}`;
-                } else {
-                    reply = `I didn't quite get that. Please select one of the options above (e.g., "${memory.variants[0].title}").`;
-                }
+                reply = decision.reply || "Please select one of the options.";
             }
         }
 
-        // --- PHASE 3: CONSULTATION LOOP (The Interview) ---
+        // --- PHASE 3: CONSULTATION (The Interview) ---
         else if (memory.step === "consultation") {
             const steps = SALES_CHARTER.consultation.steps;
             
             // 1. Capture the answer to the PREVIOUS question
-            // (We are currently at memory.questionIndex)
             const currentStepDef = steps[memory.questionIndex];
             memory.clipboard[currentStepDef.id] = txt;
 
@@ -156,7 +170,7 @@ export class PackagehaSession {
                 reply = nextQ;
             } else {
                 // No, we are done. Generate the Order.
-                reply = "Thank you! Generating your project brief and quote...";
+                reply = "Generating your project brief and quote...";
                 
                 // Format the Project Brief for the Merchant
                 const briefNote = `
@@ -168,7 +182,6 @@ export class PackagehaSession {
                 `;
 
                 // Try to parse quantity safely
-                // We look at the 'quantity' field in the clipboard
                 const qtyRaw = memory.clipboard['quantity'] || "1";
                 const qtyNum = parseInt(qtyRaw.replace(/\D/g, '')) || 1;
 
@@ -199,18 +212,17 @@ export class PackagehaSession {
     }
 
     async askAI(prompt: string): Promise<string> {
-        if (!this.env.AI) return "ERROR: AI Binding Missing";
-
+        if (!this.env.AI) return JSON.stringify({ type: "chat", reply: "System Error: AI Disconnected" });
         try {
             const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
                 messages: [
-                    { role: "system", content: SALES_CHARTER.meta.tone },
+                    { role: "system", content: "You are a JSON-only API. Never output conversational text outside JSON." },
                     { role: "user", content: prompt }
                 ]
             });
             return response.response;
         } catch (e: any) {
-            return `ERROR: ${e.message}`;
+            return JSON.stringify({ type: "chat", reply: "Brain Freeze. Try again." });
         }
     }
 }
