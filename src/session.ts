@@ -41,26 +41,32 @@ export class PackagehaSession {
                 // Optimize list to save AI tokens (Title only)
                 const inventoryList = products.map((p, index) => `ID ${index}: ${p.title}`).join("\n");
 
-                // 2. Ask AI
+                // 2. Ask AI (Aggressive Fuzzy Match)
                 const aiPrompt = `
                     Inventory:
                     ${inventoryList}
+                    
                     User Request: "${txt}"
-                    Task: Return the ID of the matching product. If plural "Boxes", match "Box".
-                    Return ONLY the ID number. If no match, return "NONE".
+                    
+                    Task: Return the ID of the product that matches the User Request.
+                    RULES:
+                    1. Be Flexible: "Boxes" matches "Abstract Box". "Photo" matches "Photography".
+                    2. Ignore spelling errors.
+                    3. If multiple match, pick the best one.
+                    4. Return ONLY the ID number (e.g., "5").
+                    5. If ABSOLUTELY no match, return "NONE".
                 `;
                 
                 const decision = await this.askAI(aiPrompt);
 
-                // --- DEBUGGING OUTPUT (Customer won't see this in final version) ---
-                console.log(`Debug: Found ${products.length} products. AI said: "${decision}"`);
+                // --- DEBUG LOGIC (Tells you why it failed) ---
+                console.log(`Debug: List size ${products.length}. AI said: "${decision}"`);
 
                 if (decision.includes("NONE")) {
                     reply = `I couldn't find a match for "${txt}" in your ${products.length} products. (AI said: ${decision})`;
-                } else if (decision.includes("ERROR")) {
-                    reply = `⚠️ AI Brain Error: ${decision}`;
                 } else {
                     const index = parseInt(decision.replace(/\D/g, ''));
+                    // Check if index is valid number AND exists in array
                     if (!isNaN(index) && products[index]) {
                         const product = products[index];
                         memory.productName = product.title;
@@ -72,7 +78,8 @@ export class PackagehaSession {
                         reply = `Found: **${product.title}**. Options: ${options}. Which one?`;
                         memory.step = "ask_variant";
                     } else {
-                        reply = `⚠️ Logic Error: AI selected ID ${decision}, but that product doesn't exist.`;
+                        // Fallback if AI returned garbage
+                        reply = `I am confused. AI suggested "ID ${decision}" but that product doesn't exist.`;
                     }
                 }
             }
@@ -82,10 +89,9 @@ export class PackagehaSession {
         else if (memory.step === "ask_variant") {
             const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
             
-            // Check for reset/topic switch
-            if (txt.includes("box") || txt.includes("bag")) {
+            if (txt.toLowerCase().includes("box") || txt.toLowerCase().includes("bag")) {
                  await this.state.storage.delete("memory");
-                 return new Response(JSON.stringify({ reply: "Restarting search..." }));
+                 return new Response(JSON.stringify({ reply: "Restarting search..." }), { headers: { "Access-Control-Allow-Origin": "*" }});
             }
 
             const aiDecision = await this.askAI(`
@@ -138,13 +144,12 @@ export class PackagehaSession {
     }
 
     async askAI(prompt: string): Promise<string> {
-        // Double check AI Binding
-        if (!this.env.AI) return "ERROR: AI Binding Missing in wrangler.toml";
+        if (!this.env.AI) return "ERROR: AI Binding Missing";
 
         try {
             const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
                 messages: [
-                    { role: "system", content: "You are a precise data matching assistant." },
+                    { role: "system", content: "You are a helpful assistant." },
                     { role: "user", content: prompt }
                 ]
             });
