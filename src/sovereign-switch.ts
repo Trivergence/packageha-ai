@@ -52,7 +52,7 @@ export class SovereignSwitch {
         }
         return {
           provider: "gemini",
-          model: "gemini-1.5-flash", // Fast, cost-effective, excellent JSON generation
+          model: "gemini-1.5-flash-latest", // Fast, cost-effective, excellent JSON generation (use -latest suffix)
           apiKey: this.env.GEMINI_API_KEY,
         };
 
@@ -81,7 +81,7 @@ export class SovereignSwitch {
         if (this.env.GEMINI_API_KEY) {
           return {
             provider: "gemini",
-            model: "gemini-1.5-flash",
+            model: "gemini-1.5-flash-latest",
             apiKey: this.env.GEMINI_API_KEY,
           };
         }
@@ -187,7 +187,8 @@ export class SovereignSwitch {
     config: AIConfig
   ): Promise<string> {
     // Gemini API uses Google AI Studio endpoint
-    const model = config.model || "gemini-1.5-flash";
+    // Use gemini-1.5-flash-latest or gemini-pro for compatibility
+    const model = config.model || "gemini-1.5-flash-latest";
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
     // Combine system prompt and user prompt for Gemini
