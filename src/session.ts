@@ -441,7 +441,10 @@ export class PackagehaSession {
                 // User didn't provide a valid number - could be searching again or invalid input
                 // Continue to search logic below
                 memory.pendingMatches = undefined;
-                memory.step = "start";
+                // Don't reset step to "start" if we're in select_package_discovery - keep the current step
+                if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
+                    memory.step = "start";
+                }
             }
         }
         
@@ -522,7 +525,11 @@ export class PackagehaSession {
                     reason: m.reason || "Matches your search"
                 }));
 
-            memory.step = "select_product";
+            // Keep the current step (select_package_discovery) instead of resetting to select_product
+            // Only set to select_product if we're in the old flow
+            if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
+                memory.step = "select_product";
+            }
             memory.pendingMatches = matches;
 
             const matchesList = matches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");

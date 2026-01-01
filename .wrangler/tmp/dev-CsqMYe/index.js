@@ -1028,7 +1028,9 @@ ${matchesList}`,
         }
       } else {
         memory.pendingMatches = void 0;
-        memory.step = "start";
+        if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
+          memory.step = "start";
+        }
       }
     }
     if (this.isGreeting(userMessage)) {
@@ -1100,7 +1102,9 @@ Return JSON:
         name: products[m.id].title,
         reason: m.reason || "Matches your search"
       }));
-      memory.step = "select_product";
+      if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
+        memory.step = "select_product";
+      }
       memory.pendingMatches = matches;
       const matchesList = matches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
       return {
