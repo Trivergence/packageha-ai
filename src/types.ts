@@ -38,6 +38,13 @@ export interface Memory {
   recommendations?: PackageRecommendation[];
   // For launch kit
   selectedServices?: string[];
+  // Step tracking for new multi-step flow
+  currentStep?: string; // product_details, select_package, fulfillment_specs, launch_kit
+  packageSpecs?: {
+    material?: string;
+    dimensions?: string;
+    print?: string;
+  };
   // For product selection from multiple matches
   pendingMatches?: Array<{ id: number; productId: number; name: string; reason: string }>;
 }

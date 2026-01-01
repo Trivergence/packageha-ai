@@ -58,22 +58,53 @@ export interface DraftOrderResult {
     invoiceUrl?: string;
 }
 
+export interface CustomLineItem {
+    title: string;
+    price: string; // Price as string (e.g., "500.00")
+    quantity: number;
+}
+
 export async function createDraftOrder(
     shopUrl: string,
     token: string,
-    variantId: number,
+    variantId: number | null,
     qty: number,
-    note: string = ""
+    note: string = "",
+    customLineItems?: CustomLineItem[] // Optional custom line items for services
 ): Promise<DraftOrderResult> {
     const cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     const url = `https://${cleanShop}/admin/api/2024-01/draft_orders.json`;
 
+    // Build line items array
+    const lineItems: any[] = [];
+    
+    // Add package product if variant ID provided
+    if (variantId) {
+        lineItems.push({
+            variant_id: variantId,
+            quantity: qty
+        });
+    }
+    
+    // Add custom line items (services) if provided
+    if (customLineItems && customLineItems.length > 0) {
+        customLineItems.forEach(item => {
+            lineItems.push({
+                title: item.title,
+                price: item.price,
+                quantity: item.quantity
+            });
+        });
+    }
+
+    // At least one line item is required
+    if (lineItems.length === 0) {
+        throw new Error("At least one line item (product variant or custom item) is required");
+    }
+
     const payload = {
         draft_order: {
-            line_items: [{ 
-                variant_id: variantId, 
-                quantity: qty 
-            }],
+            line_items: lineItems,
             note: note.trim(),
             tags: "studium-ai-generated"
         }

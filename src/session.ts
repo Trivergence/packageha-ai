@@ -3,7 +3,7 @@
  * Stateful Durable Object that maintains conversation memory and follows the Charter
  */
 
-import { getActiveProducts, createDraftOrder } from "./shopify";
+import { getActiveProducts, createDraftOrder, CustomLineItem } from "./shopify";
 import { 
     SALES_CHARTER, 
     PACKAGE_ORDER_CHARTER, 
@@ -144,8 +144,9 @@ export class PackagehaSession {
             // Add variant options if we're in variant selection step OR if product is selected but variant isn't
             // This helps frontend know what variants are available even if we haven't explicitly asked yet
             if (memory.productId && memory.variants && !memory.selectedVariantId) {
-                // Only include variants if step is ask_variant OR if we just selected product (to help frontend)
-                if (memory.step === "ask_variant" || (memory.step === "consultation" && memory.variants.length > 1)) {
+                // Include variants for variant selection steps
+                if (memory.step === "ask_variant" || memory.step === "select_package_variant" || 
+                    (memory.step === "consultation" && memory.variants.length > 1)) {
                     response.variants = memory.variants.map(v => ({
                         id: v.id,
                         title: v.title,
@@ -154,37 +155,50 @@ export class PackagehaSession {
                 }
             }
             
-            // Add current consultation question if we're in consultation step
-            if (memory.step === "consultation") {
+            // Add current consultation question based on current step
+            let consultationPhase: { mission: string; steps: any[] } | null = null;
+            if (memory.step === "product_details" && SALES_CHARTER.productDetails) {
+                consultationPhase = SALES_CHARTER.productDetails;
+            } else if (memory.step === "select_package_specs" && SALES_CHARTER.packageSpecs) {
+                consultationPhase = SALES_CHARTER.packageSpecs;
+            } else if (memory.step === "fulfillment_specs" && SALES_CHARTER.fulfillmentSpecs) {
+                consultationPhase = SALES_CHARTER.fulfillmentSpecs;
+            } else if (memory.step === "launch_kit" && SALES_CHARTER.launchKit) {
+                consultationPhase = SALES_CHARTER.launchKit;
+            } else if (memory.step === "consultation") {
+                // Legacy consultation step (for old flows)
                 let charter;
                 if (memory.flow === "direct_sales") {
                     charter = SALES_CHARTER;
                 } else if (memory.flow === "package_order") {
                     charter = PACKAGE_ORDER_CHARTER;
                 }
-                
-                if (charter) {
-                    const steps = charter.consultation.steps;
-                    const currentIndex = memory.questionIndex;
-                    if (currentIndex < steps.length) {
-                        const currentStep = steps[currentIndex];
-                        // Generate default value based on product/variant info if applicable
-                        let defaultValue = null;
-                        if (currentStep.id === "quantity" && memory.clipboard["quantity"]) {
-                            defaultValue = memory.clipboard["quantity"];
-                        } else if (currentStep.id === "dimensions") {
-                            // Could suggest based on product type, but for now leave empty
-                            defaultValue = "";
-                        }
-                        
-                        response.currentQuestion = {
-                            id: currentStep.id,
-                            question: currentStep.question,
-                            options: (currentStep as any).options || null,
-                            multiple: (currentStep as any).multiple !== undefined ? (currentStep as any).multiple : true, // Default to multiple if not specified
-                            defaultValue: defaultValue
-                        };
+                if (charter && charter.consultation) {
+                    consultationPhase = charter.consultation;
+                }
+            }
+            
+            if (consultationPhase) {
+                const steps = consultationPhase.steps;
+                const currentIndex = memory.questionIndex;
+                if (currentIndex < steps.length) {
+                    const currentStep = steps[currentIndex];
+                    // Generate default value based on product/variant info if applicable
+                    let defaultValue = null;
+                    if (currentStep.id === "quantity" && memory.clipboard["quantity"]) {
+                        defaultValue = memory.clipboard["quantity"];
+                    } else if (currentStep.id === "dimensions" || currentStep.id === "product_dimensions") {
+                        // Could suggest based on product type, but for now leave empty
+                        defaultValue = "";
                     }
+                    
+                    response.currentQuestion = {
+                        id: currentStep.id,
+                        question: currentStep.question,
+                        options: (currentStep as any).options || null,
+                        multiple: (currentStep as any).multiple !== undefined ? (currentStep as any).multiple : true, // Default to multiple if not specified
+                        defaultValue: defaultValue
+                    };
                 }
             }
 
@@ -201,7 +215,8 @@ export class PackagehaSession {
     // ==================== FLOW HANDLERS ====================
 
     /**
-     * Direct Sales Flow (existing flow - renamed for clarity)
+     * Direct Sales Flow - New structure with multiple steps
+     * Steps: product_details -> select_package -> fulfillment_specs -> launch_kit -> draft_order
      */
     private async handleDirectSalesFlow(
         userMessage: string, 
@@ -209,15 +224,62 @@ export class PackagehaSession {
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[] }> {
         switch (memory.step) {
             case "start":
-            case "select_product":
-                return await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
-            case "ask_variant":
+                // Start with product details step
+                memory.step = "product_details";
+                memory.questionIndex = 0;
+                if (!SALES_CHARTER.productDetails) {
+                    return { reply: "Error: Product details configuration missing." };
+                }
+                return { reply: SALES_CHARTER.productDetails.steps[0].question };
+                
+            case "product_details":
+                return await this.handleConsultationPhase(
+                    userMessage, 
+                    memory, 
+                    SALES_CHARTER.productDetails!,
+                    "select_package"
+                );
+                
+            case "select_package":
+            case "select_package_discovery":
+                // Handle package discovery/search
+                return await this.handlePackageSelection(userMessage, memory);
+                
+            case "select_package_variant":
+                // Handle variant selection
                 return await this.handleVariantSelection(userMessage, memory, SALES_CHARTER);
-            case "consultation":
-                return await this.handleConsultation(userMessage, memory, SALES_CHARTER);
+                
+            case "select_package_specs":
+                // Handle package specifications (material, dimensions, print)
+                return await this.handleConsultationPhase(
+                    userMessage,
+                    memory,
+                    SALES_CHARTER.packageSpecs!,
+                    "fulfillment_specs"
+                );
+                
+            case "fulfillment_specs":
+                return await this.handleConsultationPhase(
+                    userMessage,
+                    memory,
+                    SALES_CHARTER.fulfillmentSpecs!,
+                    "launch_kit"
+                );
+                
+            case "launch_kit":
+                return await this.handleConsultationPhase(
+                    userMessage,
+                    memory,
+                    SALES_CHARTER.launchKit!,
+                    "draft_order"
+                );
+                
+            case "draft_order":
+                return await this.createProjectQuote(memory);
+                
             default:
                 memory.step = "start";
-                return await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
+                return await this.handleDirectSalesFlow(userMessage, memory);
         }
     }
 
@@ -513,17 +575,146 @@ export class PackagehaSession {
         if (decision.match && decision.id !== undefined && memory.variants[decision.id]) {
             const selected = memory.variants[decision.id];
             memory.selectedVariantId = selected.id;
-            memory.selectedVariantName = selected.title;
-            memory.step = "consultation";
+            memory.selectedVariantName = selected.title === "Default Title" ? "Default" : selected.title;
+            
+            // Move to package specs phase
+            memory.step = "select_package_specs";
             memory.questionIndex = 0;
+            if (!SALES_CHARTER.packageSpecs) {
+                return { reply: "Error: Package specs configuration missing." };
+            }
             return { 
-                reply: `Selected **${selected.title}**.\n\n${charter.consultation.steps[0].question}` 
+                reply: `Selected **${selected.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` 
             };
         }
 
         return { 
             reply: decision.reply || "Please select one of the options listed above." 
         };
+    }
+
+    /**
+     * Generic consultation handler for any consultation phase
+     * @param nextStep - The step to move to after this consultation is complete
+     */
+    private async handleConsultationPhase(
+        userMessage: string, 
+        memory: Memory,
+        consultationPhase: { mission: string; steps: any[] },
+        nextStep: string
+    ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any }> {
+        const steps = consultationPhase.steps;
+        const currentIndex = memory.questionIndex;
+
+        if (currentIndex >= steps.length) {
+            // All questions answered - move to next step
+            memory.step = nextStep;
+            memory.questionIndex = 0;
+            
+            // Special handling for next step
+            if (nextStep === "select_package") {
+                return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
+            } else if (nextStep === "fulfillment_specs") {
+                if (!SALES_CHARTER.fulfillmentSpecs) {
+                    return { reply: "Error: Fulfillment specs configuration missing." };
+                }
+                return { reply: SALES_CHARTER.fulfillmentSpecs.steps[0].question };
+            } else if (nextStep === "launch_kit") {
+                if (!SALES_CHARTER.launchKit) {
+                    return { reply: "Error: Launch kit configuration missing." };
+                }
+                return { reply: SALES_CHARTER.launchKit.steps[0].question };
+            } else if (nextStep === "draft_order") {
+                return await this.createProjectQuote(memory);
+            }
+            
+            return { reply: "Moving to next step..." };
+        }
+
+        const currentStep = steps[currentIndex];
+
+        // Validate answer if validator exists
+        if (currentStep.validation) {
+            const validationResult = currentStep.validation(userMessage);
+            if (validationResult !== true) {
+                return { 
+                    reply: typeof validationResult === "string" 
+                        ? validationResult 
+                        : "Please provide a valid answer." 
+                };
+            }
+        }
+
+        // Store answer
+        memory.clipboard[currentStep.id] = userMessage;
+
+        // Check if there are more questions
+        if (currentIndex < steps.length - 1) {
+            memory.questionIndex = currentIndex + 1;
+            const nextStepQ = steps[memory.questionIndex];
+            return { reply: nextStepQ.question };
+        }
+
+        // Last question answered - move to next phase
+        memory.step = nextStep;
+        memory.questionIndex = 0;
+        
+        if (nextStep === "select_package") {
+            return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
+        } else if (nextStep === "fulfillment_specs") {
+            if (!SALES_CHARTER.fulfillmentSpecs) {
+                return { reply: "Error: Fulfillment specs configuration missing." };
+            }
+            return { reply: SALES_CHARTER.fulfillmentSpecs.steps[0].question };
+        } else if (nextStep === "launch_kit") {
+            if (!SALES_CHARTER.launchKit) {
+                return { reply: "Error: Launch kit configuration missing." };
+            }
+            return { reply: SALES_CHARTER.launchKit.steps[0].question };
+        } else if (nextStep === "draft_order") {
+            return await this.createProjectQuote(memory);
+        }
+        
+        return { reply: "Moving to next step..." };
+    }
+
+    /**
+     * Handle package selection (discovery -> variant -> specs)
+     */
+    private async handlePackageSelection(
+        userMessage: string,
+        memory: Memory
+    ): Promise<{ reply: string; productMatches?: any[] }> {
+        // If we haven't selected a package yet, do discovery
+        if (!memory.productId) {
+            memory.step = "select_package_discovery";
+            const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
+            
+            // If discovery found a product, handle variant selection
+            if (memory.productId && memory.variants) {
+                if (memory.variants.length === 1) {
+                    // Auto-select single variant
+                    memory.selectedVariantId = memory.variants[0].id;
+                    memory.selectedVariantName = "Default";
+                    memory.step = "select_package_specs";
+                    memory.questionIndex = 0;
+                    if (!SALES_CHARTER.packageSpecs) {
+                        return { reply: "Error: Package specs configuration missing." };
+                    }
+                    return { reply: SALES_CHARTER.packageSpecs.steps[0].question };
+                } else {
+                    // Ask for variant
+                    memory.step = "select_package_variant";
+                    const options = memory.variants.map(v => v.title).join(", ");
+                    return { reply: `Found **${memory.productName}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
+                }
+            }
+            
+            return result;
+        }
+        
+        // Package already selected - this shouldn't happen, but handle gracefully
+        return { reply: "Package already selected. Moving forward..." };
     }
 
     private async handleConsultation(
@@ -571,18 +762,56 @@ export class PackagehaSession {
     private async createProjectQuote(
         memory: Memory
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any }> {
-        if (!memory.selectedVariantId) {
-            return { 
-                reply: "Error: Missing product selection. Please type 'reset' to start over." 
-            };
+        // Package selection is optional (might be services only)
+        // But typically we need at least package or services
+        
+        // Collect all answers from all consultation phases
+        const allAnswers: string[] = [];
+        
+        // Product Details
+        if (SALES_CHARTER.productDetails) {
+            SALES_CHARTER.productDetails.steps.forEach(step => {
+                const answer = memory.clipboard[step.id];
+                if (answer) {
+                    allAnswers.push(`- ${step.id.toUpperCase()}: ${answer}`);
+                }
+            });
         }
-
-        const steps = SALES_CHARTER.consultation.steps;
+        
+        // Package Specs
+        if (SALES_CHARTER.packageSpecs) {
+            SALES_CHARTER.packageSpecs.steps.forEach(step => {
+                const answer = memory.clipboard[step.id];
+                if (answer) {
+                    allAnswers.push(`- PACKAGE ${step.id.toUpperCase()}: ${answer}`);
+                }
+            });
+        }
+        
+        // Fulfillment Specs
+        if (SALES_CHARTER.fulfillmentSpecs) {
+            SALES_CHARTER.fulfillmentSpecs.steps.forEach(step => {
+                const answer = memory.clipboard[step.id];
+                if (answer) {
+                    allAnswers.push(`- FULFILLMENT ${step.id.toUpperCase()}: ${answer}`);
+                }
+            });
+        }
+        
+        // Launch Kit
+        if (SALES_CHARTER.launchKit) {
+            SALES_CHARTER.launchKit.steps.forEach(step => {
+                const answer = memory.clipboard[step.id];
+                if (answer) {
+                    allAnswers.push(`- LAUNCH KIT ${step.id.toUpperCase()}: ${answer}`);
+                }
+            });
+        }
         
         // Format project brief
         const briefNote = `--- PROJECT BRIEF ---
-Product: ${memory.selectedVariantName || "Unknown"}
-${steps.map(s => `- ${s.id.toUpperCase()}: ${memory.clipboard[s.id] || "Not provided"}`).join("\n")}
+Package: ${memory.selectedVariantName || memory.productName || "Not selected"}
+${allAnswers.join("\n")}
 ---------------------
 Generated by Studium AI Agent (${SALES_CHARTER.meta.name})
 Timestamp: ${new Date().toISOString()}
@@ -592,13 +821,41 @@ Timestamp: ${new Date().toISOString()}
         const qtyRaw = memory.clipboard['quantity'] || "1";
         const qtyNum = parseInt(qtyRaw.replace(/\D/g, '')) || 1;
 
+        // Build custom line items for Launch Kit services
+        const customLineItems: CustomLineItem[] = [];
+        const serviceSelection = memory.clipboard['service_selection'];
+        if (serviceSelection && serviceSelection !== "None - skip launch services") {
+            // Parse service selection (could be comma-separated or array-like)
+            const services = serviceSelection.split(',').map(s => s.trim()).filter(s => s && s !== "None - skip launch services");
+            
+            // Default pricing for services (can be configured later)
+            const servicePricing: Record<string, string> = {
+                "Hero shot photography": "500.00",
+                "Stop-motion unboxing video": "800.00",
+                "E-commerce product photos": "400.00",
+                "3D render with packaging for website": "600.00",
+                "Package design consultation": "300.00",
+                "Brand styling consultation": "350.00"
+            };
+            
+            services.forEach(service => {
+                const price = servicePricing[service] || "500.00"; // Default price
+                customLineItems.push({
+                    title: service,
+                    price: price,
+                    quantity: 1
+                });
+            });
+        }
+
         try {
             const draftOrder = await createDraftOrder(
                 this.env.SHOP_URL,
                 this.env.SHOPIFY_ACCESS_TOKEN,
-                memory.selectedVariantId,
+                memory.selectedVariantId || null, // Allow null if no package selected
                 qtyNum,
-                briefNote
+                briefNote,
+                customLineItems.length > 0 ? customLineItems : undefined
             );
 
             // createDraftOrder throws on error, so if we reach here, draftOrder is valid

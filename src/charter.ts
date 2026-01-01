@@ -29,16 +29,33 @@ export interface Charter {
         mission: string;
         steps: CharterStep[];
     };
+    // Optional: Additional consultation phases for complex flows
+    productDetails?: {
+        mission: string;
+        steps: CharterStep[];
+    };
+    packageSpecs?: {
+        mission: string;
+        steps: CharterStep[];
+    };
+    fulfillmentSpecs?: {
+        mission: string;
+        steps: CharterStep[];
+    };
+    launchKit?: {
+        mission: string;
+        steps: CharterStep[];
+    };
 }
 
 export const SALES_CHARTER: Charter = {
     meta: {
         name: "Packageha Sales Associate",
         tone: "Professional, thorough, and consultative. Always helpful, never pushy.",
-        version: "2.0",
+        version: "3.0",
     },
 
-    // PHASE 1: FINDING THE PRODUCT
+    // PHASE 1: FINDING THE PACKAGE
     discovery: {
         mission: "Find the best match ID for the user's request from the provided inventory list.",
         rules: [
@@ -63,26 +80,47 @@ export const SALES_CHARTER: Charter = {
         ]
     },
 
-    consultation: {
-        mission: "Collect all technical specifications required for a manufacturing quote. Be thorough but conversational.",
+    // STEP 1: Product Details - Information about what goes inside the package
+    productDetails: {
+        mission: "Collect information about the product that will go inside the package to help recommend the right packaging solution.",
         steps: [
-            { 
-                id: "quantity", 
-                question: "To start, what is the target Quantity for this first order?",
+            {
+                id: "product_description",
+                question: "First, tell me about your product. What is it? What does it do?",
+            },
+            {
+                id: "product_dimensions",
+                question: "What are your product dimensions? (Length x Width x Height in cm or inches)",
                 validation: (answer: string) => {
-                    // Extract number, allowing decimals but converting to integer for quantity
-                    // Match digits with optional decimal point and digits after
-                    const match = answer.match(/(\d+(?:\.\d+)?)/);
-                    if (!match) {
-                        return "Please provide a valid quantity (e.g., 100, 500, 1000).";
-                    }
-                    const num = Math.floor(parseFloat(match[1]));
-                    if (!num || num < 1) {
-                        return "Please provide a valid quantity (e.g., 100, 500, 1000).";
-                    }
+                    const hasNumbers = /\d/.test(answer);
+                    if (!hasNumbers) return "Please include dimensions with numbers (e.g., 20x15x10 cm).";
                     return true;
                 }
             },
+            {
+                id: "product_weight",
+                question: "Approximately how much does your product weigh? (grams or ounces)",
+            },
+            {
+                id: "fragility",
+                question: "Is your product fragile? Does it need special protection?",
+                options: ["Not fragile", "Somewhat fragile", "Very fragile", "Needs cushioning/protection"],
+                multiple: false
+            },
+            {
+                id: "budget",
+                question: "What's your budget range for packaging? (per unit or total)",
+                options: ["Under 1 SAR/unit", "1-5 SAR/unit", "5-10 SAR/unit", "10-20 SAR/unit", "20+ SAR/unit", "Budget flexible", "Will discuss"],
+                multiple: false
+            }
+        ]
+    },
+
+    // STEP 2: Package Selection - Package search/selection with specifications
+    // This uses discovery + variant for finding the package, then collects package specs
+    packageSpecs: {
+        mission: "Collect package specifications (material, dimensions, print) after package is selected.",
+        steps: [
             { 
                 id: "material", 
                 question: "Do you have a preference for Material?",
@@ -91,7 +129,7 @@ export const SALES_CHARTER: Charter = {
             },
             { 
                 id: "dimensions", 
-                question: "What are the internal Dimensions? (Length x Width x Height in cm or inches)",
+                question: "What are the internal Dimensions for the package? (Length x Width x Height in cm or inches)",
                 validation: (answer: string) => {
                     const hasNumbers = /\d/.test(answer);
                     if (!hasNumbers) return "Please include dimensions with numbers (e.g., 20x15x10 cm).";
@@ -109,25 +147,87 @@ export const SALES_CHARTER: Charter = {
                     ["Gold foil", "Silver foil", "Matte lamination", "Glossy lamination", "UV coating", "Embossing", "Debossing"]
                 ],
                 multiple: "grouped" // Special mode: first group is radio, second group is checkboxes
+            }
+        ]
+    },
+
+    // STEP 3: Fulfilment Specs - Order fulfillment information
+    fulfillmentSpecs: {
+        mission: "Collect all information needed for order fulfillment and delivery.",
+        steps: [
+            { 
+                id: "quantity", 
+                question: "What quantity would you like to order?",
+                validation: (answer: string) => {
+                    const match = answer.match(/(\d+(?:\.\d+)?)/);
+                    if (!match) {
+                        return "Please provide a valid quantity (e.g., 100, 500, 1000).";
+                    }
+                    const num = Math.floor(parseFloat(match[1]));
+                    if (!num || num < 1) {
+                        return "Please provide a valid quantity (e.g., 100, 500, 1000).";
+                    }
+                    return true;
+                }
             },
             { 
                 id: "timeline", 
                 question: "When is your deadline for delivery?",
                 options: ["1-2 weeks", "2-4 weeks", "1-2 months", "2-3 months", "3+ months", "Flexible"],
-                multiple: false // Single selection (radio buttons)
+                multiple: false
             },
-            { 
-                id: "budget", 
-                question: "Do you have a target budget? (per unit or total)",
-                options: ["Under 1 SAR/unit", "1-5 SAR/unit", "5-10 SAR/unit", "10-20 SAR/unit", "20+ SAR/unit", "Budget flexible", "Will discuss"],
-                multiple: false // Single selection (radio buttons)
+            {
+                id: "shipping_address",
+                question: "Where should we deliver the order? (Please provide shipping address or city/region)",
+            },
+            {
+                id: "special_instructions",
+                question: "Any special fulfillment instructions or requirements? (optional - type 'none' to skip)",
             }
         ]
+    },
+
+    // STEP 4: Launch Kit - Brand launch services
+    launchKit: {
+        mission: "Offer and collect information for brand launch services.",
+        steps: [
+            {
+                id: "service_selection",
+                question: "Would you like to add any brand launch services? (Select all that apply)",
+                options: [
+                    "Hero shot photography",
+                    "Stop-motion unboxing video",
+                    "E-commerce product photos",
+                    "3D render with packaging for website",
+                    "Package design consultation",
+                    "Brand styling consultation",
+                    "None - skip launch services"
+                ],
+                multiple: true // Checkboxes - can select multiple
+            },
+            {
+                id: "service_timeline",
+                question: "What's your timeline for these services?",
+                options: ["ASAP", "1-2 weeks", "2-4 weeks", "1-2 months", "Flexible"],
+                multiple: false
+            },
+            {
+                id: "service_notes",
+                question: "Any specific requirements or details for the launch services? (optional - type 'none' to skip)",
+            }
+        ]
+    },
+
+    // Legacy consultation - kept for backward compatibility but not used in new flow
+    consultation: {
+        mission: "Legacy - not used in new flow structure",
+        steps: []
     }
 };
 
 /**
  * Package Ordering Charter - Simplified flow for ordering packages
+ * @deprecated - Keeping for reference but not actively used
  */
 export const PACKAGE_ORDER_CHARTER: Charter = {
     meta: {
@@ -149,7 +249,7 @@ export const PACKAGE_ORDER_CHARTER: Charter = {
             {
                 id: "quantity",
                 question: "What quantity would you like to order?",
-                validation: SALES_CHARTER.consultation.steps[0].validation,
+                validation: SALES_CHARTER.consultation.steps[0]?.validation,
             },
             {
                 id: "notes",
@@ -161,6 +261,7 @@ export const PACKAGE_ORDER_CHARTER: Charter = {
 
 /**
  * Launch Kit Charter - Studio services ordering
+ * @deprecated - Integrated into SALES_CHARTER.launchKit
  */
 export const LAUNCH_KIT_CHARTER: Charter = {
     meta: {
@@ -206,6 +307,7 @@ export const LAUNCH_KIT_CHARTER: Charter = {
 
 /**
  * Packaging Assistant Charter - Help users find the right package
+ * @deprecated - Keeping for reference but not actively used
  */
 export const PACKAGING_ASSISTANT_CHARTER: Charter = {
     meta: {

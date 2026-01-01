@@ -197,6 +197,7 @@
         }
         
         .step-content {
+            position: relative;
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
@@ -321,6 +322,47 @@
         .radio-label:has(input[type="radio"]:checked) {
             border-color: #6c63ff;
             background: #f5f4ff;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            border-radius: 8px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #6c63ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed !important;
         }
         
         .question-text {
@@ -471,12 +513,7 @@
                 <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
                 <button onclick="loadAvailableModels()">Check Models</button>
             </div>
-            <div class="flow-selector">
-                <button class="flow-btn active" data-flow="direct_sales" onclick="selectFlow('direct_sales')">Direct Sales</button>
-                <button class="flow-btn" data-flow="package_order" onclick="selectFlow('package_order')">Package Order</button>
-                <button class="flow-btn" data-flow="launch_kit" onclick="selectFlow('launch_kit')">Launch Kit</button>
-                <button class="flow-btn" data-flow="packaging_assistant" onclick="selectFlow('packaging_assistant')">Packaging Assistant</button>
-            </div>
+            <!-- Flow selector removed - only direct_sales flow is supported -->
         </div>
         
         <div class="steps-container" id="stepsContainer">
@@ -487,14 +524,21 @@
     <script>
         let currentFlow = 'direct_sales';
         let flowState = {
-            product: null,
-            variant: null,
-            consultation: {}
+            productDetails: {}, // Product details answers
+            package: null, // Package name
+            variant: null, // Variant name
+            packageSpecs: {}, // Package specifications (material, dimensions, print)
+            fulfillmentSpecs: {}, // Fulfillment specifications
+            launchKit: {}, // Launch kit services
+            draftOrder: null // Draft order result
         };
+        let isLoading = false; // Track loading state
         
         const steps = [
-            { id: 'product', name: 'Select Product', key: 'product' }, // Includes variant as substep
-            { id: 'consultation', name: 'Project Details', key: 'consultation' },
+            { id: 'product_details', name: 'Product Details', key: 'productDetails' },
+            { id: 'package_selection', name: 'Package Selection', key: 'package' }, // Includes variant as substep
+            { id: 'fulfillment_specs', name: 'Fulfilment Specs', key: 'fulfillmentSpecs' },
+            { id: 'launch_kit', name: 'Launch Kit', key: 'launchKit' },
             { id: 'order', name: 'Draft Order', key: 'order' }
         ];
         
@@ -508,7 +552,15 @@
         }
         
         function resetFlow() {
-            flowState = { product: null, variant: null, consultation: {} };
+            flowState = {
+                productDetails: {},
+                package: null,
+                variant: null,
+                packageSpecs: {},
+                fulfillmentSpecs: {},
+                launchKit: {},
+                draftOrder: null
+            };
             renderSteps();
         }
         
@@ -558,8 +610,25 @@
         }
         
         function isStepCompleted(stepId) {
-            if (stepId === 'product') return !!flowState.product && (!!flowState.variant || flowState.variant === 'Default');
-            if (stepId === 'consultation') return flowState.draftOrder || Object.keys(flowState.consultation || {}).length > 0;
+            if (stepId === 'product_details') {
+                // Product details is completed when all questions are answered
+                return Object.keys(flowState.productDetails || {}).length > 0 && 
+                       flowState.productDetails.product_description && 
+                       flowState.productDetails.budget;
+            }
+            if (stepId === 'package_selection') {
+                // Package selection is completed when package and variant are selected, and package specs are done
+                return !!flowState.package && 
+                       (!!flowState.variant || flowState.variant === 'Default') &&
+                       Object.keys(flowState.packageSpecs || {}).length > 0;
+            }
+            if (stepId === 'fulfillment_specs') {
+                return Object.keys(flowState.fulfillmentSpecs || {}).length > 0 && flowState.fulfillmentSpecs.quantity;
+            }
+            if (stepId === 'launch_kit') {
+                // Launch kit is optional, so it's completed if answered or if we moved to order
+                return flowState.draftOrder || Object.keys(flowState.launchKit || {}).length > 0;
+            }
             if (stepId === 'order') return !!flowState.draftOrder;
             return false;
         }
@@ -567,42 +636,53 @@
         function isStepActive(stepId) {
             const result = (() => {
                 if (flowState.draftOrder) return stepId === 'order';
-                if (!flowState.product || (!flowState.variant && flowState.variant !== 'Default')) return stepId === 'product';
-                if (!flowState.draftOrder) return stepId === 'consultation';
-                return false;
+                
+                // Determine which step should be active based on completion state
+                if (!isStepCompleted('product_details')) return stepId === 'product_details';
+                if (!isStepCompleted('package_selection')) return stepId === 'package_selection';
+                if (!isStepCompleted('fulfillment_specs')) return stepId === 'fulfillment_specs';
+                if (!isStepCompleted('launch_kit')) return stepId === 'launch_kit';
+                
+                return stepId === 'order';
             })();
-            console.log(`[isStepActive] ${stepId}:`, result, 'flowState:', { 
-                product: flowState.product, 
-                variant: flowState.variant, 
-                draftOrder: !!flowState.draftOrder 
-            });
+            console.log(`[isStepActive] ${stepId}:`, result, 'flowState:', flowState);
             return result;
         }
         
         function getStepData(stepId) {
-            if (stepId === 'product') return flowState.productData;
-            if (stepId === 'consultation') {
-                console.log('[getStepData] consultation data:', flowState.consultationData);
-                return flowState.consultationData;
-            }
+            if (stepId === 'product_details') return flowState.productDetailsData;
+            if (stepId === 'package_selection') return flowState.packageData;
+            if (stepId === 'fulfillment_specs') return flowState.fulfillmentSpecsData;
+            if (stepId === 'launch_kit') return flowState.launchKitData;
             return null;
         }
         
         function getStepDetail(stepId, stepData) {
-            if (stepId === 'product') {
-                if (flowState.product) {
-                    let detail = flowState.product;
+            if (stepId === 'product_details') {
+                const count = Object.keys(flowState.productDetails || {}).filter(k => flowState.productDetails[k] && flowState.productDetails[k] !== 'undefined').length;
+                return count > 0 ? `${count} question(s) answered` : 'Pending';
+            }
+            if (stepId === 'package_selection') {
+                if (flowState.package) {
+                    let detail = flowState.package;
                     if (flowState.variant && flowState.variant !== 'Default') {
                         detail += ' | Variant: ' + flowState.variant;
                     } else if (flowState.variant === 'Default') {
-                        detail += ' | Default variant';
+                        detail += ' | Default';
                     }
+                    const specsCount = Object.keys(flowState.packageSpecs || {}).length;
+                    if (specsCount > 0) detail += ` | ${specsCount} spec(s)`;
                     return detail;
                 }
                 return 'Pending';
             }
-            if (stepId === 'consultation' && Object.keys(flowState.consultation || {}).length > 0) {
-                return `${Object.keys(flowState.consultation).length} question(s) answered`;
+            if (stepId === 'fulfillment_specs') {
+                const count = Object.keys(flowState.fulfillmentSpecs || {}).filter(k => flowState.fulfillmentSpecs[k] && flowState.fulfillmentSpecs[k] !== 'undefined').length;
+                return count > 0 ? `${count} question(s) answered` : 'Pending';
+            }
+            if (stepId === 'launch_kit') {
+                const count = Object.keys(flowState.launchKit || {}).filter(k => flowState.launchKit[k] && flowState.launchKit[k] !== 'undefined').length;
+                return count > 0 ? `${count} question(s) answered` : 'Pending';
             }
             if (stepId === 'order' && flowState.draftOrder) return 'Order created successfully';
             return 'Pending';
@@ -616,48 +696,30 @@
         }
         
         function renderStepContent(stepId, stepData) {
-            if (stepId === 'product') {
+            // Product Details step
+            if (stepId === 'product_details') {
+                return renderConsultationStep('product_details', flowState.productDetails, stepData);
+            }
+            
+            // Package Selection step
+            if (stepId === 'package_selection') {
                 if (stepData && stepData.matches) {
                     return renderProductSelection(stepData.matches);
                 }
                 return renderProductSearch();
             }
-            if (stepId === 'variant') {
-                if (stepData && stepData.variants) {
-                    return renderVariantSelection(stepData.variants);
-                }
-                return '<div class="step-body"><p>Loading variants...</p></div>';
+            
+            // Fulfillment Specs step
+            if (stepId === 'fulfillment_specs') {
+                return renderConsultationStep('fulfillment_specs', flowState.fulfillmentSpecs, stepData);
             }
-            if (stepId === 'consultation') {
-                console.log('[renderStepContent] Consultation stepData:', stepData);
-                let html = '';
-                
-                // Show completed questions first
-                if (flowState.consultation && Object.keys(flowState.consultation).length > 0) {
-                    html += '<div class="completed-questions-section">';
-                    html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
-                    Object.entries(flowState.consultation).forEach(([questionId, answer]) => {
-                        if (answer && answer !== 'undefined' && answer !== undefined) {
-                            html += `<div class="completed-question-item">
-                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
-                                <div style="color: #333;">${answer}</div>
-                            </div>`;
-                        }
-                    });
-                    html += '</div>';
-                }
-                
-                // Show current question
-                if (stepData && stepData.currentQuestion) {
-                    console.log('[renderStepContent] Rendering question:', stepData.currentQuestion);
-                    html += renderQuestion(stepData.currentQuestion);
-                } else {
-                    console.log('[renderStepContent] No currentQuestion in stepData, showing loading');
-                    html += '<div class="step-body"><p>Loading question...</p></div>';
-                }
-                
-                return html;
+            
+            // Launch Kit step
+            if (stepId === 'launch_kit') {
+                return renderConsultationStep('launch_kit', flowState.launchKit, stepData);
             }
+            
+            // Order step
             if (stepId === 'order') {
                 if (flowState.draftOrder) {
                     return renderDraftOrder(flowState.draftOrder);
@@ -667,20 +729,81 @@
             return '';
         }
         
+        // Helper function to render consultation-style steps
+        function renderConsultationStep(stepId, answers, stepData) {
+            console.log(`[renderConsultationStep] ${stepId} stepData:`, stepData);
+            let html = '';
+            
+            // Show completed questions first
+            if (answers && Object.keys(answers).length > 0) {
+                html += '<div class="completed-questions-section">';
+                html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
+                Object.entries(answers).forEach(([questionId, answer]) => {
+                    if (answer && answer !== 'undefined' && answer !== undefined) {
+                        html += `<div class="completed-question-item">
+                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                            <div style="color: #333;">${answer}</div>
+                        </div>`;
+                    }
+                });
+                html += '</div>';
+            }
+            
+            // Show current question
+            if (stepData && stepData.currentQuestion) {
+                console.log(`[renderConsultationStep] Rendering question for ${stepId}:`, stepData.currentQuestion);
+                html += renderQuestion(stepData.currentQuestion);
+            } else {
+                console.log(`[renderConsultationStep] No currentQuestion in stepData for ${stepId}, showing loading`);
+                html += '<div class="step-body"><p>Loading question...</p></div>';
+            }
+            
+            return html;
+        }
+        
         function renderCompletedView(stepId, stepData) {
-            if (stepId === 'product' && flowState.product) {
+            if (stepId === 'product_details' && flowState.productDetails) {
+                let html = '<div class="step-body completed-view">';
+                Object.entries(flowState.productDetails).forEach(([key, value]) => {
+                    if (value && value !== 'undefined') {
+                        html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                    }
+                });
+                html += '</div>';
+                return html;
+            }
+            if (stepId === 'package_selection' && flowState.package) {
                 let html = `<div class="step-body completed-view">
-                    <div class="answer-display"><strong>Product:</strong> ${flowState.product}</div>`;
+                    <div class="answer-display"><strong>Package:</strong> ${flowState.package}</div>`;
                 if (flowState.variant) {
                     html += `<div class="answer-display" style="margin-top: 10px;"><strong>Variant:</strong> ${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>`;
+                }
+                if (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0) {
+                    Object.entries(flowState.packageSpecs).forEach(([key, value]) => {
+                        if (value && value !== 'undefined') {
+                            html += `<div class="answer-display" style="margin-top: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                        }
+                    });
                 }
                 html += '</div>';
                 return html;
             }
-            if (stepId === 'consultation' && flowState.consultation) {
+            if (stepId === 'fulfillment_specs' && flowState.fulfillmentSpecs) {
                 let html = '<div class="step-body completed-view">';
-                Object.entries(flowState.consultation).forEach(([key, value]) => {
-                    html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${key}:</strong> ${value}</div>`;
+                Object.entries(flowState.fulfillmentSpecs).forEach(([key, value]) => {
+                    if (value && value !== 'undefined') {
+                        html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                    }
+                });
+                html += '</div>';
+                return html;
+            }
+            if (stepId === 'launch_kit' && flowState.launchKit) {
+                let html = '<div class="step-body completed-view">';
+                Object.entries(flowState.launchKit).forEach(([key, value]) => {
+                    if (value && value !== 'undefined') {
+                        html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                    }
                 });
                 html += '</div>';
                 return html;
@@ -691,7 +814,7 @@
         function renderProductSearch() {
             return `
                 <div class="step-body">
-                    <div class="question-text">What product are you looking for?</div>
+                    <div class="question-text">What package are you looking for?</div>
                     <div class="input-group">
                         <input type="text" id="productSearchInput" placeholder="e.g., Custom Boxes, Bags, Printing Services..." 
                                onkeydown="if(event.key==='Enter') searchProducts()">
@@ -731,14 +854,27 @@
         
         function getQuestionLabel(questionId) {
             const labels = {
-                'quantity': 'Quantity',
+                // Product Details
+                'product_description': 'Product Description',
+                'product_dimensions': 'Product Dimensions',
+                'product_weight': 'Product Weight',
+                'fragility': 'Fragility',
+                'budget': 'Budget',
+                // Package Specs
                 'material': 'Material',
-                'dimensions': 'Dimensions',
+                'dimensions': 'Package Dimensions',
                 'print': 'Printing/Finish',
+                // Fulfillment Specs
+                'quantity': 'Quantity',
                 'timeline': 'Timeline',
-                'budget': 'Budget'
+                'shipping_address': 'Shipping Address',
+                'special_instructions': 'Special Instructions',
+                // Launch Kit
+                'service_selection': 'Services',
+                'service_timeline': 'Service Timeline',
+                'service_notes': 'Service Notes'
             };
-            return labels[questionId] || questionId;
+            return labels[questionId] || questionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         }
         
         function renderQuestion(question) {
@@ -871,7 +1007,7 @@
                 }
             } else {
                 // Render as input field(s)
-                if (question.id === 'dimensions') {
+                if (question.id === 'dimensions' || question.id === 'product_dimensions') {
                     // Special handling for dimensions - 3 separate inputs
                     html += `
                         <div class="dimensions-row">
@@ -1039,7 +1175,7 @@
         // Auto-focus input when step becomes active
         function autoFocusInput(stepId) {
             setTimeout(() => {
-                if (stepId === 'product') {
+                if (stepId === 'package_selection') {
                     const input = document.getElementById('productSearchInput');
                     if (input) input.focus();
                 } else {
@@ -1055,6 +1191,15 @@
                 console.error('[sendSelection] No API URL provided');
                 return;
             }
+            
+            // Prevent multiple simultaneous requests
+            if (isLoading) {
+                console.log('[sendSelection] Already loading, ignoring request');
+                return;
+            }
+            
+            isLoading = true;
+            updateLoadingState(true, metadata);
             
             console.log('[sendSelection] Sending request:', { message, metadata, flow: currentFlow });
             
@@ -1080,7 +1225,84 @@
             } catch (error) {
                 console.error('[sendSelection] Error:', error);
                 alert(`Error: ${error.message}`);
+            } finally {
+                isLoading = false;
+                updateLoadingState(false);
             }
+        }
+        
+        function updateLoadingState(loading, metadata) {
+            isLoading = loading;
+            
+            // Disable/enable all submit buttons
+            document.querySelectorAll('.submit-btn').forEach(btn => {
+                btn.disabled = loading;
+                if (loading) {
+                    btn.style.opacity = '0.6';
+                    btn.style.cursor = 'not-allowed';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                }
+            });
+            
+            // Show/hide loading indicator in the active step
+            if (loading) {
+                showLoadingIndicator(metadata);
+            } else {
+                hideLoadingIndicator();
+            }
+        }
+        
+        function showLoadingIndicator(metadata) {
+            // Determine which step is loading based on metadata
+            let stepId = 'fulfillment_specs'; // default
+            if (metadata) {
+                if (metadata.type === 'product_search' || metadata.type === 'product') {
+                    stepId = 'package_selection';
+                } else if (metadata.type === 'variant') {
+                    stepId = 'package_selection'; // variant is part of package selection step now
+                } else if (metadata.type === 'answer' || metadata.type === 'option') {
+                    // Default to fulfillment_specs, but this will be determined by backend step in handleResponse
+                    stepId = 'fulfillment_specs';
+                }
+            }
+            
+            const stepEl = document.querySelector(`[data-step="${stepId}"]`);
+            if (stepEl) {
+                // Check if step content area exists
+                const contentEl = stepEl.querySelector('.step-content');
+                if (contentEl) {
+                    // Add loading overlay
+                    let loader = contentEl.querySelector('.loading-overlay');
+                    if (!loader) {
+                        loader = document.createElement('div');
+                        loader.className = 'loading-overlay';
+                        loader.innerHTML = `
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">Processing...</div>
+                        `;
+                        contentEl.appendChild(loader);
+                    }
+                    loader.style.display = 'flex';
+                }
+            }
+        }
+        
+        function hideLoadingIndicator() {
+            document.querySelectorAll('.loading-overlay').forEach(overlay => {
+                overlay.style.display = 'none';
+            });
+        }
+        
+        // Helper function to get the current consultation state property based on backend step
+        function getCurrentConsultationState(backendStep) {
+            if (backendStep === 'product_details') return 'productDetails';
+            if (backendStep === 'select_package_specs') return 'packageSpecs';
+            if (backendStep === 'fulfillment_specs') return 'fulfillmentSpecs';
+            if (backendStep === 'launch_kit') return 'launchKit';
+            // Default to fulfillment_specs for backward compatibility
+            return 'fulfillmentSpecs';
         }
         
         function handleResponse(data, metadata) {
@@ -1090,10 +1312,12 @@
             console.log('[handleResponse] Response data.currentQuestion:', data.currentQuestion ? 'present' : 'missing');
             console.log('[handleResponse] Response data.variants:', data.variants ? `${data.variants.length} variants` : 'none');
             
+            const backendStep = data.flowState?.step || '';
+            
             // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
-            // If backend is in consultation (currentQuestion present) but no variant is selected,
+            // If backend is in package specs (currentQuestion present) but no variant is selected,
             // it means variant step was auto-skipped (single variant or no variants)
-            if (data.currentQuestion && !flowState.variant && flowState.product) {
+            if (data.currentQuestion && !flowState.variant && flowState.package && backendStep === 'select_package_specs') {
                 console.log('[handleResponse] CRITICAL: Detecting variant auto-skip - currentQuestion present but no variant');
                 if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
                     console.log('[handleResponse] Setting variant from flowState.variantName:', data.flowState.variantName);
@@ -1102,36 +1326,36 @@
                     console.log('[handleResponse] No variant name in flowState - using "Default"');
                     flowState.variant = 'Default';
                 }
-                flowState.variantData = null; // Clear variant data since we're auto-completing
+                flowState.packageData = null; // Clear package data since we're auto-completing
             }
             
-            // Handle product search - show matches
+            // Handle package search - show matches
             if (metadata && metadata.type === 'product_search') {
                 console.log('[handleResponse] Handling product_search');
                 if (data.productMatches && data.productMatches.length > 0) {
-                    console.log('[handleResponse] Found product matches:', data.productMatches.length);
-                    flowState.productData = { matches: data.productMatches };
+                    console.log('[handleResponse] Found package matches:', data.productMatches.length);
+                    flowState.packageData = { matches: data.productMatches };
                     renderSteps();
                     return;
                 }
-                // If no matches but we have a reply, the product was found directly
+                // If no matches but we have a reply, the package was found directly
                 if (data.flowState && data.flowState.hasProduct) {
-                    console.log('[handleResponse] Product found directly:', data.flowState.productName);
-                    flowState.product = data.flowState.productName;
-                    flowState.productData = null;
+                    console.log('[handleResponse] Package found directly:', data.flowState.productName);
+                    flowState.package = data.flowState.productName;
+                    flowState.packageData = null;
                     
-                    // Check if variant was auto-skipped immediately after product selection
-                    if (data.currentQuestion) {
-                        console.log('[handleResponse] Product found and variant auto-skipped (currentQuestion present)');
+                    // Check if variant was auto-skipped immediately after package selection
+                    if (data.currentQuestion && backendStep === 'select_package_specs') {
+                        console.log('[handleResponse] Package found and variant auto-skipped (currentQuestion present)');
                         flowState.variant = data.flowState?.variantName || 'Default';
-                        flowState.variantData = null;
+                        flowState.packageData = null;
                         
-                        // CRITICAL: Set consultationData before returning
-                        if (!flowState.consultationData) {
-                            flowState.consultationData = {};
+                        // CRITICAL: Set packageSpecsData before returning
+                        if (!flowState.packageSpecsData) {
+                            flowState.packageSpecsData = {};
                         }
-                        flowState.consultationData.currentQuestion = data.currentQuestion;
-                        console.log('[handleResponse] Set consultationData in product_search handler:', flowState.consultationData);
+                        flowState.packageSpecsData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] Set packageSpecsData in product_search handler:', flowState.packageSpecsData);
                     }
                     
                     renderSteps();
@@ -1141,63 +1365,67 @@
             
             // Update flow state based on metadata and response
             if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasProduct) {
-                console.log('[handleResponse] Product selected:', data.flowState.productName);
-                flowState.product = data.flowState.productName || metadata.name;
-                flowState.productData = null;
+                console.log('[handleResponse] Package selected:', data.flowState.productName);
+                flowState.package = data.flowState.productName || metadata.name;
+                flowState.packageData = null;
                 
-                // Check if variant was auto-skipped (backend went straight to consultation)
-                if (data.currentQuestion) {
-                    console.log('[handleResponse] Product selected and variant auto-skipped (currentQuestion present)');
+                // Check if variant was auto-skipped (backend went straight to package specs)
+                if (data.currentQuestion && backendStep === 'select_package_specs') {
+                    console.log('[handleResponse] Package selected and variant auto-skipped (currentQuestion present)');
                     flowState.variant = data.flowState?.variantName || 'Default';
-                    flowState.variantData = null;
+                    flowState.packageData = null;
                 } else if (data.flowState.hasVariant && data.flowState.variantName) {
                     console.log('[handleResponse] Variant auto-selected (single variant):', data.flowState.variantName);
                     flowState.variant = data.flowState.variantName;
-                    flowState.variantData = null;
+                    flowState.packageData = null;
                 }
             }
             
             if (metadata && metadata.type === 'variant' && data.flowState && data.flowState.hasVariant) {
                 console.log('[handleResponse] Variant selected:', data.flowState.variantName);
                 flowState.variant = data.flowState.variantName || metadata.title;
-                flowState.variantData = null;
+                flowState.packageData = null;
             }
             
+            // Store answers in the appropriate consultation state based on backend step
             if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
                 console.log('[handleResponse] Answer/option recorded:', metadata.questionId, metadata.answer || metadata.option || metadata.message);
-                if (!flowState.consultation) flowState.consultation = {};
+                const consultationKey = getCurrentConsultationState(backendStep);
+                if (!flowState[consultationKey]) flowState[consultationKey] = {};
                 const answerValue = metadata.answer || metadata.option || metadata.message;
                 if (answerValue && answerValue !== 'undefined') {
-                    flowState.consultation[metadata.questionId] = answerValue;
+                    flowState[consultationKey][metadata.questionId] = answerValue;
                 }
             }
             
             // Update step data
             if (data.productMatches) {
                 console.log('[handleResponse] Updating productMatches:', data.productMatches.length);
-                flowState.productData = { matches: data.productMatches };
+                flowState.packageData = { matches: data.productMatches };
             }
             if (data.variants) {
                 console.log('[handleResponse] Updating variants:', data.variants.length, data.variants);
-                flowState.variantData = { variants: data.variants };
+                flowState.packageData = flowState.packageData || {};
+                flowState.packageData.variants = data.variants;
             }
             if (data.currentQuestion) {
                 console.log('[handleResponse] Updating currentQuestion:', data.currentQuestion.id, data.currentQuestion);
-                if (!flowState.consultationData) {
-                    flowState.consultationData = {};
+                const consultationKey = getCurrentConsultationState(backendStep);
+                const dataKey = consultationKey + 'Data';
+                if (!flowState[dataKey]) {
+                    flowState[dataKey] = {};
                 }
-                flowState.consultationData.currentQuestion = data.currentQuestion;
-                console.log('[handleResponse] consultationData after update:', flowState.consultationData);
-                // Note: Variant auto-skip is handled at the top of this function
+                flowState[dataKey].currentQuestion = data.currentQuestion;
+                console.log(`[handleResponse] ${dataKey} after update:`, flowState[dataKey]);
             }
             if (data.draftOrder) {
                 console.log('[handleResponse] Draft order created:', data.draftOrder.id);
                 flowState.draftOrder = data.draftOrder;
             }
             
-            // Special handling: if backend step is "ask_variant" but we don't have variants yet
-            if (data.flowState && data.flowState.step === 'ask_variant' && !data.variants && !flowState.variantData) {
-                console.log('[handleResponse] Backend is in ask_variant but no variants in response - may need to fetch');
+            // Special handling: if backend step is "select_package_variant" but we don't have variants yet
+            if (backendStep === 'select_package_variant' && !data.variants && (!flowState.packageData || !flowState.packageData.variants)) {
+                console.log('[handleResponse] Backend is in select_package_variant but no variants in response - may need to fetch');
             }
             
             console.log('[handleResponse] Updated flowState:', JSON.parse(JSON.stringify(flowState)));
