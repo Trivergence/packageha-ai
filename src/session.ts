@@ -141,13 +141,17 @@ export class PackagehaSession {
                 questionIndex: memory.questionIndex
             };
             
-            // Add variant options if we're in variant selection step
-            if (memory.step === "ask_variant" && memory.variants) {
-                response.variants = memory.variants.map(v => ({
-                    id: v.id,
-                    title: v.title,
-                    price: v.price
-                }));
+            // Add variant options if we're in variant selection step OR if product is selected but variant isn't
+            // This helps frontend know what variants are available even if we haven't explicitly asked yet
+            if (memory.productId && memory.variants && !memory.selectedVariantId) {
+                // Only include variants if step is ask_variant OR if we just selected product (to help frontend)
+                if (memory.step === "ask_variant" || (memory.step === "consultation" && memory.variants.length > 1)) {
+                    response.variants = memory.variants.map(v => ({
+                        id: v.id,
+                        title: v.title,
+                        price: v.price
+                    }));
+                }
             }
             
             // Add current consultation question if we're in consultation step

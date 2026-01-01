@@ -446,12 +446,16 @@
             
             container.innerHTML = html;
             
-            // Expand active step
+            // Expand active step and focus input
             steps.forEach(step => {
-                if (isStepActive(step.id)) {
+                const isActive = isStepActive(step.id);
+                console.log(`[renderSteps] Step ${step.id} isActive:`, isActive);
+                if (isActive) {
                     const stepEl = document.querySelector(`[data-step="${step.id}"]`);
-                    if (stepEl && !stepEl.classList.contains('active')) {
+                    if (stepEl) {
                         stepEl.classList.add('active');
+                        console.log(`[renderSteps] Expanded step: ${step.id}`);
+                        autoFocusInput(step.id);
                     }
                 }
             });
@@ -466,11 +470,19 @@
         }
         
         function isStepActive(stepId) {
-            if (flowState.draftOrder) return stepId === 'order';
-            if (!flowState.product) return stepId === 'product';
-            if (!flowState.variant) return stepId === 'variant';
-            if (!flowState.draftOrder) return stepId === 'consultation';
-            return false;
+            const result = (() => {
+                if (flowState.draftOrder) return stepId === 'order';
+                if (!flowState.product) return stepId === 'product';
+                if (!flowState.variant) return stepId === 'variant';
+                if (!flowState.draftOrder) return stepId === 'consultation';
+                return false;
+            })();
+            console.log(`[isStepActive] ${stepId}:`, result, 'flowState:', { 
+                product: flowState.product, 
+                variant: flowState.variant, 
+                draftOrder: !!flowState.draftOrder 
+            });
+            return result;
         }
         
         function getStepData(stepId) {
@@ -502,7 +514,7 @@
                 if (stepData && stepData.matches) {
                     return renderProductSelection(stepData.matches);
                 }
-                return '<div class="step-body"><p>Searching for products...</p></div>';
+                return renderProductSearch();
             }
             if (stepId === 'variant') {
                 if (stepData && stepData.variants) {
@@ -541,6 +553,19 @@
                 return html;
             }
             return '';
+        }
+        
+        function renderProductSearch() {
+            return `
+                <div class="step-body">
+                    <div class="question-text">What product are you looking for?</div>
+                    <div class="input-group">
+                        <input type="text" id="productSearchInput" placeholder="e.g., Custom Boxes, Bags, Printing Services..." 
+                               onkeydown="if(event.key==='Enter') searchProducts()">
+                    </div>
+                    <button class="submit-btn" onclick="searchProducts()">Search Products</button>
+                </div>
+            `;
         }
         
         function renderProductSelection(matches) {
@@ -641,11 +666,23 @@
             `;
         }
         
+        function searchProducts() {
+            const input = document.getElementById('productSearchInput');
+            if (input && input.value.trim()) {
+                sendSelection(input.value.trim(), { type: 'product_search' });
+            } else {
+                // If empty, send a generic search
+                sendSelection('show me products', { type: 'product_search' });
+            }
+        }
+        
         function selectProduct(index, name) {
+            console.log('[selectProduct] Product selected:', { index, name });
             sendSelection(String(index + 1), { type: 'product', name });
         }
         
         function selectVariant(index, title, id) {
+            console.log('[selectVariant] Variant selected:', { index, title, id });
             sendSelection(title, { type: 'variant', title, id });
         }
         
@@ -666,7 +703,7 @@
             const height = document.getElementById('dim_height')?.value.trim() || '';
             
             if (!length || !width || !height) {
-                alert('Please fill in all dimension fields');
+                alert('Please fill in all dimension fields (Length, Width, and Height)');
                 return;
             }
             
@@ -674,9 +711,27 @@
             sendSelection(dimensions, { type: 'answer', questionId });
         }
         
+        // Auto-focus input when step becomes active
+        function autoFocusInput(stepId) {
+            setTimeout(() => {
+                if (stepId === 'product') {
+                    const input = document.getElementById('productSearchInput');
+                    if (input) input.focus();
+                } else {
+                    const input = document.getElementById('questionInput');
+                    if (input) input.focus();
+                }
+            }, 100);
+        }
+        
         async function sendSelection(message, metadata) {
             const apiUrl = document.getElementById('apiUrl').value.trim();
-            if (!apiUrl) return;
+            if (!apiUrl) {
+                console.error('[sendSelection] No API URL provided');
+                return;
+            }
+            
+            console.log('[sendSelection] Sending request:', { message, metadata, flow: currentFlow });
             
             try {
                 const response = await fetch(apiUrl, {
@@ -685,45 +740,130 @@
                     body: JSON.stringify({ message, flow: currentFlow })
                 });
                 
+                console.log('[sendSelection] Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[sendSelection] Response error:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
                 const data = await response.json();
+                console.log('[sendSelection] Response data:', data);
+                
                 handleResponse(data, metadata);
             } catch (error) {
+                console.error('[sendSelection] Error:', error);
                 alert(`Error: ${error.message}`);
             }
         }
         
         function handleResponse(data, metadata) {
-            // Update flow state based on metadata and response
-            if (metadata.type === 'product' && data.flowState && data.flowState.hasProduct) {
-                flowState.product = data.flowState.productName || metadata.name;
-                flowState.productData = null;
+            console.log('[handleResponse] Called with:', { data, metadata });
+            console.log('[handleResponse] Current flowState:', JSON.parse(JSON.stringify(flowState)));
+            
+            // Handle product search - show matches
+            if (metadata && metadata.type === 'product_search') {
+                console.log('[handleResponse] Handling product_search');
+                if (data.productMatches && data.productMatches.length > 0) {
+                    console.log('[handleResponse] Found product matches:', data.productMatches.length);
+                    flowState.productData = { matches: data.productMatches };
+                    renderSteps();
+                    return;
+                }
+                // If no matches but we have a reply, the product was found directly
+                if (data.flowState && data.flowState.hasProduct) {
+                    console.log('[handleResponse] Product found directly:', data.flowState.productName);
+                    flowState.product = data.flowState.productName;
+                    flowState.productData = null;
+                    renderSteps();
+                    return;
+                }
             }
             
-            if (metadata.type === 'variant' && data.flowState && data.flowState.hasVariant) {
+            // Update flow state based on metadata and response
+            if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasProduct) {
+                console.log('[handleResponse] Product selected:', data.flowState.productName);
+                flowState.product = data.flowState.productName || metadata.name;
+                flowState.productData = null;
+                
+                // Check if variant was auto-skipped (backend went straight to consultation)
+                if (data.flowState.hasVariant && data.flowState.variantName) {
+                    console.log('[handleResponse] Variant auto-selected (single variant):', data.flowState.variantName);
+                    flowState.variant = data.flowState.variantName;
+                    flowState.variantData = null;
+                }
+            }
+            
+            if (metadata && metadata.type === 'variant' && data.flowState && data.flowState.hasVariant) {
+                console.log('[handleResponse] Variant selected:', data.flowState.variantName);
                 flowState.variant = data.flowState.variantName || metadata.title;
                 flowState.variantData = null;
             }
             
-            if (metadata.type === 'answer' || metadata.type === 'option') {
+            // CRITICAL: If we have currentQuestion but no variant selected, variant was auto-skipped
+            // This happens when product has only 1 variant - backend skips variant selection
+            if (data.currentQuestion && !flowState.variant && flowState.product) {
+                console.log('[handleResponse] Variant auto-skipped - backend went straight to consultation');
+                // Try to get variant name from flowState if available
+                if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
+                    console.log('[handleResponse] Setting variant from flowState:', data.flowState.variantName);
+                    flowState.variant = data.flowState.variantName;
+                } else {
+                    // Mark as "Default" or "Single Option" if we don't have the name
+                    console.log('[handleResponse] No variant name in flowState, using "Default"');
+                    flowState.variant = 'Default';
+                }
+            }
+            
+            if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
+                console.log('[handleResponse] Answer/option recorded:', metadata.questionId, metadata.option || metadata.message);
                 if (!flowState.consultation) flowState.consultation = {};
                 flowState.consultation[metadata.questionId] = metadata.option || metadata.message;
             }
             
             // Update step data
             if (data.productMatches) {
+                console.log('[handleResponse] Updating productMatches:', data.productMatches.length);
                 flowState.productData = { matches: data.productMatches };
             }
             if (data.variants) {
+                console.log('[handleResponse] Updating variants:', data.variants.length, data.variants);
                 flowState.variantData = { variants: data.variants };
             }
             if (data.currentQuestion) {
+                console.log('[handleResponse] Updating currentQuestion:', data.currentQuestion.id);
                 flowState.consultationData = { currentQuestion: data.currentQuestion };
+                
+                // CRITICAL FIX: If we have currentQuestion but no variant selected, variant was auto-skipped
+                // This happens when product has only 1 variant - backend skips variant selection
+                if (!flowState.variant && flowState.product) {
+                    console.log('[handleResponse] Detected variant auto-skip - currentQuestion present but no variant');
+                    if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
+                        console.log('[handleResponse] Setting variant from flowState:', data.flowState.variantName);
+                        flowState.variant = data.flowState.variantName;
+                    } else {
+                        // Mark as "Default" to indicate single variant was auto-selected
+                        console.log('[handleResponse] No variant name in flowState, using "Default"');
+                        flowState.variant = 'Default';
+                    }
+                }
             }
             if (data.draftOrder) {
+                console.log('[handleResponse] Draft order created:', data.draftOrder.id);
                 flowState.draftOrder = data.draftOrder;
             }
             
+            // Special handling: if backend step is "ask_variant" but we don't have variants yet
+            if (data.flowState && data.flowState.step === 'ask_variant' && !data.variants && !flowState.variantData) {
+                console.log('[handleResponse] Backend is in ask_variant but no variants in response - may need to fetch');
+            }
+            
+            console.log('[handleResponse] Updated flowState:', JSON.parse(JSON.stringify(flowState)));
+            console.log('[handleResponse] data.flowState from backend:', data.flowState);
+            
             // Re-render steps
+            console.log('[handleResponse] Re-rendering steps...');
             renderSteps();
         }
         
