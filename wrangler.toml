@@ -27,7 +27,7 @@ SOVEREIGN_MODE = "COMMERCIAL_GEMINI" # Recommended: Gemini Flash 1.5 (fast, cost
 
 # Mode A2 (COMMERCIAL_GEMINI) - Google Gemini (Recommended for MVP)
 # SOVEREIGN_MODE = "COMMERCIAL_GEMINI"
-# Recommended model: gemini-1.5-flash-latest (fast, cost-effective, excellent JSON generation)
+# Model: gemini-pro (stable model for v1beta API)
 
 # Mode B (SOVEREIGN) - Uncomment and configure for Vertex AI (Dammam Region)
 # SOVEREIGN_MODE = "SOVEREIGN"

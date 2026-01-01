@@ -46,13 +46,13 @@ export class SovereignSwitch {
         };
 
       case "COMMERCIAL_GEMINI":
-        // Mode A2: Google Gemini - Gemini Flash 1.5 (Recommended for MVP)
+        // Mode A2: Google Gemini - Gemini Pro (Recommended for MVP)
         if (!this.env.GEMINI_API_KEY) {
           throw new Error("GEMINI_API_KEY is required for COMMERCIAL_GEMINI mode");
         }
         return {
           provider: "gemini",
-          model: "gemini-1.5-flash-latest", // Fast, cost-effective, excellent JSON generation (use -latest suffix)
+          model: "gemini-pro", // Stable model name for v1beta API
           apiKey: this.env.GEMINI_API_KEY,
         };
 
@@ -81,7 +81,7 @@ export class SovereignSwitch {
         if (this.env.GEMINI_API_KEY) {
           return {
             provider: "gemini",
-            model: "gemini-1.5-flash-latest",
+            model: "gemini-pro",
             apiKey: this.env.GEMINI_API_KEY,
           };
         }
@@ -187,8 +187,8 @@ export class SovereignSwitch {
     config: AIConfig
   ): Promise<string> {
     // Gemini API uses Google AI Studio endpoint
-    // Use gemini-1.5-flash-latest or gemini-pro for compatibility
-    const model = config.model || "gemini-1.5-flash-latest";
+    // Use gemini-pro for v1beta API (stable and reliable)
+    const model = config.model || "gemini-pro";
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
     // Combine system prompt and user prompt for Gemini
