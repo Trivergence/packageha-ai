@@ -729,6 +729,17 @@ var PackagehaSession = class {
         memory.clipboard = {};
         memory.questionIndex = 0;
       }
+      const hasProductDetails = memory.clipboard && (memory.clipboard["product_description"] || memory.clipboard["product_dimensions"] || memory.clipboard["product_weight"]);
+      if ((memory.step === "select_package_specs" || memory.step === "select_package_variant" || memory.step === "fulfillment_specs" || memory.step === "launch_kit") && !memory.packageId) {
+        console.log("[PackagehaSession] Invalid memory state: in package steps without package selected - resetting to start");
+        memory.step = "start";
+        memory.questionIndex = 0;
+        memory.clipboard = {};
+      } else if ((memory.step === "select_package" || memory.step === "select_package_discovery") && !hasProductDetails) {
+        console.log("[PackagehaSession] Invalid memory state: in package selection without product details - resetting to product_details");
+        memory.step = "product_details";
+        memory.questionIndex = 0;
+      }
       let reply;
       let memoryWasReset = false;
       let draftOrder = void 0;
