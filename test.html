@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packageha AI - Flow Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .config-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .config-section input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .config-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .flow-selector {
+            margin-bottom: 25px;
+        }
+        
+        .flow-selector label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        
+        .flow-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        
+        .flow-btn {
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .flow-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .flow-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
+        .input-section {
+            margin-bottom: 25px;
+        }
+        
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .input-section textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-section textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .reset-btn {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .reset-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .response-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            min-height: 150px;
+        }
+        
+        .response-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        
+        .response-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            min-height: 100px;
+        }
+        
+        .response-content.empty {
+            color: #999;
+            font-style: italic;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .flow-info {
+            background: #e7f3ff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            font-size: 14px;
+            color: #0066cc;
+        }
+        
+        .error {
+            background: #ffe7e7;
+            color: #cc0000;
+            border-left-color: #cc0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎁 Packageha AI - Flow Tester</h1>
+            <p>Test all three flows: Package Order, Launch Kit, and Packaging Assistant</p>
+        </div>
+        
+        <div class="content">
+            <div class="config-section">
+                <label for="apiUrl">Worker URL:</label>
+                <input 
+                    type="text" 
+                    id="apiUrl" 
+                    value="https://packageha-ai.akhodary-006.workers.dev"
+                    placeholder="Enter your Cloudflare Worker URL"
+                />
+            </div>
+            
+            <div class="flow-selector">
+                <label>Select Flow:</label>
+                <div class="flow-buttons">
+                    <div class="flow-btn active" data-flow="direct_sales">
+                        📦 Direct Sales
+                    </div>
+                    <div class="flow-btn" data-flow="package_order">
+                        🛒 Package Order
+                    </div>
+                    <div class="flow-btn" data-flow="launch_kit">
+                        🚀 Launch Kit
+                    </div>
+                    <div class="flow-btn" data-flow="packaging_assistant">
+                        💡 Packaging Assistant
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flow-info" id="flowInfo">
+                <strong>Direct Sales Flow:</strong> The original flow for finding and ordering packages directly from the catalog.
+            </div>
+            
+            <div class="input-section">
+                <label for="userMessage">Your Message:</label>
+                <textarea 
+                    id="userMessage" 
+                    placeholder="Type your message here... (e.g., 'I need custom boxes', 'Hello', 'I want to order packages')"
+                ></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                    Send Message
+                </button>
+                <button class="reset-btn" onclick="resetConversation()">
+                    Reset
+                </button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">Sending message...</p>
+            </div>
+            
+            <div class="response-section">
+                <label>AI Response:</label>
+                <div class="response-content empty" id="response">
+                    Responses will appear here...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentFlow = 'direct_sales';
+        const flowInfo = {
+            direct_sales: {
+                title: 'Direct Sales Flow',
+                description: 'The original flow for finding and ordering packages directly from the catalog.'
+            },
+            package_order: {
+                title: 'Package Ordering Flow',
+                description: 'Simplified flow for ordering packages. Just select a package, specify quantity, and order!'
+            },
+            launch_kit: {
+                title: 'Launch Kit Flow',
+                description: 'Order studio services: Product Photography, Package Design, or Brand Consultation.'
+            },
+            packaging_assistant: {
+                title: 'Packaging Assistant Flow',
+                description: 'Get AI-powered recommendations for the perfect packaging solution for your product.'
+            }
+        };
+        
+        // Flow selection
+        document.querySelectorAll('.flow-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFlow = btn.dataset.flow;
+                updateFlowInfo();
+            });
+        });
+        
+        function updateFlowInfo() {
+            const info = flowInfo[currentFlow];
+            const infoDiv = document.getElementById('flowInfo');
+            infoDiv.innerHTML = `<strong>${info.title}:</strong> ${info.description}`;
+            infoDiv.className = 'flow-info';
+        }
+        
+        async function sendMessage() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const message = document.getElementById('userMessage').value.trim();
+            const responseDiv = document.getElementById('response');
+            const loadingDiv = document.getElementById('loading');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            // Show loading
+            loadingDiv.classList.add('active');
+            sendBtn.disabled = true;
+            responseDiv.className = 'response-content';
+            responseDiv.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        flow: currentFlow
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Display response
+                responseDiv.className = 'response-content';
+                responseDiv.textContent = data.reply || JSON.stringify(data, null, 2);
+                
+                // Clear input
+                document.getElementById('userMessage').value = '';
+                
+            } catch (error) {
+                responseDiv.className = 'response-content error';
+                responseDiv.textContent = `Error: ${error.message}\n\nMake sure:\n1. Your Worker URL is correct\n2. The worker is deployed\n3. CORS is enabled (it should be by default)`;
+            } finally {
+                loadingDiv.classList.remove('active');
+                sendBtn.disabled = false;
+            }
+        }
+        
+        async function resetConversation() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const responseDiv = document.getElementById('response');
+            const loadingDiv = document.getElementById('loading');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            // Show loading
+            loadingDiv.classList.add('active');
+            sendBtn.disabled = true;
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: 'reset',
+                        flow: currentFlow
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Display response
+                responseDiv.className = 'response-content';
+                responseDiv.textContent = data.reply || 'Conversation reset!';
+                
+            } catch (error) {
+                responseDiv.className = 'response-content error';
+                responseDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                loadingDiv.classList.remove('active');
+                sendBtn.disabled = false;
+            }
+        }
+        
+        // Allow Enter key to send (Shift+Enter for new line)
+        document.getElementById('userMessage').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // Initialize
+        updateFlowInfo();
+    </script>
+</body>
+</html>
+
