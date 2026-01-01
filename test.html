@@ -226,6 +226,62 @@
             color: #333;
         }
         
+        .completed-questions-section {
+            background: #f8fff9;
+            border: 1px solid #d4edda;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .completed-question-item {
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #28a745;
+        }
+        
+        .completed-question-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .checkbox-label:hover {
+            border-color: #6c63ff;
+            background: #f5f4ff;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-label input[type="checkbox"]:checked + span {
+            font-weight: 600;
+            color: #6c63ff;
+        }
+        
         .question-text {
             font-size: 15px;
             color: #333;
@@ -488,7 +544,10 @@
         function getStepData(stepId) {
             if (stepId === 'product') return flowState.productData;
             if (stepId === 'variant') return flowState.variantData;
-            if (stepId === 'consultation') return flowState.consultationData;
+            if (stepId === 'consultation') {
+                console.log('[getStepData] consultation data:', flowState.consultationData);
+                return flowState.consultationData;
+            }
             return null;
         }
         
@@ -523,10 +582,32 @@
                 return '<div class="step-body"><p>Loading variants...</p></div>';
             }
             if (stepId === 'consultation') {
-                if (stepData && stepData.currentQuestion) {
-                    return renderQuestion(stepData.currentQuestion);
+                console.log('[renderStepContent] Consultation stepData:', stepData);
+                let html = '';
+                
+                // Show completed questions first
+                if (flowState.consultation && Object.keys(flowState.consultation).length > 0) {
+                    html += '<div class="completed-questions-section">';
+                    html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
+                    Object.entries(flowState.consultation).forEach(([questionId, answer]) => {
+                        html += `<div class="completed-question-item">
+                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                            <div style="color: #333;">${answer}</div>
+                        </div>`;
+                    });
+                    html += '</div>';
                 }
-                return '<div class="step-body"><p>Loading question...</p></div>';
+                
+                // Show current question
+                if (stepData && stepData.currentQuestion) {
+                    console.log('[renderStepContent] Rendering question:', stepData.currentQuestion);
+                    html += renderQuestion(stepData.currentQuestion);
+                } else {
+                    console.log('[renderStepContent] No currentQuestion in stepData, showing loading');
+                    html += '<div class="step-body"><p>Loading question...</p></div>';
+                }
+                
+                return html;
             }
             if (stepId === 'order') {
                 if (flowState.draftOrder) {
@@ -596,20 +677,43 @@
             return html;
         }
         
+        function getQuestionLabel(questionId) {
+            const labels = {
+                'quantity': 'Quantity',
+                'material': 'Material',
+                'dimensions': 'Dimensions',
+                'print': 'Printing/Finish',
+                'timeline': 'Timeline',
+                'budget': 'Budget'
+            };
+            return labels[questionId] || questionId;
+        }
+        
         function renderQuestion(question) {
             let html = '<div class="step-body"><div class="question-text">' + question.question + '</div>';
             
             if (question.options && question.options.length > 0) {
-                // Render as option cards
-                html += '<div class="options-grid">';
+                // Render as checkboxes with notes field
+                html += '<div class="checkbox-group" id="checkbox-group-' + question.id + '">';
                 question.options.forEach((option, index) => {
                     html += `
-                        <div class="option-card" onclick="selectOption('${String(option).replace(/'/g, "\\'")}', '${question.id}')">
-                            ${option}
-                        </div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="${String(option).replace(/"/g, '&quot;')}" 
+                                   id="checkbox-${question.id}-${index}">
+                            <span>${option}</span>
+                        </label>
                     `;
                 });
                 html += '</div>';
+                
+                // Additional notes field
+                html += `
+                    <div class="input-group" style="margin-top: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                        <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                    </div>
+                    <button class="submit-btn" onclick="submitCheckboxAnswer('${question.id}')">Submit</button>
+                `;
             } else {
                 // Render as input field(s)
                 if (question.id === 'dimensions') {
@@ -690,6 +794,26 @@
             sendSelection(option, { type: 'option', questionId, option });
         }
         
+        function submitCheckboxAnswer(questionId) {
+            const checkboxes = document.querySelectorAll(`#checkbox-group-${questionId} input[type="checkbox"]:checked`);
+            const notesInput = document.getElementById(`notes-${questionId}`);
+            const notes = notesInput ? notesInput.value.trim() : '';
+            
+            const selectedOptions = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedOptions.length === 0 && !notes) {
+                alert('Please select at least one option or add notes.');
+                return;
+            }
+            
+            let answer = selectedOptions.join(', ');
+            if (notes) {
+                answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
+            }
+            
+            sendSelection(answer, { type: 'answer', questionId });
+        }
+        
         function submitAnswer(questionId) {
             const input = document.getElementById('questionInput');
             if (input && input.value.trim()) {
@@ -761,6 +885,24 @@
         function handleResponse(data, metadata) {
             console.log('[handleResponse] Called with:', { data, metadata });
             console.log('[handleResponse] Current flowState:', JSON.parse(JSON.stringify(flowState)));
+            console.log('[handleResponse] Response data.flowState:', data.flowState);
+            console.log('[handleResponse] Response data.currentQuestion:', data.currentQuestion ? 'present' : 'missing');
+            console.log('[handleResponse] Response data.variants:', data.variants ? `${data.variants.length} variants` : 'none');
+            
+            // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
+            // If backend is in consultation (currentQuestion present) but no variant is selected,
+            // it means variant step was auto-skipped (single variant or no variants)
+            if (data.currentQuestion && !flowState.variant && flowState.product) {
+                console.log('[handleResponse] CRITICAL: Detecting variant auto-skip - currentQuestion present but no variant');
+                if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
+                    console.log('[handleResponse] Setting variant from flowState.variantName:', data.flowState.variantName);
+                    flowState.variant = data.flowState.variantName;
+                } else {
+                    console.log('[handleResponse] No variant name in flowState - using "Default"');
+                    flowState.variant = 'Default';
+                }
+                flowState.variantData = null; // Clear variant data since we're auto-completing
+            }
             
             // Handle product search - show matches
             if (metadata && metadata.type === 'product_search') {
@@ -776,6 +918,21 @@
                     console.log('[handleResponse] Product found directly:', data.flowState.productName);
                     flowState.product = data.flowState.productName;
                     flowState.productData = null;
+                    
+                    // Check if variant was auto-skipped immediately after product selection
+                    if (data.currentQuestion) {
+                        console.log('[handleResponse] Product found and variant auto-skipped (currentQuestion present)');
+                        flowState.variant = data.flowState?.variantName || 'Default';
+                        flowState.variantData = null;
+                        
+                        // CRITICAL: Set consultationData before returning
+                        if (!flowState.consultationData) {
+                            flowState.consultationData = {};
+                        }
+                        flowState.consultationData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] Set consultationData in product_search handler:', flowState.consultationData);
+                    }
+                    
                     renderSteps();
                     return;
                 }
@@ -788,7 +945,11 @@
                 flowState.productData = null;
                 
                 // Check if variant was auto-skipped (backend went straight to consultation)
-                if (data.flowState.hasVariant && data.flowState.variantName) {
+                if (data.currentQuestion) {
+                    console.log('[handleResponse] Product selected and variant auto-skipped (currentQuestion present)');
+                    flowState.variant = data.flowState?.variantName || 'Default';
+                    flowState.variantData = null;
+                } else if (data.flowState.hasVariant && data.flowState.variantName) {
                     console.log('[handleResponse] Variant auto-selected (single variant):', data.flowState.variantName);
                     flowState.variant = data.flowState.variantName;
                     flowState.variantData = null;
@@ -799,21 +960,6 @@
                 console.log('[handleResponse] Variant selected:', data.flowState.variantName);
                 flowState.variant = data.flowState.variantName || metadata.title;
                 flowState.variantData = null;
-            }
-            
-            // CRITICAL: If we have currentQuestion but no variant selected, variant was auto-skipped
-            // This happens when product has only 1 variant - backend skips variant selection
-            if (data.currentQuestion && !flowState.variant && flowState.product) {
-                console.log('[handleResponse] Variant auto-skipped - backend went straight to consultation');
-                // Try to get variant name from flowState if available
-                if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
-                    console.log('[handleResponse] Setting variant from flowState:', data.flowState.variantName);
-                    flowState.variant = data.flowState.variantName;
-                } else {
-                    // Mark as "Default" or "Single Option" if we don't have the name
-                    console.log('[handleResponse] No variant name in flowState, using "Default"');
-                    flowState.variant = 'Default';
-                }
             }
             
             if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
@@ -832,22 +978,13 @@
                 flowState.variantData = { variants: data.variants };
             }
             if (data.currentQuestion) {
-                console.log('[handleResponse] Updating currentQuestion:', data.currentQuestion.id);
-                flowState.consultationData = { currentQuestion: data.currentQuestion };
-                
-                // CRITICAL FIX: If we have currentQuestion but no variant selected, variant was auto-skipped
-                // This happens when product has only 1 variant - backend skips variant selection
-                if (!flowState.variant && flowState.product) {
-                    console.log('[handleResponse] Detected variant auto-skip - currentQuestion present but no variant');
-                    if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
-                        console.log('[handleResponse] Setting variant from flowState:', data.flowState.variantName);
-                        flowState.variant = data.flowState.variantName;
-                    } else {
-                        // Mark as "Default" to indicate single variant was auto-selected
-                        console.log('[handleResponse] No variant name in flowState, using "Default"');
-                        flowState.variant = 'Default';
-                    }
+                console.log('[handleResponse] Updating currentQuestion:', data.currentQuestion.id, data.currentQuestion);
+                if (!flowState.consultationData) {
+                    flowState.consultationData = {};
                 }
+                flowState.consultationData.currentQuestion = data.currentQuestion;
+                console.log('[handleResponse] consultationData after update:', flowState.consultationData);
+                // Note: Variant auto-skip is handled at the top of this function
             }
             if (data.draftOrder) {
                 console.log('[handleResponse] Draft order created:', data.draftOrder.id);

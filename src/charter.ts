@@ -7,6 +7,8 @@ export interface CharterStep {
     id: string;
     question: string;
     validation?: (answer: string) => boolean | string;
+    options?: string[]; // Optional predefined options for checkboxes
+    defaultValue?: string; // Optional default value for UI hints
 }
 
 export interface CharterPhase {
@@ -82,7 +84,8 @@ export const SALES_CHARTER: Charter = {
             },
             { 
                 id: "material", 
-                question: "Do you have a preference for Material? (e.g., Corrugated, Folding Carton, Rigid Box)" 
+                question: "Do you have a preference for Material?",
+                options: ["Corrugated", "Folding Carton", "Rigid Box", "Paperboard", "Kraft", "White Cardboard"]
             },
             { 
                 id: "dimensions", 
@@ -95,15 +98,18 @@ export const SALES_CHARTER: Charter = {
             },
             { 
                 id: "print", 
-                question: "Tell me about the Printing/Finish. (e.g., Full color, logo only, gold foil, matte lamination)" 
+                question: "Tell me about the Printing/Finish.",
+                options: ["Full color printing", "Logo only", "No printing", "Gold foil", "Silver foil", "Matte lamination", "Glossy lamination", "UV coating", "Embossing", "Debossing"]
             },
             { 
                 id: "timeline", 
-                question: "When is your deadline for delivery?" 
+                question: "When is your deadline for delivery?",
+                options: ["1-2 weeks", "2-4 weeks", "1-2 months", "2-3 months", "3+ months", "Flexible"]
             },
             { 
                 id: "budget", 
-                question: "Last question: Do you have a target budget per unit or total for this project?" 
+                question: "Do you have a target budget? (per unit or total)",
+                options: ["Under 1 SAR/unit", "1-5 SAR/unit", "5-10 SAR/unit", "10-20 SAR/unit", "20+ SAR/unit", "Budget flexible", "Will discuss"]
             }
         ]
     }
