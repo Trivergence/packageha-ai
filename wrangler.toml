@@ -11,8 +11,23 @@ persist = true
 
 [vars]
 # The Hybrid Sovereign Switch Configuration
-# Options: "COMMERCIAL" | "SOVEREIGN" | "AIR_GAPPED"
-SOVEREIGN_MODE = "COMMERCIAL" # Mode A: Cloudflare AI (US)
+# Options: "COMMERCIAL" | "COMMERCIAL_OPENAI" | "COMMERCIAL_GEMINI" | "SOVEREIGN" | "AIR_GAPPED"
+SOVEREIGN_MODE = "COMMERCIAL_GEMINI" # Recommended: Gemini Flash 1.5 (fast, cost-effective, excellent JSON)
+
+# AI Provider API Keys (get from secrets: wrangler secret put OPENAI_API_KEY)
+# OPENAI_API_KEY = "sk-..." # Required for COMMERCIAL_OPENAI mode
+# GEMINI_API_KEY = "..." # Required for COMMERCIAL_GEMINI mode (get from https://aistudio.google.com/app/apikey)
+
+# Legacy Mode A (COMMERCIAL) - Cloudflare AI (small models, free but limited)
+# SOVEREIGN_MODE = "COMMERCIAL"
+
+# Mode A1 (COMMERCIAL_OPENAI) - OpenAI ChatGPT (GPT-4o-mini or gpt-4o)
+# SOVEREIGN_MODE = "COMMERCIAL_OPENAI"
+# Recommended model: gpt-4o-mini (cost-effective) or gpt-4o (best quality)
+
+# Mode A2 (COMMERCIAL_GEMINI) - Google Gemini (Recommended for MVP)
+# SOVEREIGN_MODE = "COMMERCIAL_GEMINI"
+# Recommended model: gemini-1.5-flash (fast, cost-effective, excellent JSON generation)
 
 # Mode B (SOVEREIGN) - Uncomment and configure for Vertex AI (Dammam Region)
 # SOVEREIGN_MODE = "SOVEREIGN"

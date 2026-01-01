@@ -4,7 +4,13 @@
  */
 
 import { getActiveProducts, createDraftOrder } from "./shopify";
-import { SALES_CHARTER, buildCharterPrompt } from "./charter";
+import { 
+    SALES_CHARTER, 
+    PACKAGE_ORDER_CHARTER, 
+    LAUNCH_KIT_CHARTER, 
+    PACKAGING_ASSISTANT_CHARTER,
+    buildCharterPrompt 
+} from "./charter";
 import { SovereignSwitch } from "./sovereign-switch";
 import { 
     Env, 
@@ -13,11 +19,14 @@ import {
     Variant, 
     AIDecision, 
     VariantDecision, 
-    RequestBody 
+    RequestBody,
+    AgentFlow,
+    PackageRecommendation
 } from "./types";
 
 // Default memory template - timestamps set when creating new memory
 const DEFAULT_MEMORY_TEMPLATE: Omit<Memory, "createdAt" | "lastActivity"> = {
+    flow: "direct_sales",
     step: "start",
     clipboard: {},
     questionIndex: 0,
@@ -51,30 +60,48 @@ export class PackagehaSession {
             // Load or initialize memory
             let memory = await this.loadMemory();
 
-            // Route to appropriate phase handler
+            // Determine flow (explicit from request or from memory)
+            const requestedFlow = body.flow || memory.flow || "direct_sales";
+            if (!memory.flow || memory.flow !== requestedFlow) {
+                // Flow changed - reset to start of new flow
+                memory.flow = requestedFlow as AgentFlow;
+                memory.step = "start";
+                memory.clipboard = {};
+                memory.questionIndex = 0;
+            }
+
+            // Route to appropriate flow handler
             let reply: string;
             let memoryWasReset = false;
             
-            switch (memory.step) {
-                case "start":
-                    reply = await this.handleDiscovery(userMessage, memory);
+            switch (memory.flow) {
+                case "direct_sales":
+                    const directSalesResult = await this.handleDirectSalesFlow(userMessage, memory);
+                    reply = directSalesResult.reply;
+                    memoryWasReset = directSalesResult.memoryReset || false;
                     break;
-                case "ask_variant":
-                    const variantResult = await this.handleVariantSelection(userMessage, memory);
-                    reply = variantResult.reply;
-                    memoryWasReset = variantResult.memoryReset || false;
+                case "package_order":
+                    const packageOrderResult = await this.handlePackageOrderFlow(userMessage, memory);
+                    reply = packageOrderResult.reply;
+                    memoryWasReset = packageOrderResult.memoryReset || false;
                     break;
-                case "consultation":
-                    const consultationResult = await this.handleConsultation(userMessage, memory);
-                    reply = consultationResult.reply;
-                    memoryWasReset = consultationResult.memoryReset || false;
+                case "launch_kit":
+                    const launchKitResult = await this.handleLaunchKitFlow(userMessage, memory);
+                    reply = launchKitResult.reply;
+                    memoryWasReset = launchKitResult.memoryReset || false;
+                    break;
+                case "packaging_assistant":
+                    const assistantResult = await this.handlePackagingAssistantFlow(userMessage, memory);
+                    reply = assistantResult.reply;
+                    memoryWasReset = assistantResult.memoryReset || false;
                     break;
                 default:
                     reply = "I'm not sure what to do. Type 'reset' to start over.";
                     const now = Date.now();
                     memory = {
+                        flow: DEFAULT_MEMORY_TEMPLATE.flow,
                         step: DEFAULT_MEMORY_TEMPLATE.step,
-                        clipboard: {}, // Fresh object, not shared reference
+                        clipboard: {},
                         questionIndex: DEFAULT_MEMORY_TEMPLATE.questionIndex,
                         createdAt: now,
                         lastActivity: now,
@@ -102,9 +129,91 @@ export class PackagehaSession {
         }
     }
 
-    // ==================== PHASE HANDLERS ====================
+    // ==================== FLOW HANDLERS ====================
 
-    private async handleDiscovery(userMessage: string, memory: Memory): Promise<string> {
+    /**
+     * Direct Sales Flow (existing flow - renamed for clarity)
+     */
+    private async handleDirectSalesFlow(
+        userMessage: string, 
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        switch (memory.step) {
+            case "start":
+                return { reply: await this.handleDiscovery(userMessage, memory, SALES_CHARTER) };
+            case "ask_variant":
+                return await this.handleVariantSelection(userMessage, memory, SALES_CHARTER);
+            case "consultation":
+                return await this.handleConsultation(userMessage, memory, SALES_CHARTER);
+            default:
+                memory.step = "start";
+                return { reply: await this.handleDiscovery(userMessage, memory, SALES_CHARTER) };
+        }
+    }
+
+    /**
+     * Package Ordering Flow (simplified MVP)
+     */
+    private async handlePackageOrderFlow(
+        userMessage: string,
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        switch (memory.step) {
+            case "start":
+                return { reply: await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER) };
+            case "ask_variant":
+                return await this.handleVariantSelection(userMessage, memory, PACKAGE_ORDER_CHARTER);
+            case "consultation":
+                return await this.handleConsultation(userMessage, memory, PACKAGE_ORDER_CHARTER);
+            default:
+                memory.step = "start";
+                return { reply: await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER) };
+        }
+    }
+
+    /**
+     * Launch Kit Flow
+     */
+    private async handleLaunchKitFlow(
+        userMessage: string,
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        switch (memory.step) {
+            case "start":
+                return { reply: await this.handleLaunchKitStart(userMessage, memory) };
+            case "select_services":
+                return await this.handleLaunchKitServiceSelection(userMessage, memory);
+            case "consultation":
+                return await this.handleConsultation(userMessage, memory, LAUNCH_KIT_CHARTER);
+            default:
+                memory.step = "start";
+                return { reply: await this.handleLaunchKitStart(userMessage, memory) };
+        }
+    }
+
+    /**
+     * Packaging Assistant Flow
+     */
+    private async handlePackagingAssistantFlow(
+        userMessage: string,
+        memory: Memory
+    ): Promise<{ reply: string; memoryReset?: boolean }> {
+        switch (memory.step) {
+            case "start":
+                return { reply: await this.handlePackagingAssistantStart(userMessage, memory) };
+            case "consultation":
+                return await this.handlePackagingAssistantConsultation(userMessage, memory);
+            case "show_recommendations":
+                return await this.handlePackagingAssistantRecommendations(userMessage, memory);
+            default:
+                memory.step = "start";
+                return { reply: await this.handlePackagingAssistantStart(userMessage, memory) };
+        }
+    }
+
+    // ==================== SHARED HANDLERS ====================
+
+    private async handleDiscovery(userMessage: string, memory: Memory, charter: any): Promise<string> {
         // Handle greetings locally (save AI cost)
         if (this.isGreeting(userMessage)) {
             return "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')";
@@ -132,7 +241,7 @@ export class PackagehaSession {
         ).join("\n");
 
         // Build AI prompt with Charter
-        const systemPrompt = buildCharterPrompt("discovery");
+        const systemPrompt = buildCharterPrompt("discovery", charter);
         const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"\n\nReturn JSON:\n- If match found: { "type": "found", "id": <index>, "reason": "..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
 
         // Get AI decision
@@ -164,11 +273,11 @@ export class PackagehaSession {
 
             // Auto-skip variant selection if only one variant
             if (memory.variants.length === 1) {
-                memory.selectedVariantId = memory.variants[0].id;
-                memory.selectedVariantName = memory.variants[0].title;
-                memory.step = "consultation";
-                memory.questionIndex = 0;
-                return `Found **${product.title}**.\n\nLet's get your project details.\n\n${SALES_CHARTER.consultation.steps[0].question}`;
+            memory.selectedVariantId = memory.variants[0].id;
+            memory.selectedVariantName = memory.variants[0].title;
+            memory.step = "consultation";
+            memory.questionIndex = 0;
+            return `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}`;
             }
 
             // Ask for variant selection
@@ -182,7 +291,8 @@ export class PackagehaSession {
 
     private async handleVariantSelection(
         userMessage: string, 
-        memory: Memory
+        memory: Memory,
+        charter: any
     ): Promise<{ reply: string; memoryReset?: boolean }> {
         // Allow restarting search
         if (this.shouldRestartSearch(userMessage)) {
@@ -203,7 +313,7 @@ export class PackagehaSession {
         const optionsContext = memory.variants.map((v, i) => `ID ${i}: ${v.title}`).join("\n");
 
         // Get AI decision
-        const systemPrompt = buildCharterPrompt("variant");
+        const systemPrompt = buildCharterPrompt("variant", charter);
         const userPrompt = `Options:\n${optionsContext}\n\nUser: "${userMessage}"\n\nReturn JSON:\n- If match: { "match": true, "id": <index> }\n- If no match: { "match": false, "reply": "..." }`;
 
         const decision = await this.getVariantDecision(userPrompt, systemPrompt);
@@ -215,7 +325,7 @@ export class PackagehaSession {
             memory.step = "consultation";
             memory.questionIndex = 0;
             return { 
-                reply: `Selected **${selected.title}**.\n\n${SALES_CHARTER.consultation.steps[0].question}` 
+                reply: `Selected **${selected.title}**.\n\n${charter.consultation.steps[0].question}` 
             };
         }
 
@@ -226,9 +336,10 @@ export class PackagehaSession {
 
     private async handleConsultation(
         userMessage: string, 
-        memory: Memory
+        memory: Memory,
+        charter: any
     ): Promise<{ reply: string; memoryReset?: boolean }> {
-        const steps = SALES_CHARTER.consultation.steps;
+        const steps = charter.consultation.steps;
         const currentIndex = memory.questionIndex;
 
         if (currentIndex >= steps.length) {
@@ -358,12 +469,17 @@ Timestamp: ${new Date().toISOString()}
             // Important: Create a new clipboard object to avoid sharing references
             const now = Date.now();
             return {
+                flow: DEFAULT_MEMORY_TEMPLATE.flow,
                 step: DEFAULT_MEMORY_TEMPLATE.step,
                 clipboard: {}, // Fresh object, not shared reference
                 questionIndex: DEFAULT_MEMORY_TEMPLATE.questionIndex,
                 createdAt: now,
                 lastActivity: now,
             };
+        }
+        // Ensure flow exists for old memories
+        if (!stored.flow) {
+            stored.flow = "direct_sales";
         }
         return stored;
     }

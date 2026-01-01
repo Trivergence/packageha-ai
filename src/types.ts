@@ -2,7 +2,7 @@
  * Core Type Definitions for The Studium Platform
  */
 
-export type SovereignMode = "COMMERCIAL" | "SOVEREIGN" | "AIR_GAPPED";
+export type SovereignMode = "COMMERCIAL" | "COMMERCIAL_OPENAI" | "COMMERCIAL_GEMINI" | "SOVEREIGN" | "AIR_GAPPED";
 
 export interface Env {
   PackagehaSession: DurableObjectNamespace;
@@ -10,6 +10,10 @@ export interface Env {
   SHOP_URL: string;
   AI: any; // Cloudflare AI binding
   SOVEREIGN_MODE?: SovereignMode;
+  // For OpenAI (ChatGPT)
+  OPENAI_API_KEY?: string;
+  // For Google Gemini
+  GEMINI_API_KEY?: string;
   // For Mode B (Sovereign) - Vertex AI via Cloudflare AI Gateway
   VERTEX_AI_ENDPOINT?: string;
   VERTEX_AI_PROJECT?: string;
@@ -19,7 +23,8 @@ export interface Env {
 }
 
 export interface Memory {
-  step: "start" | "ask_variant" | "consultation";
+  flow: AgentFlow; // Which flow is active
+  step: string; // Flow-specific step (union type too complex, use string)
   productName?: string;
   productId?: number;
   variants?: Variant[];
@@ -29,6 +34,18 @@ export interface Memory {
   questionIndex: number;
   createdAt?: number;
   lastActivity?: number;
+  // For packaging assistant
+  recommendations?: PackageRecommendation[];
+  // For launch kit
+  selectedServices?: string[];
+}
+
+export interface PackageRecommendation {
+  packageId: number;
+  packageName: string;
+  packageVariant?: string;
+  confidence: "high" | "medium" | "low";
+  reason: string;
 }
 
 export interface Variant {
@@ -62,8 +79,11 @@ export interface ConsultationAnswer {
   timestamp: number;
 }
 
+export type AgentFlow = "direct_sales" | "package_order" | "launch_kit" | "packaging_assistant";
+
 export interface RequestBody {
   message?: string;
   reset?: boolean;
+  flow?: AgentFlow; // Optional: explicit flow selection (for MVP)
 }
 

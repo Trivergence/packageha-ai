@@ -137,3 +137,8 @@ The `wrangler.toml` now supports:
 - [ ] Test with Arabic input
 - [ ] Test draft order creation
 
+## Handoff Documentation
+
+See `HANDOFF_INSTRUCTIONS.md` for comprehensive instructions for new agents to continue development.
+
+

@@ -110,10 +110,150 @@ export const SALES_CHARTER: Charter = {
 };
 
 /**
+ * Package Ordering Charter - Simplified flow for ordering packages
+ */
+export const PACKAGE_ORDER_CHARTER: Charter = {
+    meta: {
+        name: "Packageha Package Ordering Assistant",
+        tone: "Professional, efficient, and helpful. Guide users to order packages quickly.",
+        version: "1.0",
+    },
+    discovery: {
+        mission: "Help user select a package from the available catalog.",
+        rules: SALES_CHARTER.discovery.rules, // Reuse discovery rules
+    },
+    variant: {
+        mission: "Help user select package variant.",
+        rules: SALES_CHARTER.variant.rules, // Reuse variant rules
+    },
+    consultation: {
+        mission: "Collect package order details efficiently.",
+        steps: [
+            {
+                id: "quantity",
+                question: "What quantity would you like to order?",
+                validation: SALES_CHARTER.consultation.steps[0].validation,
+            },
+            {
+                id: "notes",
+                question: "Any special requirements or notes for this order? (optional - type 'none' to skip)",
+            },
+        ],
+    },
+};
+
+/**
+ * Launch Kit Charter - Studio services ordering
+ */
+export const LAUNCH_KIT_CHARTER: Charter = {
+    meta: {
+        name: "Packageha Launch Kit Assistant",
+        tone: "Professional and consultative. Help clients select studio services for their products.",
+        version: "1.0",
+    },
+    discovery: {
+        mission: "Present Launch Kit services to the user.",
+        rules: [
+            "Present services clearly and professionally.",
+            "Explain what each service includes.",
+            "Help user understand which services they need.",
+        ],
+    },
+    variant: SALES_CHARTER.variant, // Not used but required by interface
+    consultation: {
+        mission: "Collect project details for Launch Kit services.",
+        steps: [
+            {
+                id: "services",
+                question: "Which services would you like? (Product Photography, Package Design, Brand Consultation)",
+            },
+            {
+                id: "product_info",
+                question: "Tell me about your product(s) - name, description, or what you're launching.",
+            },
+            {
+                id: "timeline",
+                question: "What's your target timeline for this project?",
+            },
+            {
+                id: "budget",
+                question: "Do you have a budget range for this project?",
+            },
+            {
+                id: "notes",
+                question: "Any additional requirements or special requests?",
+            },
+        ],
+    },
+};
+
+/**
+ * Packaging Assistant Charter - Help users find the right package
+ */
+export const PACKAGING_ASSISTANT_CHARTER: Charter = {
+    meta: {
+        name: "Packageha Packaging Consultant",
+        tone: "Consultative and expert. Help users understand their packaging needs and recommend the best solutions.",
+        version: "1.0",
+    },
+    discovery: {
+        mission: "Understand the user's product and packaging needs.",
+        rules: [
+            "Ask clarifying questions to understand the product.",
+            "Be thorough but conversational.",
+            "Collect all necessary information before recommending.",
+        ],
+    },
+    variant: SALES_CHARTER.variant, // Not used but required
+    consultation: {
+        mission: "Collect product information to recommend the best packaging solution.",
+        steps: [
+            {
+                id: "product_description",
+                question: "First, tell me about your product. What is it? What does it do?",
+            },
+            {
+                id: "dimensions",
+                question: "What are the product dimensions? (Length x Width x Height in cm or inches)",
+                validation: (answer: string) => {
+                    const hasNumbers = /\d/.test(answer);
+                    if (!hasNumbers) return "Please include dimensions with numbers (e.g., 20x15x10 cm).";
+                    return true;
+                },
+            },
+            {
+                id: "weight",
+                question: "Approximately how much does it weigh? (grams or ounces)",
+            },
+            {
+                id: "fragility",
+                question: "Is the product fragile? Does it need special protection?",
+            },
+            {
+                id: "brand_requirements",
+                question: "Any specific branding or design requirements? (logo, colors, finish)",
+            },
+            {
+                id: "budget",
+                question: "What's your budget range for packaging? (per unit or total)",
+            },
+            {
+                id: "quantity",
+                question: "What quantity are you planning to order?",
+                validation: (answer: string) => {
+                    const match = answer.match(/(\d+(?:\.\d+)?)/);
+                    if (!match) return "Please provide a quantity (e.g., 100, 500, 1000).";
+                    return true;
+                },
+            },
+        ],
+    },
+};
+
+/**
  * Build a system prompt from the Charter for AI calls
  */
-export function buildCharterPrompt(phase: "discovery" | "variant" | "consultation"): string {
-    const charter = SALES_CHARTER;
+export function buildCharterPrompt(phase: "discovery" | "variant" | "consultation", charter: Charter = SALES_CHARTER): string {
     let prompt = `You are ${charter.meta.name}. ${charter.meta.tone}\n\n`;
 
     if (phase === "discovery") {

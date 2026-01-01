@@ -6,10 +6,11 @@
 import { Env, SovereignMode } from "./types";
 
 export interface AIConfig {
-  provider: "cloudflare" | "vertex" | "local";
+  provider: "cloudflare" | "openai" | "gemini" | "vertex" | "local";
   model?: string;
   endpoint?: string;
   headers?: Record<string, string>;
+  apiKey?: string;
 }
 
 export class SovereignSwitch {
@@ -27,10 +28,32 @@ export class SovereignSwitch {
   getAIConfig(): AIConfig {
     switch (this.mode) {
       case "COMMERCIAL":
-        // Mode A: Cloudflare AI (OpenAI/Gemini Flash via US)
+        // Mode A: Cloudflare AI (Legacy - small models)
         return {
           provider: "cloudflare",
-          model: "@cf/meta/llama-3-8b-instruct", // Can be upgraded to @cf/google/gemini-flash-1.5-8b
+          model: "@cf/meta/llama-3-8b-instruct",
+        };
+
+      case "COMMERCIAL_OPENAI":
+        // Mode A1: OpenAI (ChatGPT) - GPT-4o or GPT-3.5-turbo
+        if (!this.env.OPENAI_API_KEY) {
+          throw new Error("OPENAI_API_KEY is required for COMMERCIAL_OPENAI mode");
+        }
+        return {
+          provider: "openai",
+          model: "gpt-4o-mini", // Cost-effective, fast. Use "gpt-4o" for best quality
+          apiKey: this.env.OPENAI_API_KEY,
+        };
+
+      case "COMMERCIAL_GEMINI":
+        // Mode A2: Google Gemini - Gemini Flash 1.5 (Recommended for MVP)
+        if (!this.env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY is required for COMMERCIAL_GEMINI mode");
+        }
+        return {
+          provider: "gemini",
+          model: "gemini-1.5-flash", // Fast, cost-effective, excellent JSON generation
+          apiKey: this.env.GEMINI_API_KEY,
         };
 
       case "SOVEREIGN":
@@ -38,7 +61,7 @@ export class SovereignSwitch {
         return {
           provider: "vertex",
           endpoint: this.env.VERTEX_AI_ENDPOINT || "https://aiplatform.googleapis.com/v1",
-          model: "gemini-pro", // Or llama-3 for legal reasoning
+          model: "gemini-pro",
           headers: {
             "Authorization": `Bearer ${this.env.VERTEX_AI_PROJECT}`,
             "Content-Type": "application/json",
@@ -54,7 +77,14 @@ export class SovereignSwitch {
         };
 
       default:
-        // Fallback to commercial
+        // Fallback to Gemini if key available, otherwise Cloudflare AI
+        if (this.env.GEMINI_API_KEY) {
+          return {
+            provider: "gemini",
+            model: "gemini-1.5-flash",
+            apiKey: this.env.GEMINI_API_KEY,
+          };
+        }
         return {
           provider: "cloudflare",
           model: "@cf/meta/llama-3-8b-instruct",
@@ -72,6 +102,12 @@ export class SovereignSwitch {
       switch (config.provider) {
         case "cloudflare":
           return await this.callCloudflareAI(prompt, systemPrompt, config.model!);
+
+        case "openai":
+          return await this.callOpenAI(prompt, systemPrompt, config);
+
+        case "gemini":
+          return await this.callGemini(prompt, systemPrompt, config);
 
         case "vertex":
           return await this.callVertexAI(prompt, systemPrompt, config);
@@ -97,7 +133,7 @@ export class SovereignSwitch {
       throw new Error("Cloudflare AI binding not available");
     }
 
-    const messages = [];
+    const messages: Array<{ role: string; content: string }> = [];
     if (systemPrompt) {
       messages.push({ role: "system", content: systemPrompt });
     }
@@ -105,6 +141,88 @@ export class SovereignSwitch {
 
     const response = await this.env.AI.run(model, { messages });
     return response.response || "";
+  }
+
+  private async callOpenAI(
+    prompt: string,
+    systemPrompt: string | undefined,
+    config: AIConfig
+  ): Promise<string> {
+    const endpoint = "https://api.openai.com/v1/chat/completions";
+    
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt });
+    }
+    messages.push({ role: "user", content: prompt });
+
+    const payload = {
+      model: config.model || "gpt-4o-mini",
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+    };
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "";
+  }
+
+  private async callGemini(
+    prompt: string,
+    systemPrompt: string | undefined,
+    config: AIConfig
+  ): Promise<string> {
+    // Gemini API uses Google AI Studio endpoint
+    const model = config.model || "gemini-1.5-flash";
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
+
+    // Combine system prompt and user prompt for Gemini
+    let fullPrompt = prompt;
+    if (systemPrompt) {
+      fullPrompt = `${systemPrompt}\n\n${prompt}`;
+    }
+
+    const payload = {
+      contents: [{
+        parts: [{
+          text: fullPrompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1024,
+      }
+    };
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   }
 
   private async callVertexAI(
@@ -116,12 +234,15 @@ export class SovereignSwitch {
     // This would typically go through Cloudflare's AI Gateway for routing
     const endpoint = `${config.endpoint}/projects/${this.env.VERTEX_AI_PROJECT}/locations/${this.env.VERTEX_AI_LOCATION || "asia-southeast1"}/publishers/google/models/${config.model}:predict`;
 
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt });
+    }
+    messages.push({ role: "user", content: prompt });
+
     const payload = {
       instances: [{
-        messages: [
-          ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-          { role: "user", content: prompt }
-        ]
+        messages: messages
       }],
       parameters: {
         temperature: 0.7,
@@ -149,12 +270,15 @@ export class SovereignSwitch {
     config: AIConfig
   ): Promise<string> {
     // Local Llama server (OpenAI-compatible API)
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt });
+    }
+    messages.push({ role: "user", content: prompt });
+
     const payload = {
       model: config.model,
-      messages: [
-        ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-        { role: "user", content: prompt }
-      ],
+      messages: messages,
       temperature: 0.7,
     };
 
