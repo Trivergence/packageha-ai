@@ -718,10 +718,16 @@ var PackagehaSession = class {
     try {
       const body = await this.parseRequestBody(request);
       const userMessage = (body.message || "").trim();
-      if (this.shouldReset(userMessage)) {
+      if (this.shouldReset(userMessage) || body.reset === true) {
         return await this.handleReset();
       }
       let memory = await this.loadMemory();
+      const oneHourAgo = Date.now() - 60 * 60 * 1e3;
+      if (memory.lastActivity && memory.lastActivity < oneHourAgo) {
+        console.log("[PackagehaSession] Stale session detected (older than 1 hour) - resetting");
+        await this.state.storage.delete("memory");
+        memory = await this.loadMemory();
+      }
       const requestedFlow = body.flow || memory.flow || "direct_sales";
       if (!memory.flow || memory.flow !== requestedFlow) {
         memory.flow = requestedFlow;

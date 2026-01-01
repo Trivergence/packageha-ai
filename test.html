@@ -511,7 +511,8 @@
             <h1>📦 Packageha AI - Flow Tester</h1>
             <div class="config-section">
                 <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
-                <button onclick="loadAvailableModels()">Check Models</button>
+                <button onclick="loadAvailableModels()" style="margin-right: 8px;">Check Models</button>
+                <button onclick="resetSession()" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Reset Session</button>
             </div>
             <!-- Flow selector removed - only direct_sales flow is supported -->
         </div>
@@ -1640,6 +1641,58 @@
                 }
             } catch (error) {
                 alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function resetSession() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to reset the session? This will clear all progress and start fresh.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: 'reset', flow: currentFlow })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('[resetSession] Session reset, re-initializing flow...');
+                
+                // Reset frontend state
+                flowState = {
+                    backendStep: 'start',
+                    previousBackendStep: null,
+                    productDetails: {},
+                    productDetailsData: {},
+                    package: null,
+                    packageData: null,
+                    variant: null,
+                    packageSpecs: {},
+                    packageSpecsData: {},
+                    fulfillmentSpecs: {},
+                    fulfillmentSpecsData: {},
+                    launchKit: {},
+                    launchKitData: {},
+                    draftOrder: null
+                };
+                
+                // Re-initialize flow
+                handleResponse(data, { type: 'init' });
+                alert('Session reset successfully!');
+            } catch (error) {
+                console.error('[resetSession] Error:', error);
+                alert(`Error resetting session: ${error.message}`);
             }
         }
         

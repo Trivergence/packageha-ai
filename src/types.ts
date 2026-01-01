@@ -5,7 +5,7 @@
 export type SovereignMode = "COMMERCIAL" | "COMMERCIAL_OPENAI" | "COMMERCIAL_GEMINI" | "SOVEREIGN" | "AIR_GAPPED";
 
 export interface Env {
-  PackagehaSession: DurableObjectNamespace;
+  PackagehaSession: DurableObjectNamespace<PackagehaSession>;
   SHOPIFY_ACCESS_TOKEN: string;
   SHOP_URL: string;
   AI: any; // Cloudflare AI binding
@@ -14,23 +14,38 @@ export interface Env {
   OPENAI_API_KEY?: string;
   // For Google Gemini
   GEMINI_API_KEY?: string;
-  // For Mode B (Sovereign) - Vertex AI via Cloudflare AI Gateway
-  VERTEX_AI_ENDPOINT?: string;
-  VERTEX_AI_PROJECT?: string;
-  VERTEX_AI_LOCATION?: string;
-  // For Mode C (Air-Gapped) - Local Llama server
-  LOCAL_LLAMA_ENDPOINT?: string;
 }
 
+// Use global type for DurableObjectNamespace
+declare global {
+  interface DurableObjectNamespace<T> {
+    idFromName(name: string): DurableObjectId;
+    idFromString(id: string): DurableObjectId;
+    get(id: DurableObjectId): DurableObjectStub<T>;
+    newUniqueId(): DurableObjectId;
+  }
+  interface DurableObjectId {
+    toString(): string;
+    equals(other: DurableObjectId): boolean;
+  }
+  interface DurableObjectStub<T> {
+    fetch(input: Request | string, init?: RequestInit): Promise<Response>;
+  }
+  interface PackagehaSession {
+    fetch(request: Request): Promise<Response>;
+  }
+}
+
+// Memory structure for the agent
 export interface Memory {
   flow: AgentFlow; // Which flow is active
   step: string; // Flow-specific step (union type too complex, use string)
-  packageName?: string; // Packageha's package name (what we sell) - NOT the client's product
-  packageId?: number; // Packageha's package ID (what we sell) - NOT the client's product
-  variants?: Variant[]; // Variants of the selected Packageha package
-  selectedVariantId?: number; // Selected variant ID of the Packageha package
-  selectedVariantName?: string; // Selected variant name of the Packageha package
-  clipboard: Record<string, string>; // Stores client product details (product_description, product_dimensions, etc.)
+  packageName?: string; // Renamed from productName - Packageha's package name (what we sell), NOT client's product
+  packageId?: number; // Renamed from productId - Packageha's package ID (what we sell), NOT client's product
+  variants?: Variant[];
+  selectedVariantId?: number;
+  selectedVariantName?: string;
+  clipboard: Record<string, string>;
   questionIndex: number;
   createdAt?: number;
   lastActivity?: number;
@@ -45,22 +60,8 @@ export interface Memory {
     dimensions?: string;
     print?: string;
   };
-  // For package selection from multiple matches (Packageha packages, not client products)
-  pendingMatches?: Array<{ id: number; packageId: number; name: string; reason: string }>;
-}
-
-export interface PackageRecommendation {
-  packageId: number;
-  packageName: string;
-  packageVariant?: string;
-  confidence: "high" | "medium" | "low";
-  reason: string;
-}
-
-export interface Variant {
-  id: number;
-  title: string;
-  price: string;
+  // For package selection from multiple matches
+  pendingMatches?: Array<{ id: number; packageId: number; name: string; reason: string }>; // Updated productId to packageId
 }
 
 // Represents a Packageha package (what we sell) - NOT a client's product
@@ -71,12 +72,18 @@ export interface Product {
   variants: Variant[];
 }
 
+export interface Variant {
+  id: number;
+  title: string;
+  price: string;
+}
+
 export interface AIDecision {
-  type: "found" | "chat" | "none" | "multiple";
+  type: "found" | "multiple" | "none" | "chat";
   id?: number;
+  matches?: Array<{ id: number; name: string; reason: string }>;
   reason?: string;
   reply?: string;
-  matches?: Array<{ id: number; name: string; reason: string }>; // For multiple matches display
 }
 
 export interface VariantDecision {
@@ -99,3 +106,28 @@ export interface RequestBody {
   flow?: AgentFlow; // Optional: explicit flow selection (for MVP)
 }
 
+export interface LaunchKitService {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface PackageRecommendation {
+  packageId: number;
+  packageName: string;
+  matchScore: number;
+  reasoning: string;
+  variants?: Variant[];
+}
+
+export interface PackagingAssistantDecision {
+  recommendations: PackageRecommendation[];
+  reasoning: string;
+}
+
+export interface CustomLineItem {
+  title: string;
+  price: string; // Price as string (e.g., "500.00")
+  quantity: number;
+}

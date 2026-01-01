@@ -52,13 +52,21 @@ export class PackagehaSession {
             const body = await this.parseRequestBody(request);
             const userMessage = (body.message || "").trim();
 
-            // Handle reset
-            if (this.shouldReset(userMessage)) {
+            // Handle reset (via message keyword or explicit reset parameter)
+            if (this.shouldReset(userMessage) || body.reset === true) {
                 return await this.handleReset();
             }
 
             // Load or initialize memory
             let memory = await this.loadMemory();
+            
+            // Auto-reset stale sessions (older than 1 hour)
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            if (memory.lastActivity && memory.lastActivity < oneHourAgo) {
+                console.log("[PackagehaSession] Stale session detected (older than 1 hour) - resetting");
+                await this.state.storage.delete("memory");
+                memory = await this.loadMemory(); // Creates fresh memory
+            }
 
             // Determine flow (explicit from request or from memory)
             const requestedFlow = body.flow || memory.flow || "direct_sales";
