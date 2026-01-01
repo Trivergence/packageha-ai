@@ -73,22 +73,29 @@ export class PackagehaSession {
             // Route to appropriate flow handler
             let reply: string;
             let memoryWasReset = false;
+            let draftOrder: any = undefined;
+            let productMatches: any[] | undefined = undefined;
             
             switch (memory.flow) {
                 case "direct_sales":
                     const directSalesResult = await this.handleDirectSalesFlow(userMessage, memory);
                     reply = directSalesResult.reply;
                     memoryWasReset = directSalesResult.memoryReset || false;
+                    draftOrder = directSalesResult.draftOrder;
+                    productMatches = directSalesResult.productMatches;
                     break;
                 case "package_order":
                     const packageOrderResult = await this.handlePackageOrderFlow(userMessage, memory);
                     reply = packageOrderResult.reply;
                     memoryWasReset = packageOrderResult.memoryReset || false;
+                    draftOrder = packageOrderResult.draftOrder;
+                    productMatches = packageOrderResult.productMatches;
                     break;
                 case "launch_kit":
                     const launchKitResult = await this.handleLaunchKitFlow(userMessage, memory);
                     reply = launchKitResult.reply;
                     memoryWasReset = launchKitResult.memoryReset || false;
+                    draftOrder = launchKitResult.draftOrder;
                     break;
                 case "packaging_assistant":
                     const assistantResult = await this.handlePackagingAssistantFlow(userMessage, memory);
@@ -119,7 +126,12 @@ export class PackagehaSession {
                 await this.state.storage.put("memory", memory);
             }
 
-            return this.jsonResponse({ reply });
+            // Build response with optional fields
+            const response: any = { reply };
+            if (draftOrder) response.draftOrder = draftOrder;
+            if (productMatches) response.productMatches = productMatches;
+
+            return this.jsonResponse(response);
 
         } catch (error: any) {
             console.error("[PackagehaSession] Error:", error);
@@ -137,17 +149,18 @@ export class PackagehaSession {
     private async handleDirectSalesFlow(
         userMessage: string, 
         memory: Memory
-    ): Promise<{ reply: string; memoryReset?: boolean }> {
+    ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[] }> {
         switch (memory.step) {
             case "start":
-                return { reply: await this.handleDiscovery(userMessage, memory, SALES_CHARTER) };
+            case "select_product":
+                return await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
             case "ask_variant":
                 return await this.handleVariantSelection(userMessage, memory, SALES_CHARTER);
             case "consultation":
                 return await this.handleConsultation(userMessage, memory, SALES_CHARTER);
             default:
                 memory.step = "start";
-                return { reply: await this.handleDiscovery(userMessage, memory, SALES_CHARTER) };
+                return await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
         }
     }
 
@@ -157,17 +170,18 @@ export class PackagehaSession {
     private async handlePackageOrderFlow(
         userMessage: string,
         memory: Memory
-    ): Promise<{ reply: string; memoryReset?: boolean }> {
+    ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[] }> {
         switch (memory.step) {
             case "start":
-                return { reply: await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER) };
+            case "select_product":
+                return await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER);
             case "ask_variant":
                 return await this.handleVariantSelection(userMessage, memory, PACKAGE_ORDER_CHARTER);
             case "consultation":
                 return await this.handleConsultation(userMessage, memory, PACKAGE_ORDER_CHARTER);
             default:
                 memory.step = "start";
-                return { reply: await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER) };
+                return await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER);
         }
     }
 
@@ -213,53 +227,124 @@ export class PackagehaSession {
 
     // ==================== SHARED HANDLERS ====================
 
-    private async handleDiscovery(userMessage: string, memory: Memory, charter: any): Promise<string> {
-        // Handle greetings locally (save AI cost)
-        if (this.isGreeting(userMessage)) {
-            return "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')";
-        }
+    /**
+     * Get products (with caching for 5 minutes)
+     */
+    private async getCachedProducts(): Promise<any[]> {
+        const cacheKey = "products_cache";
+        const cacheTimestampKey = "products_cache_timestamp";
+        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-        // Fetch products
-        let products;
         try {
-            products = await getActiveProducts(
-                this.env.SHOP_URL, 
+            // Check cache
+            const cached = await this.state.storage.get<any[]>(cacheKey);
+            const timestamp = await this.state.storage.get<number>(cacheTimestampKey);
+            
+            if (cached && timestamp && (Date.now() - timestamp) < CACHE_TTL) {
+                console.log("[getCachedProducts] Using cached products");
+                return cached;
+            }
+
+            // Fetch fresh products
+            console.log("[getCachedProducts] Fetching fresh products");
+            const products = await getActiveProducts(
+                this.env.SHOP_URL,
                 this.env.SHOPIFY_ACCESS_TOKEN
             );
+
+            // Cache products
+            await this.state.storage.put(cacheKey, products);
+            await this.state.storage.put(cacheTimestampKey, Date.now());
+
+            return products;
+        } catch (error: any) {
+            console.error("[getCachedProducts] Error:", error);
+            throw error;
+        }
+    }
+
+    private async handleDiscovery(userMessage: string, memory: Memory, charter: any): Promise<{ reply: string; productMatches?: any[] }> {
+        // Handle greetings locally (save AI cost)
+        if (this.isGreeting(userMessage)) {
+            return { reply: "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')" };
+        }
+
+        // Fetch products (with caching)
+        let products;
+        try {
+            products = await this.getCachedProducts();
         } catch (error: any) {
             console.error("[handleDiscovery] Error fetching products:", error);
-            return "I'm having trouble accessing the product catalog. Please try again later.";
+            return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
         }
 
         if (products.length === 0) {
-            return "I'm having trouble accessing the product catalog. Please try again later.";
+            return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
         }
 
-        // Prepare inventory context
-        const inventoryList = products.map((p, index) => 
-            `ID ${index}: ${p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim()}`
-        ).join("\n");
+        // Prepare inventory context - include full product names (including Arabic) for better AI reasoning
+        const inventoryList = products.map((p, index) => {
+            const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
+            return `ID ${index}: ${cleanTitle}`;
+        }).join("\n");
 
-        // Build AI prompt with Charter
+        // Build AI prompt with Charter - request multiple matches if available
         const systemPrompt = buildCharterPrompt("discovery", charter);
-        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"\n\nReturn JSON:\n- If match found: { "type": "found", "id": <index>, "reason": "..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
+        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"\n\nReturn JSON:\n- If single match: { "type": "found", "id": <index>, "reason": "..." }\n- If multiple matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "..."}, ...] }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
 
         // Get AI decision
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
 
         // Process decision
         if (decision.type === "chat") {
-            return decision.reply || "I focus on packaging solutions. What are you looking for?";
+            return { reply: decision.reply || "I focus on packaging solutions. What are you looking for?" };
         }
 
         if (decision.type === "none") {
-            return "I couldn't find that product. We offer Boxes, Bags, and Printing services. What do you need?";
+            return { reply: "I couldn't find that product. We offer Boxes, Bags, and Printing services. What do you need?" };
         }
 
-        if (decision.type === "found" && decision.id !== undefined) {
-            const product = products[decision.id];
+        // Handle multiple matches - return for user selection
+        if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
+            const matches = decision.matches
+                .filter(m => m.id !== undefined && products[m.id])
+                .slice(0, 5) // Limit to 5 matches
+                .map(m => ({
+                    id: m.id!,
+                    productId: products[m.id!].id,
+                    name: products[m.id!].title,
+                    reason: m.reason || "Matches your search"
+                }));
+
+            memory.step = "select_product";
+            memory.pendingMatches = matches;
+
+            const matchesList = matches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
+            return {
+                reply: `I found ${matches.length} matching products:\n\n${matchesList}\n\nPlease select a product by number (1-${matches.length}) or describe what you need more specifically.`,
+                productMatches: matches
+            };
+        }
+
+        // Handle single match or selection from multiple
+        let selectedProductIndex: number | undefined = decision.id;
+        
+        // Check if user selected a number from multiple matches
+        if (memory.pendingMatches && !selectedProductIndex) {
+            const numMatch = userMessage.match(/^(\d+)$/);
+            if (numMatch) {
+                const selectedNum = parseInt(numMatch[1]) - 1;
+                if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
+                    selectedProductIndex = memory.pendingMatches[selectedNum].id;
+                    memory.pendingMatches = undefined; // Clear pending matches
+                }
+            }
+        }
+
+        if (selectedProductIndex !== undefined && products[selectedProductIndex]) {
+            const product = products[selectedProductIndex];
             if (!product) {
-                return "I found a match but couldn't load the product details. Please try again.";
+                return { reply: "I found a match but couldn't load the product details. Please try again." };
             }
 
             // Store product info
@@ -273,20 +358,20 @@ export class PackagehaSession {
 
             // Auto-skip variant selection if only one variant
             if (memory.variants.length === 1) {
-            memory.selectedVariantId = memory.variants[0].id;
-            memory.selectedVariantName = memory.variants[0].title;
-            memory.step = "consultation";
-            memory.questionIndex = 0;
-            return `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}`;
+                memory.selectedVariantId = memory.variants[0].id;
+                memory.selectedVariantName = memory.variants[0].title;
+                memory.step = "consultation";
+                memory.questionIndex = 0;
+                return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
             }
 
             // Ask for variant selection
             memory.step = "ask_variant";
             const options = memory.variants.map(v => v.title).join(", ");
-            return `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}`;
+            return { reply: `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
         }
 
-        return "I'm not sure how to help with that. What packaging solution are you looking for?";
+        return { reply: "I'm not sure how to help with that. What packaging solution are you looking for?" };
     }
 
     private async handleVariantSelection(
@@ -338,7 +423,7 @@ export class PackagehaSession {
         userMessage: string, 
         memory: Memory,
         charter: any
-    ): Promise<{ reply: string; memoryReset?: boolean }> {
+    ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any }> {
         const steps = charter.consultation.steps;
         const currentIndex = memory.questionIndex;
 
@@ -378,7 +463,7 @@ export class PackagehaSession {
 
     private async createProjectQuote(
         memory: Memory
-    ): Promise<{ reply: string; memoryReset?: boolean }> {
+    ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any }> {
         if (!memory.selectedVariantId) {
             return { 
                 reply: "Error: Missing product selection. Please type 'reset' to start over." 
@@ -401,7 +486,7 @@ Timestamp: ${new Date().toISOString()}
         const qtyNum = parseInt(qtyRaw.replace(/\D/g, '')) || 1;
 
         try {
-            const invoiceUrl = await createDraftOrder(
+            const draftOrder = await createDraftOrder(
                 this.env.SHOP_URL,
                 this.env.SHOPIFY_ACCESS_TOKEN,
                 memory.selectedVariantId,
@@ -409,12 +494,19 @@ Timestamp: ${new Date().toISOString()}
                 briefNote
             );
 
-            // createDraftOrder throws on error, so if we reach here, invoiceUrl is valid
+            // createDraftOrder throws on error, so if we reach here, draftOrder is valid
             // Reset memory for new project
             await this.state.storage.delete("memory");
+            
+            // Return structured response with draft order info
             return { 
-                reply: `✅ **Project Brief Created!**\n\nI've attached all your specifications to the order. Please review and complete your purchase:\n\n<a href="${invoiceUrl}" target="_blank">View Project Quote & Pay</a>\n\nType 'reset' to start a new project.`,
-                memoryReset: true 
+                reply: `✅ **Project Brief Created!**\n\nI've attached all your specifications to the order. Please review and complete your purchase.\n\nType 'reset' to start a new project.`,
+                memoryReset: true,
+                draftOrder: {
+                    id: draftOrder.draftOrderId,
+                    adminUrl: draftOrder.adminUrl,
+                    invoiceUrl: draftOrder.invoiceUrl
+                }
             };
         } catch (error: any) {
             console.error("[createProjectQuote] Error:", error);
@@ -431,7 +523,7 @@ Timestamp: ${new Date().toISOString()}
             const decision = JSON.parse(cleanJson) as AIDecision;
             
             // Validate decision structure
-            if (!decision.type || !["found", "chat", "none"].includes(decision.type)) {
+            if (!decision.type || !["found", "chat", "none", "multiple"].includes(decision.type)) {
                 throw new Error("Invalid decision type");
             }
             

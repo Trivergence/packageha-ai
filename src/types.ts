@@ -38,6 +38,8 @@ export interface Memory {
   recommendations?: PackageRecommendation[];
   // For launch kit
   selectedServices?: string[];
+  // For product selection from multiple matches
+  pendingMatches?: Array<{ id: number; productId: number; name: string; reason: string }>;
 }
 
 export interface PackageRecommendation {
@@ -61,10 +63,11 @@ export interface Product {
 }
 
 export interface AIDecision {
-  type: "found" | "chat" | "none";
+  type: "found" | "chat" | "none" | "multiple";
   id?: number;
   reason?: string;
   reply?: string;
+  matches?: Array<{ id: number; name: string; reason: string }>; // For multiple matches display
 }
 
 export interface VariantDecision {

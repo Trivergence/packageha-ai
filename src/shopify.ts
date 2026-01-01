@@ -52,13 +52,19 @@ export interface DraftOrderResponse {
     };
 }
 
+export interface DraftOrderResult {
+    draftOrderId: number;
+    adminUrl: string;
+    invoiceUrl?: string;
+}
+
 export async function createDraftOrder(
     shopUrl: string,
     token: string,
     variantId: number,
     qty: number,
     note: string = ""
-): Promise<string> {
+): Promise<DraftOrderResult> {
     const cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
     const url = `https://${cleanShop}/admin/api/2024-01/draft_orders.json`;
 
@@ -89,13 +95,20 @@ export async function createDraftOrder(
         }
 
         const data = await response.json() as DraftOrderResponse;
-        const invoiceUrl = data.draft_order?.invoice_url;
+        const draftOrderId = data.draft_order?.id;
         
-        if (!invoiceUrl) {
-            throw new Error("No invoice URL returned from Shopify");
+        if (!draftOrderId) {
+            throw new Error("No draft order ID returned from Shopify");
         }
 
-        return invoiceUrl;
+        // Construct admin URL (more reliable than invoice URL)
+        const adminUrl = `https://${cleanShop}/admin/draft_orders/${draftOrderId}`;
+        
+        return {
+            draftOrderId,
+            adminUrl,
+            invoiceUrl: data.draft_order?.invoice_url
+        };
     } catch (error: any) {
         console.error("[createDraftOrder] Error:", error);
         throw new Error(`Failed to create draft order: ${error.message}`);

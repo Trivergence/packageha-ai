@@ -347,6 +347,30 @@
                     Responses will appear here...
                 </div>
             </div>
+            
+            <!-- Product Matches Section -->
+            <div id="productMatchesSection" style="display: none; margin-top: 20px;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px; color: #333;">
+                        Select a Product:
+                    </label>
+                    <div id="productMatchesList" style="display: grid; gap: 12px;">
+                        <!-- Product cards will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Draft Order Section -->
+            <div id="draftOrderSection" style="display: none; margin-top: 20px;">
+                <div style="background: #e7f3ff; padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px; color: #0066cc;">
+                        📋 Draft Order Created:
+                    </label>
+                    <div id="draftOrderLinks" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Draft order links will be inserted here -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -432,6 +456,45 @@
                 // Display response
                 responseDiv.className = 'response-content';
                 responseDiv.textContent = data.reply || JSON.stringify(data, null, 2);
+                
+                // Handle product matches (if multiple products found)
+                const matchesSection = document.getElementById('productMatchesSection');
+                const matchesList = document.getElementById('productMatchesList');
+                if (data.productMatches && data.productMatches.length > 0) {
+                    matchesSection.style.display = 'block';
+                    matchesList.innerHTML = data.productMatches.map((match, index) => `
+                        <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #e0e0e0; cursor: pointer; transition: all 0.3s;" 
+                             onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.2)'"
+                             onmouseout="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'"
+                             onclick="selectProduct(${index})">
+                            <div style="font-weight: 600; font-size: 16px; color: #333; margin-bottom: 8px;">
+                                ${match.name}
+                            </div>
+                            <div style="font-size: 14px; color: #666;">
+                                ${match.reason}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    matchesSection.style.display = 'none';
+                }
+                
+                // Handle draft order links
+                const draftSection = document.getElementById('draftOrderSection');
+                const draftLinks = document.getElementById('draftOrderLinks');
+                if (data.draftOrder) {
+                    draftSection.style.display = 'block';
+                    let linksHtml = '';
+                    if (data.draftOrder.adminUrl) {
+                        linksHtml += `<a href="${data.draftOrder.adminUrl}" target="_blank" style="display: inline-block; padding: 12px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin-right: 10px;">📋 View Draft Order (Admin)</a>`;
+                    }
+                    if (data.draftOrder.invoiceUrl) {
+                        linksHtml += `<a href="${data.draftOrder.invoiceUrl}" target="_blank" style="display: inline-block; padding: 12px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">💳 View Invoice & Pay</a>`;
+                    }
+                    draftLinks.innerHTML = linksHtml;
+                } else {
+                    draftSection.style.display = 'none';
+                }
                 
                 // Clear input
                 document.getElementById('userMessage').value = '';
@@ -554,6 +617,14 @@
                 button.textContent = '🔍 Check Models';
             }
         }
+        
+        // Handle product selection from matches
+        window.selectProduct = function(index) {
+            const userMessage = document.getElementById('userMessage');
+            // Set the selected product number (1-based for user, but we need to send it)
+            userMessage.value = String(index + 1);
+            sendMessage();
+        };
         
         // Initialize
         updateFlowInfo();
