@@ -471,7 +471,7 @@
             let html = '<div class="content-card"><h2>Select a Product</h2><div class="product-matches">';
             matches.forEach((match, index) => {
                 html += `
-                    <div class="product-card" onclick="selectProduct(${index})">
+                    <div class="product-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}')">
                         <h3>${match.name}</h3>
                         <p>${match.reason}</p>
                     </div>
@@ -481,11 +481,182 @@
             mainContent.innerHTML = html;
         }
         
-        function selectProduct(index) {
+        function selectProduct(index, name) {
+            // Reflect in chat
+            addChatMessage(`Selected: ${name}`, true);
             // Send the selection as a message
-            const message = String(index + 1);
-            document.getElementById('userMessage').value = message;
-            sendMessage();
+            sendMessageInternal(String(index + 1));
+        }
+        
+        function showVariantSelection(variants) {
+            const mainContent = document.getElementById('mainContent');
+            let html = '<div class="content-card"><h2>Select a Variant</h2><div class="product-matches">';
+            variants.forEach((variant, index) => {
+                html += `
+                    <div class="product-card" onclick="selectVariant(${index}, '${variant.title.replace(/'/g, "\\'")}', ${variant.id})">
+                        <h3>${variant.title}</h3>
+                        <p>Price: ${variant.price}</p>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+            mainContent.innerHTML = html;
+        }
+        
+        function selectVariant(index, title, id) {
+            // Reflect in chat
+            addChatMessage(`Selected: ${title}`, true);
+            // Send the selection
+            sendMessageInternal(title);
+        }
+        
+        function showQuestionInput(question) {
+            const mainContent = document.getElementById('mainContent');
+            let html = '<div class="content-card"><h2>Project Details</h2>';
+            html += `<p style="margin-bottom: 15px; color: #666;">${question.question}</p>`;
+            
+            if (question.options && question.options.length > 0) {
+                // Show as selection widget
+                html += '<div class="product-matches">';
+                question.options.forEach((option, index) => {
+                    html += `
+                        <div class="product-card" onclick="selectOption(${index}, '${String(option).replace(/'/g, "\\'")}', '${question.id}')">
+                            <h3>${option}</h3>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            } else {
+                // Show as input field
+                const defaultValue = question.defaultValue || '';
+                html += `
+                    <div style="margin-top: 15px;">
+                        <input type="text" id="questionInput" placeholder="Enter your answer..." value="${defaultValue}" 
+                               style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+                               onkeydown="if(event.key==='Enter') submitAnswer('${question.id}')">
+                        <button onclick="submitAnswer('${question.id}')" 
+                                style="margin-top: 10px; padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Submit
+                        </button>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            mainContent.innerHTML = html;
+            
+            // Focus input if it's a text field
+            const input = document.getElementById('questionInput');
+            if (input) {
+                setTimeout(() => input.focus(), 100);
+            }
+        }
+        
+        function selectOption(index, option, questionId) {
+            // Reflect in chat
+            addChatMessage(option, true);
+            // Send the selection
+            sendMessageInternal(option);
+        }
+        
+        function submitAnswer(questionId) {
+            const input = document.getElementById('questionInput');
+            if (input && input.value.trim()) {
+                const answer = input.value.trim();
+                // Reflect in chat
+                addChatMessage(answer, true);
+                // Send the answer
+                sendMessageInternal(answer);
+            }
+        }
+        
+        function sendMessageInternal(message) {
+            // Internal function to send message without adding to chat (chat already updated)
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (!message || !apiUrl) return;
+            
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, flow: currentFlow })
+            })
+            .then(response => response.json())
+            .then(data => handleResponse(data))
+            .catch(error => {
+                addChatMessage(`Error: ${error.message}`, false);
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+            });
+        }
+        
+        function handleResponse(data) {
+            const sendBtn = document.getElementById('sendBtn');
+            
+            // Add AI response to chat
+            if (data.reply) {
+                addChatMessage(data.reply, false);
+            }
+            
+            // Handle product matches
+            if (data.productMatches && data.productMatches.length > 0) {
+                showProductMatches(data.productMatches);
+            }
+            
+            // Handle variant selection
+            if (data.variants && data.variants.length > 0) {
+                showVariantSelection(data.variants);
+            }
+            
+            // Handle current question
+            if (data.currentQuestion) {
+                showQuestionInput(data.currentQuestion);
+            }
+            
+            // Handle draft order
+            if (data.draftOrder) {
+                showDraftOrder(data.draftOrder);
+            }
+            
+            // Update flow state
+            if (data.flowState) {
+                if (data.flowState.hasProduct && data.flowState.productName) {
+                    flowState.product = data.flowState.productName;
+                    if (currentStep === 'product') {
+                        currentStep = data.flowState.hasVariant ? 'consultation' : 'variant';
+                    }
+                }
+                if (data.flowState.hasVariant && data.flowState.variantName) {
+                    flowState.variant = data.flowState.variantName;
+                    if (currentStep === 'variant') {
+                        currentStep = 'consultation';
+                    }
+                }
+                if (data.flowState.step === 'consultation') {
+                    currentStep = 'consultation';
+                }
+                updateProgressTracker();
+            } else if (data.reply) {
+                // Fallback: try to extract info from reply text
+                if (!data.productMatches && currentStep === 'product') {
+                    const productMatch = data.reply.match(/\*\*(.+?)\*\*/);
+                    if (productMatch) {
+                        flowState.product = productMatch[1];
+                        currentStep = 'variant';
+                        updateProgressTracker();
+                    }
+                }
+                if (data.reply.includes('project details') || data.reply.includes('Let\'s get')) {
+                    currentStep = 'consultation';
+                    updateProgressTracker();
+                }
+            }
+            
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
         }
         
         function showDraftOrder(draftOrder) {
@@ -514,81 +685,12 @@
         }
         
         async function sendMessage() {
-            const apiUrl = document.getElementById('apiUrl').value.trim();
             const message = document.getElementById('userMessage').value.trim();
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (!message || !apiUrl) return;
+            if (!message) return;
             
             addChatMessage(message, true);
             document.getElementById('userMessage').value = '';
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Sending...';
-            
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, flow: currentFlow })
-                });
-                
-                const data = await response.json();
-                
-                // Add AI response to chat
-                if (data.reply) {
-                    addChatMessage(data.reply, false);
-                }
-                
-                // Handle product matches
-                if (data.productMatches && data.productMatches.length > 0) {
-                    showProductMatches(data.productMatches);
-                }
-                
-                // Handle draft order
-                if (data.draftOrder) {
-                    showDraftOrder(data.draftOrder);
-                }
-                
-                // Update flow state based on response and flowState from backend
-                if (data.flowState) {
-                    if (data.flowState.hasProduct && data.flowState.productName) {
-                        flowState.product = data.flowState.productName;
-                        if (currentStep === 'product') {
-                            currentStep = data.flowState.hasVariant ? 'consultation' : 'variant';
-                        }
-                    }
-                    if (data.flowState.hasVariant && data.flowState.variantName) {
-                        flowState.variant = data.flowState.variantName;
-                        if (currentStep === 'variant') {
-                            currentStep = 'consultation';
-                        }
-                    }
-                    if (data.flowState.step === 'consultation') {
-                        currentStep = 'consultation';
-                    }
-                    updateProgressTracker();
-                } else if (data.reply) {
-                    // Fallback: try to extract info from reply text
-                    if (!data.productMatches && currentStep === 'product') {
-                        const productMatch = data.reply.match(/\*\*(.+?)\*\*/);
-                        if (productMatch) {
-                            flowState.product = productMatch[1];
-                            currentStep = 'variant';
-                            updateProgressTracker();
-                        }
-                    }
-                    if (data.reply.includes('project details') || data.reply.includes('Let\'s get')) {
-                        currentStep = 'consultation';
-                        updateProgressTracker();
-                    }
-                }
-                
-            } catch (error) {
-                addChatMessage(`Error: ${error.message}`, false);
-            } finally {
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send';
-            }
+            sendMessageInternal(message);
         }
         
         // Enter key handling

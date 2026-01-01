@@ -140,6 +140,48 @@ export class PackagehaSession {
                 hasVariant: !!memory.selectedVariantId,
                 questionIndex: memory.questionIndex
             };
+            
+            // Add variant options if we're in variant selection step
+            if (memory.step === "ask_variant" && memory.variants) {
+                response.variants = memory.variants.map(v => ({
+                    id: v.id,
+                    title: v.title,
+                    price: v.price
+                }));
+            }
+            
+            // Add current consultation question if we're in consultation step
+            if (memory.step === "consultation") {
+                let charter;
+                if (memory.flow === "direct_sales") {
+                    charter = SALES_CHARTER;
+                } else if (memory.flow === "package_order") {
+                    charter = PACKAGE_ORDER_CHARTER;
+                }
+                
+                if (charter) {
+                    const steps = charter.consultation.steps;
+                    const currentIndex = memory.questionIndex;
+                    if (currentIndex < steps.length) {
+                        const currentStep = steps[currentIndex];
+                        // Generate default value based on product/variant info if applicable
+                        let defaultValue = null;
+                        if (currentStep.id === "quantity" && memory.clipboard["quantity"]) {
+                            defaultValue = memory.clipboard["quantity"];
+                        } else if (currentStep.id === "dimensions") {
+                            // Could suggest based on product type, but for now leave empty
+                            defaultValue = "";
+                        }
+                        
+                        response.currentQuestion = {
+                            id: currentStep.id,
+                            question: currentStep.question,
+                            options: (currentStep as any).options || null,
+                            defaultValue: defaultValue
+                        };
+                    }
+                }
+            }
 
             return this.jsonResponse(response);
 
