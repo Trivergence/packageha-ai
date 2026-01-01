@@ -383,8 +383,8 @@ export class PackagehaSession {
     }
 
     private async handleDiscovery(userMessage: string, memory: Memory, charter: any): Promise<{ reply: string; productMatches?: any[] }> {
-        // If we're in select_product step, check if user is selecting a number first
-        if (memory.step === "select_product" && memory.pendingMatches) {
+        // If we're in select_product or select_package_discovery step, check if user is selecting a number first
+        if ((memory.step === "select_product" || memory.step === "select_package_discovery") && memory.pendingMatches) {
             const numMatch = userMessage.trim().match(/^(\d+)$/);
             if (numMatch) {
                 const selectedNum = parseInt(numMatch[1]) - 1;
@@ -608,27 +608,13 @@ export class PackagehaSession {
 
         if (currentIndex >= steps.length) {
             // All questions answered - move to next step
+            // This shouldn't happen if we're handling questions properly, but handle gracefully
             memory.step = nextStep;
             memory.questionIndex = 0;
-            
-            // Special handling for next step
-            if (nextStep === "select_package") {
-                return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
-            } else if (nextStep === "fulfillment_specs") {
-                if (!SALES_CHARTER.fulfillmentSpecs) {
-                    return { reply: "Error: Fulfillment specs configuration missing." };
-                }
-                return { reply: SALES_CHARTER.fulfillmentSpecs.steps[0].question };
-            } else if (nextStep === "launch_kit") {
-                if (!SALES_CHARTER.launchKit) {
-                    return { reply: "Error: Launch kit configuration missing." };
-                }
-                return { reply: SALES_CHARTER.launchKit.steps[0].question };
-            } else if (nextStep === "draft_order") {
+            if (nextStep === "draft_order") {
                 return await this.createProjectQuote(memory);
             }
-            
-            return { reply: "Moving to next step..." };
+            return this.getNextStepPrompt(nextStep);
         }
 
         const currentStep = steps[currentIndex];
@@ -658,7 +644,16 @@ export class PackagehaSession {
         // Last question answered - move to next phase
         memory.step = nextStep;
         memory.questionIndex = 0;
-        
+        if (nextStep === "draft_order") {
+            return await this.createProjectQuote(memory);
+        }
+        return this.getNextStepPrompt(nextStep);
+    }
+
+    /**
+     * Helper to get the prompt for the next step after a consultation phase completes
+     */
+    private getNextStepPrompt(nextStep: string): { reply: string } {
         if (nextStep === "select_package") {
             return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
         } else if (nextStep === "fulfillment_specs") {
@@ -671,8 +666,6 @@ export class PackagehaSession {
                 return { reply: "Error: Launch kit configuration missing." };
             }
             return { reply: SALES_CHARTER.launchKit.steps[0].question };
-        } else if (nextStep === "draft_order") {
-            return await this.createProjectQuote(memory);
         }
         
         return { reply: "Moving to next step..." };
@@ -687,6 +680,12 @@ export class PackagehaSession {
     ): Promise<{ reply: string; productMatches?: any[] }> {
         // If we haven't selected a package yet, do discovery
         if (!memory.productId) {
+            // If message is empty or just whitespace, return a prompt (don't call handleDiscovery)
+            if (!userMessage || userMessage.trim() === "") {
+                memory.step = "select_package_discovery";
+                return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
+            }
+            
             memory.step = "select_package_discovery";
             const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
             

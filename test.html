@@ -530,7 +530,8 @@
             packageSpecs: {}, // Package specifications (material, dimensions, print)
             fulfillmentSpecs: {}, // Fulfillment specifications
             launchKit: {}, // Launch kit services
-            draftOrder: null // Draft order result
+            draftOrder: null, // Draft order result
+            backendStep: null // Track backend step for step completion logic
         };
         let isLoading = false; // Track loading state
         
@@ -559,7 +560,8 @@
                 packageSpecs: {},
                 fulfillmentSpecs: {},
                 launchKit: {},
-                draftOrder: null
+                draftOrder: null,
+                backendStep: null
             };
             renderSteps();
         }
@@ -611,10 +613,18 @@
         
         function isStepCompleted(stepId) {
             if (stepId === 'product_details') {
-                // Product details is completed when all questions are answered
-                return Object.keys(flowState.productDetails || {}).length > 0 && 
-                       flowState.productDetails.product_description && 
-                       flowState.productDetails.budget;
+                // Check if backend has moved past this step
+                const backendStep = flowState.backendStep || '';
+                if (backendStep === 'select_package' || backendStep === 'select_package_discovery' || 
+                    backendStep === 'select_package_variant' || backendStep === 'select_package_specs' ||
+                    backendStep === 'fulfillment_specs' || backendStep === 'launch_kit' || backendStep === 'draft_order') {
+                    // Backend has moved past product_details, so it's completed
+                    return true;
+                }
+                // Otherwise check if all required questions are answered
+                const hasDescription = flowState.productDetails?.product_description;
+                const hasBudget = flowState.productDetails?.budget;
+                return hasDescription && hasBudget;
             }
             if (stepId === 'package_selection') {
                 // Package selection is completed when package and variant are selected, and package specs are done
@@ -1314,6 +1324,9 @@
             
             const backendStep = data.flowState?.step || '';
             
+            // Store backend step in flowState early so other logic can use it
+            flowState.backendStep = backendStep;
+            
             // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
             // If backend is in package specs (currentQuestion present) but no variant is selected,
             // it means variant step was auto-skipped (single variant or no variants)
@@ -1408,6 +1421,27 @@
                 flowState.packageData = flowState.packageData || {};
                 flowState.packageData.variants = data.variants;
             }
+            // Handle step transitions - clear old consultation data when moving to a new step
+            if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
+                // Moving to package selection - clear product details question
+                if (flowState.productDetailsData) {
+                    flowState.productDetailsData.currentQuestion = null;
+                }
+            } else if (backendStep === 'select_package_specs') {
+                // Moving to package specs - clear package selection data if needed
+                // (package selection doesn't have consultation data, so nothing to clear)
+            } else if (backendStep === 'fulfillment_specs') {
+                // Moving to fulfillment specs - clear package specs question
+                if (flowState.packageSpecsData) {
+                    flowState.packageSpecsData.currentQuestion = null;
+                }
+            } else if (backendStep === 'launch_kit') {
+                // Moving to launch kit - clear fulfillment specs question
+                if (flowState.fulfillmentSpecsData) {
+                    flowState.fulfillmentSpecsData.currentQuestion = null;
+                }
+            }
+            
             if (data.currentQuestion) {
                 console.log('[handleResponse] Updating currentQuestion:', data.currentQuestion.id, data.currentQuestion);
                 const consultationKey = getCurrentConsultationState(backendStep);
@@ -1417,6 +1451,14 @@
                 }
                 flowState[dataKey].currentQuestion = data.currentQuestion;
                 console.log(`[handleResponse] ${dataKey} after update:`, flowState[dataKey]);
+            } else {
+                // No currentQuestion means we're in a non-consultation step (like select_package)
+                // Make sure we clear any old consultation data
+                if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
+                    if (flowState.productDetailsData) {
+                        flowState.productDetailsData.currentQuestion = null;
+                    }
+                }
             }
             if (data.draftOrder) {
                 console.log('[handleResponse] Draft order created:', data.draftOrder.id);
@@ -1430,6 +1472,7 @@
             
             console.log('[handleResponse] Updated flowState:', JSON.parse(JSON.stringify(flowState)));
             console.log('[handleResponse] data.flowState from backend:', data.flowState);
+            console.log('[handleResponse] Backend step is:', backendStep);
             
             // Re-render steps
             console.log('[handleResponse] Re-rendering steps...');
@@ -1454,8 +1497,43 @@
             }
         }
         
+        // Initialize - make initial API call to get first question
+        async function initializeFlow() {
+            console.log('[initializeFlow] Initializing flow...');
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                console.log('[initializeFlow] No API URL, skipping initialization');
+                renderSteps();
+                return;
+            }
+            
+            try {
+                // Send empty message to trigger start step
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: '', flow: currentFlow })
+                });
+                
+                if (!response.ok) {
+                    console.error('[initializeFlow] Response error:', response.status);
+                    renderSteps();
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('[initializeFlow] Initial response:', data);
+                
+                // Use handleResponse to process the initial response properly
+                handleResponse(data, { type: 'init' });
+            } catch (error) {
+                console.error('[initializeFlow] Error:', error);
+                renderSteps();
+            }
+        }
+        
         // Initialize
-        renderSteps();
+        initializeFlow();
     </script>
 </body>
 </html>
