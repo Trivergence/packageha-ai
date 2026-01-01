@@ -1049,10 +1049,37 @@ ${matchesList}`,
       return `ID ${index}: ${cleanTitle}`;
     }).join("\n");
     const systemPrompt = buildCharterPrompt("discovery", charter);
+    let productContext = "";
+    if (memory.clipboard && Object.keys(memory.clipboard).length > 0) {
+      const contextParts = [];
+      if (memory.clipboard.product_description) {
+        contextParts.push(`Product: ${memory.clipboard.product_description}`);
+      }
+      if (memory.clipboard.product_dimensions) {
+        contextParts.push(`Dimensions: ${memory.clipboard.product_dimensions}`);
+      }
+      if (memory.clipboard.product_weight) {
+        contextParts.push(`Weight: ${memory.clipboard.product_weight}`);
+      }
+      if (memory.clipboard.fragility) {
+        contextParts.push(`Fragility: ${memory.clipboard.fragility}`);
+      }
+      if (memory.clipboard.budget) {
+        contextParts.push(`Budget: ${memory.clipboard.budget}`);
+      }
+      if (contextParts.length > 0) {
+        productContext = `
+
+Product Details:
+${contextParts.join("\n")}
+
+Use this context to recommend the most suitable packaging solution.`;
+      }
+    }
     const userPrompt = `Inventory:
 ${inventoryList}
 
-User Input: "${userMessage}"
+User Input: "${userMessage}"${productContext}
 
 Return JSON:
 - If single match: { "type": "found", "id": <index>, "reason": "..." }

@@ -822,11 +822,42 @@
         }
         
         function renderProductSearch() {
+            // Generate suggested search query based on product details
+            let suggestedQuery = '';
+            if (flowState.productDetails) {
+                const parts = [];
+                if (flowState.productDetails.product_description) {
+                    // Extract key terms from product description
+                    const desc = flowState.productDetails.product_description.toLowerCase();
+                    if (desc.includes('fragile') || (flowState.productDetails.fragility && flowState.productDetails.fragility.includes('fragile'))) {
+                        parts.push('protective');
+                    }
+                    if (desc.includes('food') || desc.includes('edible')) {
+                        parts.push('food-safe');
+                    }
+                    if (desc.includes('electronic') || desc.includes('device')) {
+                        parts.push('electronics packaging');
+                    }
+                }
+                if (flowState.productDetails.product_dimensions) {
+                    parts.push(flowState.productDetails.product_dimensions);
+                }
+                if (flowState.productDetails.fragility && flowState.productDetails.fragility.includes('cushioning')) {
+                    parts.push('cushioned box');
+                }
+                if (parts.length > 0) {
+                    suggestedQuery = parts.join(' ');
+                } else {
+                    suggestedQuery = 'custom box';
+                }
+            }
+            
             return `
                 <div class="step-body">
                     <div class="question-text">What package are you looking for?</div>
                     <div class="input-group">
                         <input type="text" id="productSearchInput" placeholder="e.g., Custom Boxes, Bags, Printing Services..." 
+                               value="${suggestedQuery}"
                                onkeydown="if(event.key==='Enter') searchProducts()">
                     </div>
                     <button class="submit-btn" onclick="searchProducts()">Search Products</button>
@@ -1343,16 +1374,15 @@
             }
             
             // Handle package search - show matches
+            // IMPORTANT: Don't return early - continue processing to update backend step
             if (metadata && metadata.type === 'product_search') {
                 console.log('[handleResponse] Handling product_search');
                 if (data.productMatches && data.productMatches.length > 0) {
                     console.log('[handleResponse] Found package matches:', data.productMatches.length);
                     flowState.packageData = { matches: data.productMatches };
-                    renderSteps();
-                    return;
-                }
-                // If no matches but we have a reply, the package was found directly
-                if (data.flowState && data.flowState.hasProduct) {
+                    // Continue processing - don't return early
+                } else if (data.flowState && data.flowState.hasProduct) {
+                    // If no matches but we have a reply, the package was found directly
                     console.log('[handleResponse] Package found directly:', data.flowState.productName);
                     flowState.package = data.flowState.productName;
                     flowState.packageData = null;
@@ -1363,16 +1393,14 @@
                         flowState.variant = data.flowState?.variantName || 'Default';
                         flowState.packageData = null;
                         
-                        // CRITICAL: Set packageSpecsData before returning
+                        // CRITICAL: Set packageSpecsData
                         if (!flowState.packageSpecsData) {
                             flowState.packageSpecsData = {};
                         }
                         flowState.packageSpecsData.currentQuestion = data.currentQuestion;
                         console.log('[handleResponse] Set packageSpecsData in product_search handler:', flowState.packageSpecsData);
                     }
-                    
-                    renderSteps();
-                    return;
+                    // Continue processing - don't return early
                 }
             }
             
@@ -1421,25 +1449,29 @@
                 flowState.packageData = flowState.packageData || {};
                 flowState.packageData.variants = data.variants;
             }
-            // Handle step transitions - clear old consultation data when moving to a new step
+            // Handle step transitions - clear old consultation currentQuestion when moving to a new step
+            // BUT DO NOT clear the answers - they should persist for display in completed view
             if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
-                // Moving to package selection - clear product details question
+                // Moving to package selection - clear product details currentQuestion only
                 if (flowState.productDetailsData) {
                     flowState.productDetailsData.currentQuestion = null;
                 }
+                // DO NOT clear flowState.productDetails - answers should persist
             } else if (backendStep === 'select_package_specs') {
                 // Moving to package specs - clear package selection data if needed
                 // (package selection doesn't have consultation data, so nothing to clear)
             } else if (backendStep === 'fulfillment_specs') {
-                // Moving to fulfillment specs - clear package specs question
+                // Moving to fulfillment specs - clear package specs question only
                 if (flowState.packageSpecsData) {
                     flowState.packageSpecsData.currentQuestion = null;
                 }
+                // DO NOT clear flowState.packageSpecs - answers should persist
             } else if (backendStep === 'launch_kit') {
-                // Moving to launch kit - clear fulfillment specs question
+                // Moving to launch kit - clear fulfillment specs question only
                 if (flowState.fulfillmentSpecsData) {
                     flowState.fulfillmentSpecsData.currentQuestion = null;
                 }
+                // DO NOT clear flowState.fulfillmentSpecs - answers should persist
             }
             
             if (data.currentQuestion) {

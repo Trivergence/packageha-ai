@@ -471,7 +471,32 @@ export class PackagehaSession {
 
         // Build AI prompt with Charter - request multiple matches if available
         const systemPrompt = buildCharterPrompt("discovery", charter);
-        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"\n\nReturn JSON:\n- If single match: { "type": "found", "id": <index>, "reason": "..." }\n- If multiple matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "..."}, ...] }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
+        
+        // Include product details context if available (for direct sales flow)
+        let productContext = '';
+        if (memory.clipboard && Object.keys(memory.clipboard).length > 0) {
+            const contextParts = [];
+            if (memory.clipboard.product_description) {
+                contextParts.push(`Product: ${memory.clipboard.product_description}`);
+            }
+            if (memory.clipboard.product_dimensions) {
+                contextParts.push(`Dimensions: ${memory.clipboard.product_dimensions}`);
+            }
+            if (memory.clipboard.product_weight) {
+                contextParts.push(`Weight: ${memory.clipboard.product_weight}`);
+            }
+            if (memory.clipboard.fragility) {
+                contextParts.push(`Fragility: ${memory.clipboard.fragility}`);
+            }
+            if (memory.clipboard.budget) {
+                contextParts.push(`Budget: ${memory.clipboard.budget}`);
+            }
+            if (contextParts.length > 0) {
+                productContext = `\n\nProduct Details:\n${contextParts.join('\n')}\n\nUse this context to recommend the most suitable packaging solution.`;
+            }
+        }
+        
+        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}\n\nReturn JSON:\n- If single match: { "type": "found", "id": <index>, "reason": "..." }\n- If multiple matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "..."}, ...] }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
 
         // Get AI decision
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
