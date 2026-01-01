@@ -863,8 +863,22 @@
                                onkeydown="if(event.key==='Enter') searchProducts()">
                     </div>
                     <button class="submit-btn" onclick="searchProducts()">Search Packages</button>
+                    <div id="searchFallbackMessage" style="display: none; margin-top: 12px; padding: 12px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+                        No packages found. Try a simpler search like "box" or "packaging".
+                    </div>
                 </div>
             `;
+        }
+        
+        function searchProductsWithFallback() {
+            const input = document.getElementById('productSearchInput');
+            if (input && input.value.trim()) {
+                const query = input.value.trim();
+                sendSelection(query, { type: 'product_search', originalQuery: query });
+            } else {
+                // If empty, send a generic search
+                sendSelection('show me products', { type: 'product_search' });
+            }
         }
         
         function renderProductSelection(matches) {
@@ -1107,7 +1121,8 @@
         function searchProducts() {
             const input = document.getElementById('productSearchInput');
             if (input && input.value.trim()) {
-                sendSelection(input.value.trim(), { type: 'product_search' });
+                const query = input.value.trim();
+                sendSelection(query, { type: 'product_search', originalQuery: query });
             } else {
                 // If empty, send a generic search
                 sendSelection('show me products', { type: 'product_search' });
@@ -1399,12 +1414,18 @@
                     flowState.packageData = flowState.packageData || {};
                     flowState.packageData.matches = data.productMatches;
                     console.log('[handleResponse] Set flowState.packageData.matches:', flowState.packageData);
+                    // Hide fallback message if matches found
+                    const fallbackMsg = document.getElementById('searchFallbackMessage');
+                    if (fallbackMsg) fallbackMsg.style.display = 'none';
                     // Continue processing - don't return early
                 } else if (data.flowState && data.flowState.hasProduct) {
                     // If no matches but we have a reply, the package was found directly
                     console.log('[handleResponse] Package found directly:', data.flowState.productName);
                     flowState.package = data.flowState.productName;
                     flowState.packageData = null;
+                    // Hide fallback message
+                    const fallbackMsg = document.getElementById('searchFallbackMessage');
+                    if (fallbackMsg) fallbackMsg.style.display = 'none';
                     
                     // Check if variant was auto-skipped immediately after package selection
                     if (data.currentQuestion && backendStep === 'select_package_specs') {
@@ -1420,6 +1441,13 @@
                         console.log('[handleResponse] Set packageSpecsData in product_search handler:', flowState.packageSpecsData);
                     }
                     // Continue processing - don't return early
+                } else {
+                    // No matches found - show fallback message
+                    console.log('[handleResponse] No productMatches and no hasProduct - search returned no results');
+                    const fallbackMsg = document.getElementById('searchFallbackMessage');
+                    if (fallbackMsg) {
+                        fallbackMsg.style.display = 'block';
+                    }
                 }
             }
             
@@ -1534,6 +1562,13 @@
                 console.log(`[handleResponse] ${dataKey} after update:`, flowState[dataKey]);
             } else {
                 // No currentQuestion means we're in a non-consultation step (like select_package)
+                // BUT: For init type, if we're in product_details step, we should have a currentQuestion
+                // This handles the case where the first question is returned but currentQuestion isn't set properly
+                if (metadata && metadata.type === 'init' && backendStep === 'product_details') {
+                    // On init, if we're in product_details but no currentQuestion, 
+                    // the backend should have returned one, so this shouldn't happen
+                    console.warn('[handleResponse] Init with product_details but no currentQuestion');
+                }
                 // Make sure we clear any old consultation data
                 if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
                     if (flowState.productDetailsData) {

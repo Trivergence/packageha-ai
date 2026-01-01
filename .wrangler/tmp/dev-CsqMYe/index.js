@@ -1002,15 +1002,30 @@ var PackagehaSession = class {
           if (memory.variants.length === 1) {
             memory.selectedVariantId = memory.variants[0].id;
             memory.selectedVariantName = "Default";
-            memory.step = "consultation";
-            memory.questionIndex = 0;
-            return { reply: `Found **${product.title}**.
+            if (memory.flow === "direct_sales") {
+              memory.step = "select_package_specs";
+              memory.questionIndex = 0;
+              if (!SALES_CHARTER.packageSpecs) {
+                return { reply: "Error: Package specs configuration missing." };
+              }
+              return { reply: `Found **${product.title}**.
+
+${SALES_CHARTER.packageSpecs.steps[0].question}` };
+            } else {
+              memory.step = "consultation";
+              memory.questionIndex = 0;
+              return { reply: `Found **${product.title}**.
 
 Let's get your project details.
 
 ${charter.consultation.steps[0].question}` };
+            }
           }
-          memory.step = "ask_variant";
+          if (memory.flow === "direct_sales") {
+            memory.step = "select_package_variant";
+          } else {
+            memory.step = "ask_variant";
+          }
           const options = memory.variants.map((v) => v.title).join(", ");
           return { reply: `Found **${product.title}**.
 
@@ -1131,16 +1146,31 @@ Please select a product by number (1-${matches.length}) or describe what you nee
       }));
       if (memory.variants.length === 1) {
         memory.selectedVariantId = memory.variants[0].id;
-        memory.selectedVariantName = memory.variants[0].title;
-        memory.step = "consultation";
-        memory.questionIndex = 0;
-        return { reply: `Found **${product.title}**.
+        memory.selectedVariantName = "Default";
+        if (memory.flow === "direct_sales") {
+          memory.step = "select_package_specs";
+          memory.questionIndex = 0;
+          if (!SALES_CHARTER.packageSpecs) {
+            return { reply: "Error: Package specs configuration missing." };
+          }
+          return { reply: `Found **${product.title}**.
+
+${SALES_CHARTER.packageSpecs.steps[0].question}` };
+        } else {
+          memory.step = "consultation";
+          memory.questionIndex = 0;
+          return { reply: `Found **${product.title}**.
 
 Let's get your project details.
 
 ${charter.consultation.steps[0].question}` };
+        }
       }
-      memory.step = "ask_variant";
+      if (memory.flow === "direct_sales") {
+        memory.step = "select_package_variant";
+      } else {
+        memory.step = "ask_variant";
+      }
       const options = memory.variants.map((v) => v.title).join(", ");
       return { reply: `Found **${product.title}**.
 

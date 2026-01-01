@@ -420,13 +420,29 @@ export class PackagehaSession {
                         memory.selectedVariantId = memory.variants[0].id;
                         // Use "Default" instead of the variant title when auto-selecting single variant
                         memory.selectedVariantName = "Default";
-                        memory.step = "consultation";
-                        memory.questionIndex = 0;
-                        return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                        // For direct_sales flow, use select_package_specs instead of consultation
+                        if (memory.flow === "direct_sales") {
+                            memory.step = "select_package_specs";
+                            memory.questionIndex = 0;
+                            if (!SALES_CHARTER.packageSpecs) {
+                                return { reply: "Error: Package specs configuration missing." };
+                            }
+                            return { reply: `Found **${product.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
+                        } else {
+                            // Legacy flow
+                            memory.step = "consultation";
+                            memory.questionIndex = 0;
+                            return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                        }
                     }
 
                     // Ask for variant selection
-                    memory.step = "ask_variant";
+                    // For direct_sales flow, use select_package_variant instead of ask_variant
+                    if (memory.flow === "direct_sales") {
+                        memory.step = "select_package_variant";
+                    } else {
+                        memory.step = "ask_variant";
+                    }
                     const options = memory.variants.map(v => v.title).join(", ");
                     return { reply: `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
                 } else {
@@ -560,14 +576,30 @@ export class PackagehaSession {
             // Auto-skip variant selection if only one variant
             if (memory.variants.length === 1) {
                 memory.selectedVariantId = memory.variants[0].id;
-                memory.selectedVariantName = memory.variants[0].title;
-                memory.step = "consultation";
-                memory.questionIndex = 0;
-                return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                memory.selectedVariantName = "Default";
+                // For direct_sales flow, use select_package_specs instead of consultation
+                if (memory.flow === "direct_sales") {
+                    memory.step = "select_package_specs";
+                    memory.questionIndex = 0;
+                    if (!SALES_CHARTER.packageSpecs) {
+                        return { reply: "Error: Package specs configuration missing." };
+                    }
+                    return { reply: `Found **${product.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
+                } else {
+                    // Legacy flow
+                    memory.step = "consultation";
+                    memory.questionIndex = 0;
+                    return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                }
             }
 
             // Ask for variant selection
-            memory.step = "ask_variant";
+            // For direct_sales flow, use select_package_variant instead of ask_variant
+            if (memory.flow === "direct_sales") {
+                memory.step = "select_package_variant";
+            } else {
+                memory.step = "ask_variant";
+            }
             const options = memory.variants.map(v => v.title).join(", ");
             return { reply: `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
         }
