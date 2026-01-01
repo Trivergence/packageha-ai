@@ -130,6 +130,16 @@ export class PackagehaSession {
             const response: any = { reply };
             if (draftOrder) response.draftOrder = draftOrder;
             if (productMatches) response.productMatches = productMatches;
+            
+            // Add flow state for UI tracking
+            response.flowState = {
+                step: memory.step,
+                productName: memory.productName,
+                variantName: memory.selectedVariantName,
+                hasProduct: !!memory.productId,
+                hasVariant: !!memory.selectedVariantId,
+                questionIndex: memory.questionIndex
+            };
 
             return this.jsonResponse(response);
 
@@ -264,6 +274,67 @@ export class PackagehaSession {
     }
 
     private async handleDiscovery(userMessage: string, memory: Memory, charter: any): Promise<{ reply: string; productMatches?: any[] }> {
+        // If we're in select_product step, check if user is selecting a number first
+        if (memory.step === "select_product" && memory.pendingMatches) {
+            const numMatch = userMessage.trim().match(/^(\d+)$/);
+            if (numMatch) {
+                const selectedNum = parseInt(numMatch[1]) - 1;
+                if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
+                    // User selected a product - get the product index from the match
+                    const selectedProductIndex = memory.pendingMatches[selectedNum].id;
+                    
+                    // Fetch products to get full details
+                    let products;
+                    try {
+                        products = await this.getCachedProducts();
+                    } catch (error: any) {
+                        return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+                    }
+                    
+                    const product = products[selectedProductIndex];
+                    if (!product) {
+                        return { reply: "I found a match but couldn't load the product details. Please try again." };
+                    }
+
+                    // Store product info
+                    memory.productName = product.title;
+                    memory.productId = product.id;
+                    memory.variants = product.variants.map((v: any) => ({
+                        id: v.id,
+                        title: v.title,
+                        price: v.price,
+                    }));
+                    memory.pendingMatches = undefined; // Clear pending matches
+
+                    // Auto-skip variant selection if only one variant
+                    if (memory.variants.length === 1) {
+                        memory.selectedVariantId = memory.variants[0].id;
+                        memory.selectedVariantName = memory.variants[0].title;
+                        memory.step = "consultation";
+                        memory.questionIndex = 0;
+                        return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                    }
+
+                    // Ask for variant selection
+                    memory.step = "ask_variant";
+                    const options = memory.variants.map(v => v.title).join(", ");
+                    return { reply: `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
+                } else {
+                    // Invalid number
+                    const matchesList = memory.pendingMatches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
+                    return {
+                        reply: `Please select a number between 1 and ${memory.pendingMatches.length}:\n\n${matchesList}`,
+                        productMatches: memory.pendingMatches
+                    };
+                }
+            } else {
+                // User didn't provide a valid number - could be searching again or invalid input
+                // Continue to search logic below
+                memory.pendingMatches = undefined;
+                memory.step = "start";
+            }
+        }
+        
         // Handle greetings locally (save AI cost)
         if (this.isGreeting(userMessage)) {
             return { reply: "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')" };
@@ -326,20 +397,8 @@ export class PackagehaSession {
             };
         }
 
-        // Handle single match or selection from multiple
-        let selectedProductIndex: number | undefined = decision.id;
-        
-        // Check if user selected a number from multiple matches
-        if (memory.pendingMatches && !selectedProductIndex) {
-            const numMatch = userMessage.match(/^(\d+)$/);
-            if (numMatch) {
-                const selectedNum = parseInt(numMatch[1]) - 1;
-                if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
-                    selectedProductIndex = memory.pendingMatches[selectedNum].id;
-                    memory.pendingMatches = undefined; // Clear pending matches
-                }
-            }
-        }
+        // Handle single match
+        const selectedProductIndex = decision.id;
 
         if (selectedProductIndex !== undefined && products[selectedProductIndex]) {
             const product = products[selectedProductIndex];

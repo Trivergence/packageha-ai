@@ -15,546 +15,583 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+            background: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
         }
         
         .header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            opacity: 0.9;
-            font-size: 14px;
-        }
-        
-        .content {
-            padding: 30px;
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
         }
         
         .config-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-        }
-        
-        .config-section label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
         
         .config-section input {
-            width: 100%;
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .config-section button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .progress-tracker {
+            background: white;
+            padding: 25px 30px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .progress-steps {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .progress-step {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        
+        .progress-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 60%;
+            right: -40%;
+            height: 2px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+        
+        .progress-step.completed:not(:last-child)::after {
+            background: #28a745;
+        }
+        
+        .progress-step.active:not(:last-child)::after {
+            background: linear-gradient(to right, #28a745 0%, #e0e0e0 50%);
+        }
+        
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s;
+        }
+        
+        .progress-step.completed .step-icon {
+            background: #28a745;
+            color: white;
+        }
+        
+        .progress-step.active .step-icon {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+        }
+        
+        .step-label {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .progress-step.completed .step-label {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .progress-step.active .step-label {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .step-detail {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .content-card {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .product-matches {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .product-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        
+        .product-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .product-card h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .product-card p {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .draft-order-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .draft-order-card h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .draft-order-links {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .draft-order-links a {
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .draft-order-links a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .chat-container {
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 20px 30px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .chat-messages {
+            max-width: 900px;
+            margin: 0 auto 15px auto;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.ai {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .chat-input-area {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input-area textarea {
+            flex: 1;
             padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 14px;
-            transition: border-color 0.3s;
+            font-family: inherit;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
         }
         
-        .config-section input:focus {
+        .chat-input-area textarea:focus {
             outline: none;
             border-color: #667eea;
         }
         
-        .flow-selector {
-            margin-bottom: 25px;
-        }
-        
-        .flow-selector label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #333;
-        }
-        
-        .flow-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-        }
-        
-        .flow-btn {
-            padding: 15px 20px;
-            border: 2px solid #e0e0e0;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-            text-align: center;
-        }
-        
-        .flow-btn:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-        
-        .flow-btn.active {
-            border-color: #667eea;
+        .chat-input-area button {
+            padding: 12px 24px;
             background: #667eea;
             color: white;
-        }
-        
-        .input-section {
-            margin-bottom: 25px;
-        }
-        
-        .input-section label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-        }
-        
-        .input-section textarea {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 100px;
-            transition: border-color 0.3s;
-        }
-        
-        .input-section textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 25px;
-        }
-        
-        button {
-            flex: 1;
-            padding: 15px 25px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background 0.2s;
         }
         
-        .send-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .chat-input-area button:hover:not(:disabled) {
+            background: #5568d3;
         }
         
-        .send-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .send-btn:disabled {
-            opacity: 0.5;
+        .chat-input-area button:disabled {
+            background: #ccc;
             cursor: not-allowed;
-            transform: none;
-        }
-        
-        .reset-btn {
-            background: #f8f9fa;
-            color: #333;
-            border: 2px solid #e0e0e0;
-        }
-        
-        .reset-btn:hover {
-            background: #e9ecef;
-        }
-        
-        .response-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            min-height: 150px;
-        }
-        
-        .response-section label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #333;
-        }
-        
-        .response-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border: 2px solid #e0e0e0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            color: #333;
-            min-height: 100px;
-        }
-        
-        .response-content.empty {
-            color: #999;
-            font-style: italic;
         }
         
         .loading {
-            display: none;
             text-align: center;
-            padding: 20px;
-            color: #667eea;
+            color: #666;
+            padding: 10px;
         }
         
-        .loading.active {
-            display: block;
+        .hidden {
+            display: none;
         }
         
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .flow-info {
-            background: #e7f3ff;
-            padding: 12px 15px;
-            border-radius: 8px;
+        .flow-selector {
             margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-            font-size: 14px;
-            color: #0066cc;
         }
         
-        .error {
-            background: #ffe7e7;
-            color: #cc0000;
-            border-left-color: #cc0000;
+        .flow-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .flow-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .flow-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎁 Packageha AI - Flow Tester</h1>
-            <p>Test all three flows: Package Order, Launch Kit, and Packaging Assistant</p>
+    <div class="header">
+        <h1>📦 Packageha AI - Flow Tester</h1>
+        <div class="config-section">
+            <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
+            <button onclick="loadAvailableModels()">Check Models</button>
         </div>
-        
-        <div class="content">
-            <div class="config-section">
-                <label for="apiUrl">Worker URL:</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input 
-                        type="text" 
-                        id="apiUrl" 
-                        value="https://packageha-ai.akhodary-006.workers.dev"
-                        placeholder="Enter your Cloudflare Worker URL"
-                        style="flex: 1;"
-                    />
-                    <button 
-                        onclick="loadAvailableModels()" 
-                        style="padding: 12px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap;"
-                    >
-                        🔍 Check Models
-                    </button>
-                </div>
-                <div id="modelsInfo" style="margin-top: 12px; display: none;">
-                    <div style="background: #e7f3ff; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
-                        <strong>Available Gemini Models:</strong>
-                        <div id="modelsList" style="margin-top: 8px; font-family: monospace; font-size: 12px;"></div>
-                        <div id="selectedModel" style="margin-top: 8px; font-weight: 600; color: #0066cc;"></div>
-                    </div>
-                </div>
+        <div class="flow-selector" style="margin-top: 15px;">
+            <div class="flow-buttons">
+                <button class="flow-btn active" data-flow="direct_sales" onclick="selectFlow('direct_sales')">Direct Sales</button>
+                <button class="flow-btn" data-flow="package_order" onclick="selectFlow('package_order')">Package Order</button>
+                <button class="flow-btn" data-flow="launch_kit" onclick="selectFlow('launch_kit')">Launch Kit</button>
+                <button class="flow-btn" data-flow="packaging_assistant" onclick="selectFlow('packaging_assistant')">Packaging Assistant</button>
             </div>
-            
-            <div class="flow-selector">
-                <label>Select Flow:</label>
-                <div class="flow-buttons">
-                    <div class="flow-btn active" data-flow="direct_sales">
-                        📦 Direct Sales
-                    </div>
-                    <div class="flow-btn" data-flow="package_order">
-                        🛒 Package Order
-                    </div>
-                    <div class="flow-btn" data-flow="launch_kit">
-                        🚀 Launch Kit
-                    </div>
-                    <div class="flow-btn" data-flow="packaging_assistant">
-                        💡 Packaging Assistant
-                    </div>
-                </div>
+        </div>
+    </div>
+    
+    <div class="progress-tracker">
+        <div class="progress-steps">
+            <div class="progress-step" id="step-product">
+                <div class="step-icon">1</div>
+                <div class="step-label">Product</div>
+                <div class="step-detail" id="step-product-detail"></div>
             </div>
-            
-            <div class="flow-info" id="flowInfo">
-                <strong>Direct Sales Flow:</strong> The original flow for finding and ordering packages directly from the catalog.
+            <div class="progress-step" id="step-variant">
+                <div class="step-icon">2</div>
+                <div class="step-label">Variant</div>
+                <div class="step-detail" id="step-variant-detail"></div>
             </div>
-            
-            <div class="input-section">
-                <label for="userMessage">Your Message:</label>
-                <textarea 
-                    id="userMessage" 
-                    placeholder="Type your message here... (e.g., 'I need custom boxes', 'Hello', 'I want to order packages')"
-                ></textarea>
+            <div class="progress-step" id="step-consultation">
+                <div class="step-icon">3</div>
+                <div class="step-label">Details</div>
+                <div class="step-detail" id="step-consultation-detail"></div>
             </div>
-            
-            <div class="button-group">
-                <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-                    Send Message
-                </button>
-                <button class="reset-btn" onclick="resetConversation()">
-                    Reset
-                </button>
+            <div class="progress-step" id="step-order">
+                <div class="step-icon">✓</div>
+                <div class="step-label">Draft Order</div>
+                <div class="step-detail"></div>
             </div>
-            
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="margin-top: 10px;">Sending message...</p>
-            </div>
-            
-            <div class="response-section">
-                <label>AI Response:</label>
-                <div class="response-content empty" id="response">
-                    Responses will appear here...
-                </div>
-            </div>
-            
-            <!-- Product Matches Section -->
-            <div id="productMatchesSection" style="display: none; margin-top: 20px;">
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 12px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 12px; color: #333;">
-                        Select a Product:
-                    </label>
-                    <div id="productMatchesList" style="display: grid; gap: 12px;">
-                        <!-- Product cards will be inserted here -->
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Draft Order Section -->
-            <div id="draftOrderSection" style="display: none; margin-top: 20px;">
-                <div style="background: #e7f3ff; padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 12px; color: #0066cc;">
-                        📋 Draft Order Created:
-                    </label>
-                    <div id="draftOrderLinks" style="display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Draft order links will be inserted here -->
-                    </div>
-                </div>
-            </div>
+        </div>
+    </div>
+    
+    <div class="main-content" id="mainContent">
+        <!-- Dynamic content will be inserted here -->
+    </div>
+    
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">Hello! I'm your packaging consultant. What are you looking for?</div>
+        </div>
+        <div class="chat-input-area">
+            <textarea id="userMessage" placeholder="Type your message..." rows="1"></textarea>
+            <button id="sendBtn" onclick="sendMessage()">Send</button>
         </div>
     </div>
     
     <script>
         let currentFlow = 'direct_sales';
-        const flowInfo = {
-            direct_sales: {
-                title: 'Direct Sales Flow',
-                description: 'The original flow for finding and ordering packages directly from the catalog.'
-            },
-            package_order: {
-                title: 'Package Ordering Flow',
-                description: 'Simplified flow for ordering packages. Just select a package, specify quantity, and order!'
-            },
-            launch_kit: {
-                title: 'Launch Kit Flow',
-                description: 'Order studio services: Product Photography, Package Design, or Brand Consultation.'
-            },
-            packaging_assistant: {
-                title: 'Packaging Assistant Flow',
-                description: 'Get AI-powered recommendations for the perfect packaging solution for your product.'
-            }
+        let currentStep = 'product';
+        let flowState = {
+            product: null,
+            variant: null,
+            consultation: {}
         };
         
-        // Flow selection
-        document.querySelectorAll('.flow-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentFlow = btn.dataset.flow;
-                updateFlowInfo();
+        function selectFlow(flow) {
+            currentFlow = flow;
+            document.querySelectorAll('.flow-btn').forEach(btn => {
+                btn.classList.remove('active');
             });
-        });
+            document.querySelector(`[data-flow="${flow}"]`).classList.add('active');
+            resetFlow();
+        }
         
-        function updateFlowInfo() {
-            const info = flowInfo[currentFlow];
-            const infoDiv = document.getElementById('flowInfo');
-            infoDiv.innerHTML = `<strong>${info.title}:</strong> ${info.description}`;
-            infoDiv.className = 'flow-info';
+        function resetFlow() {
+            currentStep = 'product';
+            flowState = { product: null, variant: null, consultation: {} };
+            updateProgressTracker();
+            document.getElementById('mainContent').innerHTML = '';
+            document.getElementById('chatMessages').innerHTML = '<div class="message ai">Hello! I\'m your packaging consultant. What are you looking for?</div>';
+        }
+        
+        function updateProgressTracker() {
+            const steps = ['product', 'variant', 'consultation', 'order'];
+            steps.forEach((step, index) => {
+                const stepEl = document.getElementById(`step-${step}`);
+                stepEl.classList.remove('active', 'completed');
+                
+                const stepIndex = steps.indexOf(step);
+                const currentIndex = steps.indexOf(currentStep);
+                
+                if (stepIndex < currentIndex || (step === 'order' && flowState.draftOrder)) {
+                    stepEl.classList.add('completed');
+                } else if (stepIndex === currentIndex) {
+                    stepEl.classList.add('active');
+                }
+                
+                // Update details
+                if (step === 'product' && flowState.product) {
+                    document.getElementById('step-product-detail').textContent = flowState.product;
+                }
+                if (step === 'variant' && flowState.variant) {
+                    document.getElementById('step-variant-detail').textContent = flowState.variant;
+                }
+                if (step === 'consultation' && Object.keys(flowState.consultation).length > 0) {
+                    document.getElementById('step-consultation-detail').textContent = 'In progress...';
+                }
+            });
+        }
+        
+        function showProductMatches(matches) {
+            const mainContent = document.getElementById('mainContent');
+            let html = '<div class="content-card"><h2>Select a Product</h2><div class="product-matches">';
+            matches.forEach((match, index) => {
+                html += `
+                    <div class="product-card" onclick="selectProduct(${index})">
+                        <h3>${match.name}</h3>
+                        <p>${match.reason}</p>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+            mainContent.innerHTML = html;
+        }
+        
+        function selectProduct(index) {
+            // Send the selection as a message
+            const message = String(index + 1);
+            document.getElementById('userMessage').value = message;
+            sendMessage();
+        }
+        
+        function showDraftOrder(draftOrder) {
+            const mainContent = document.getElementById('mainContent');
+            let html = '<div class="draft-order-card"><h2>✅ Draft Order Created!</h2><div class="draft-order-links">';
+            if (draftOrder.adminUrl) {
+                html += `<a href="${draftOrder.adminUrl}" target="_blank">📋 View Draft Order</a>`;
+            }
+            if (draftOrder.invoiceUrl) {
+                html += `<a href="${draftOrder.invoiceUrl}" target="_blank">💳 View Invoice & Pay</a>`;
+            }
+            html += '</div></div>';
+            mainContent.innerHTML = html;
+            currentStep = 'order';
+            flowState.draftOrder = draftOrder;
+            updateProgressTracker();
+        }
+        
+        function addChatMessage(text, isUser = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+            messageDiv.textContent = text;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         async function sendMessage() {
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const message = document.getElementById('userMessage').value.trim();
-            const responseDiv = document.getElementById('response');
-            const loadingDiv = document.getElementById('loading');
             const sendBtn = document.getElementById('sendBtn');
             
-            if (!message) {
-                alert('Please enter a message');
-                return;
-            }
+            if (!message || !apiUrl) return;
             
-            if (!apiUrl) {
-                alert('Please enter a Worker URL');
-                return;
-            }
-            
-            // Show loading
-            loadingDiv.classList.add('active');
+            addChatMessage(message, true);
+            document.getElementById('userMessage').value = '';
             sendBtn.disabled = true;
-            responseDiv.className = 'response-content';
-            responseDiv.textContent = 'Loading...';
+            sendBtn.textContent = 'Sending...';
             
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        flow: currentFlow
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, flow: currentFlow })
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
                 
                 const data = await response.json();
                 
-                // Display response
-                responseDiv.className = 'response-content';
-                responseDiv.textContent = data.reply || JSON.stringify(data, null, 2);
+                // Add AI response to chat
+                if (data.reply) {
+                    addChatMessage(data.reply, false);
+                }
                 
-                // Handle product matches (if multiple products found)
-                const matchesSection = document.getElementById('productMatchesSection');
-                const matchesList = document.getElementById('productMatchesList');
+                // Handle product matches
                 if (data.productMatches && data.productMatches.length > 0) {
-                    matchesSection.style.display = 'block';
-                    matchesList.innerHTML = data.productMatches.map((match, index) => `
-                        <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #e0e0e0; cursor: pointer; transition: all 0.3s;" 
-                             onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.2)'"
-                             onmouseout="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'"
-                             onclick="selectProduct(${index})">
-                            <div style="font-weight: 600; font-size: 16px; color: #333; margin-bottom: 8px;">
-                                ${match.name}
-                            </div>
-                            <div style="font-size: 14px; color: #666;">
-                                ${match.reason}
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    matchesSection.style.display = 'none';
+                    showProductMatches(data.productMatches);
                 }
                 
-                // Handle draft order links
-                const draftSection = document.getElementById('draftOrderSection');
-                const draftLinks = document.getElementById('draftOrderLinks');
+                // Handle draft order
                 if (data.draftOrder) {
-                    draftSection.style.display = 'block';
-                    let linksHtml = '';
-                    if (data.draftOrder.adminUrl) {
-                        linksHtml += `<a href="${data.draftOrder.adminUrl}" target="_blank" style="display: inline-block; padding: 12px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin-right: 10px;">📋 View Draft Order (Admin)</a>`;
-                    }
-                    if (data.draftOrder.invoiceUrl) {
-                        linksHtml += `<a href="${data.draftOrder.invoiceUrl}" target="_blank" style="display: inline-block; padding: 12px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">💳 View Invoice & Pay</a>`;
-                    }
-                    draftLinks.innerHTML = linksHtml;
-                } else {
-                    draftSection.style.display = 'none';
+                    showDraftOrder(data.draftOrder);
                 }
                 
-                // Clear input
-                document.getElementById('userMessage').value = '';
+                // Update flow state based on response and flowState from backend
+                if (data.flowState) {
+                    if (data.flowState.hasProduct && data.flowState.productName) {
+                        flowState.product = data.flowState.productName;
+                        if (currentStep === 'product') {
+                            currentStep = data.flowState.hasVariant ? 'consultation' : 'variant';
+                        }
+                    }
+                    if (data.flowState.hasVariant && data.flowState.variantName) {
+                        flowState.variant = data.flowState.variantName;
+                        if (currentStep === 'variant') {
+                            currentStep = 'consultation';
+                        }
+                    }
+                    if (data.flowState.step === 'consultation') {
+                        currentStep = 'consultation';
+                    }
+                    updateProgressTracker();
+                } else if (data.reply) {
+                    // Fallback: try to extract info from reply text
+                    if (!data.productMatches && currentStep === 'product') {
+                        const productMatch = data.reply.match(/\*\*(.+?)\*\*/);
+                        if (productMatch) {
+                            flowState.product = productMatch[1];
+                            currentStep = 'variant';
+                            updateProgressTracker();
+                        }
+                    }
+                    if (data.reply.includes('project details') || data.reply.includes('Let\'s get')) {
+                        currentStep = 'consultation';
+                        updateProgressTracker();
+                    }
+                }
                 
             } catch (error) {
-                responseDiv.className = 'response-content error';
-                responseDiv.textContent = `Error: ${error.message}\n\nMake sure:\n1. Your Worker URL is correct\n2. The worker is deployed\n3. CORS is enabled (it should be by default)`;
+                addChatMessage(`Error: ${error.message}`, false);
             } finally {
-                loadingDiv.classList.remove('active');
                 sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
             }
         }
         
-        async function resetConversation() {
-            const apiUrl = document.getElementById('apiUrl').value.trim();
-            const responseDiv = document.getElementById('response');
-            const loadingDiv = document.getElementById('loading');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (!apiUrl) {
-                alert('Please enter a Worker URL');
-                return;
-            }
-            
-            // Show loading
-            loadingDiv.classList.add('active');
-            sendBtn.disabled = true;
-            
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: 'reset',
-                        flow: currentFlow
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Display response
-                responseDiv.className = 'response-content';
-                responseDiv.textContent = data.reply || 'Conversation reset!';
-                
-            } catch (error) {
-                responseDiv.className = 'response-content error';
-                responseDiv.textContent = `Error: ${error.message}`;
-            } finally {
-                loadingDiv.classList.remove('active');
-                sendBtn.disabled = false;
-            }
-        }
-        
-        // Allow Enter key to send (Shift+Enter for new line)
+        // Enter key handling
         document.getElementById('userMessage').addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -562,78 +599,32 @@
             }
         });
         
+        // Auto-resize textarea
+        document.getElementById('userMessage').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+        
         async function loadAvailableModels() {
             const apiUrl = document.getElementById('apiUrl').value.trim();
-            const modelsInfo = document.getElementById('modelsInfo');
-            const modelsList = document.getElementById('modelsList');
-            const selectedModel = document.getElementById('selectedModel');
-            const button = event.target;
-            
             if (!apiUrl) {
                 alert('Please enter a Worker URL');
                 return;
             }
             
-            // Disable button and show loading
-            button.disabled = true;
-            button.textContent = '⏳ Loading...';
-            modelsInfo.style.display = 'block';
-            modelsList.textContent = 'Loading available models...';
-            selectedModel.textContent = '';
-            
             try {
-                const modelsUrl = `${apiUrl}?list=models`;
-                const response = await fetch(modelsUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-                }
-                
+                const response = await fetch(`${apiUrl}?list=models`);
                 const data = await response.json();
-                
-                if (data.error) {
-                    modelsList.textContent = `Error: ${data.error}`;
-                    modelsList.style.color = '#cc0000';
-                } else if (data.models && data.models.length > 0) {
-                    modelsList.innerHTML = data.models.map(m => 
-                        `<span style="display: inline-block; margin: 2px 4px; padding: 4px 8px; background: white; border-radius: 4px;">${m}</span>`
-                    ).join('');
-                    modelsList.style.color = '#333';
-                    
-                    if (data.selected) {
-                        selectedModel.textContent = `✅ Selected Model: ${data.selected}`;
-                        selectedModel.style.color = '#006600';
-                    }
-                } else {
-                    modelsList.textContent = 'No models found';
-                    modelsList.style.color = '#999';
+                if (data.selected) {
+                    alert(`Selected Model: ${data.selected}\n\nAvailable: ${data.models.length} models`);
                 }
             } catch (error) {
-                modelsList.textContent = `Error: ${error.message}`;
-                modelsList.style.color = '#cc0000';
-                selectedModel.textContent = '';
-            } finally {
-                button.disabled = false;
-                button.textContent = '🔍 Check Models';
+                alert(`Error: ${error.message}`);
             }
         }
         
-        // Handle product selection from matches
-        window.selectProduct = function(index) {
-            const userMessage = document.getElementById('userMessage');
-            // Set the selected product number (1-based for user, but we need to send it)
-            userMessage.value = String(index + 1);
-            sendMessage();
-        };
-        
         // Initialize
-        updateFlowInfo();
-        
-        // Auto-load models on page load
-        window.addEventListener('load', () => {
-            setTimeout(loadAvailableModels, 500);
-        });
+        updateProgressTracker();
     </script>
 </body>
 </html>
-
