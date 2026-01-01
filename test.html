@@ -273,12 +273,28 @@
         <div class="content">
             <div class="config-section">
                 <label for="apiUrl">Worker URL:</label>
-                <input 
-                    type="text" 
-                    id="apiUrl" 
-                    value="https://packageha-ai.akhodary-006.workers.dev"
-                    placeholder="Enter your Cloudflare Worker URL"
-                />
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input 
+                        type="text" 
+                        id="apiUrl" 
+                        value="https://packageha-ai.akhodary-006.workers.dev"
+                        placeholder="Enter your Cloudflare Worker URL"
+                        style="flex: 1;"
+                    />
+                    <button 
+                        onclick="loadAvailableModels()" 
+                        style="padding: 12px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap;"
+                    >
+                        🔍 Check Models
+                    </button>
+                </div>
+                <div id="modelsInfo" style="margin-top: 12px; display: none;">
+                    <div style="background: #e7f3ff; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
+                        <strong>Available Gemini Models:</strong>
+                        <div id="modelsList" style="margin-top: 8px; font-family: monospace; font-size: 12px;"></div>
+                        <div id="selectedModel" style="margin-top: 8px; font-weight: 600; color: #0066cc;"></div>
+                    </div>
+                </div>
             </div>
             
             <div class="flow-selector">
@@ -483,8 +499,69 @@
             }
         });
         
+        async function loadAvailableModels() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const modelsInfo = document.getElementById('modelsInfo');
+            const modelsList = document.getElementById('modelsList');
+            const selectedModel = document.getElementById('selectedModel');
+            const button = event.target;
+            
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            // Disable button and show loading
+            button.disabled = true;
+            button.textContent = '⏳ Loading...';
+            modelsInfo.style.display = 'block';
+            modelsList.textContent = 'Loading available models...';
+            selectedModel.textContent = '';
+            
+            try {
+                const modelsUrl = `${apiUrl}?list=models`;
+                const response = await fetch(modelsUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    modelsList.textContent = `Error: ${data.error}`;
+                    modelsList.style.color = '#cc0000';
+                } else if (data.models && data.models.length > 0) {
+                    modelsList.innerHTML = data.models.map(m => 
+                        `<span style="display: inline-block; margin: 2px 4px; padding: 4px 8px; background: white; border-radius: 4px;">${m}</span>`
+                    ).join('');
+                    modelsList.style.color = '#333';
+                    
+                    if (data.selected) {
+                        selectedModel.textContent = `✅ Selected Model: ${data.selected}`;
+                        selectedModel.style.color = '#006600';
+                    }
+                } else {
+                    modelsList.textContent = 'No models found';
+                    modelsList.style.color = '#999';
+                }
+            } catch (error) {
+                modelsList.textContent = `Error: ${error.message}`;
+                modelsList.style.color = '#cc0000';
+                selectedModel.textContent = '';
+            } finally {
+                button.disabled = false;
+                button.textContent = '🔍 Check Models';
+            }
+        }
+        
         // Initialize
         updateFlowInfo();
+        
+        // Auto-load models on page load
+        window.addEventListener('load', () => {
+            setTimeout(loadAvailableModels, 500);
+        });
     </script>
 </body>
 </html>

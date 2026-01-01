@@ -46,13 +46,14 @@ export class SovereignSwitch {
         };
 
       case "COMMERCIAL_GEMINI":
-        // Mode A2: Google Gemini - Gemini Pro (Recommended for MVP)
+        // Mode A2: Google Gemini - Auto-selects working model
         if (!this.env.GEMINI_API_KEY) {
           throw new Error("GEMINI_API_KEY is required for COMMERCIAL_GEMINI mode");
         }
         return {
           provider: "gemini",
-          model: "gemini-pro", // Stable model name for v1beta API
+          // Model will be auto-selected from available models at runtime
+          model: undefined, // Will be determined by getWorkingGeminiModel()
           apiKey: this.env.GEMINI_API_KEY,
         };
 
@@ -181,14 +182,76 @@ export class SovereignSwitch {
     return data.choices?.[0]?.message?.content || "";
   }
 
+  /**
+   * List available Gemini models
+   */
+  async listGeminiModels(apiKey: string): Promise<string[]> {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+      const response = await fetch(endpoint);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to list models: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      // Filter models that support generateContent
+      const models = (data.models || [])
+        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m: any) => m.name.replace('models/', ''))
+        .sort();
+      
+      return models;
+    } catch (error: any) {
+      console.error("[listGeminiModels] Error:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get a working Gemini model (tries to find one that works)
+   */
+  async getWorkingGeminiModel(apiKey: string, preferredModel?: string): Promise<string> {
+    // First, try to list available models
+    const availableModels = await this.listGeminiModels(apiKey);
+    
+    if (availableModels.length === 0) {
+      // Fallback if list fails
+      return preferredModel || "gemini-pro";
+    }
+    
+    // If preferred model is in the list, use it
+    if (preferredModel && availableModels.includes(preferredModel)) {
+      return preferredModel;
+    }
+    
+    // Prefer models with "flash" in the name (faster, cheaper)
+    const flashModels = availableModels.filter(m => m.toLowerCase().includes('flash'));
+    if (flashModels.length > 0) {
+      return flashModels[0];
+    }
+    
+    // Prefer models with "1.5" in the name (newer)
+    const v15Models = availableModels.filter(m => m.includes('1.5'));
+    if (v15Models.length > 0) {
+      return v15Models[0];
+    }
+    
+    // Fallback to first available model
+    return availableModels[0];
+  }
+
   private async callGemini(
     prompt: string,
     systemPrompt: string | undefined,
     config: AIConfig
   ): Promise<string> {
-    // Gemini API uses Google AI Studio endpoint
-    // Use gemini-pro for v1beta API (stable and reliable)
-    const model = config.model || "gemini-pro";
+    if (!config.apiKey) {
+      throw new Error("Gemini API key is required");
+    }
+    
+    // Get a working model (automatically selects from available models)
+    const model = config.model || await this.getWorkingGeminiModel(config.apiKey);
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
     // Combine system prompt and user prompt for Gemini
