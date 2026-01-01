@@ -634,3 +634,4 @@ User → Salla App → "Connect Store" Button
 **Last Updated**: [Current Date]  
 **Status**: Draft - Awaiting Review
 
+
