@@ -663,7 +663,15 @@
         
         function getStepData(stepId) {
             if (stepId === 'product_details') return flowState.productDetailsData;
-            if (stepId === 'package_selection') return flowState.packageData;
+            if (stepId === 'package_selection') {
+                // Package selection step can show either packageData (for product search/selection)
+                // or packageSpecsData (for package specs questions)
+                // Prefer packageSpecsData if it has a currentQuestion, otherwise use packageData
+                if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
+                    return flowState.packageSpecsData;
+                }
+                return flowState.packageData;
+            }
             if (stepId === 'fulfillment_specs') return flowState.fulfillmentSpecsData;
             if (stepId === 'launch_kit') return flowState.launchKitData;
             return null;
@@ -715,6 +723,11 @@
             
             // Package Selection step
             if (stepId === 'package_selection') {
+                // If we have package specs question, render that instead
+                if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
+                    return renderConsultationStep('package_specs', flowState.packageSpecs, flowState.packageSpecsData);
+                }
+                // Otherwise show product search/selection
                 if (stepData && stepData.matches) {
                     return renderProductSelection(stepData.matches);
                 }
@@ -1457,11 +1470,21 @@
                 flowState.package = data.flowState.productName || metadata.name;
                 flowState.packageData = null;
                 
-                // Check if variant was auto-skipped (backend went straight to package specs)
-                if (data.currentQuestion && backendStep === 'select_package_specs') {
-                    console.log('[handleResponse] Package selected and variant auto-skipped (currentQuestion present)');
+                // CRITICAL: When product is selected and backend moved to select_package_specs, 
+                // we need to clear package selection and set packageSpecsData
+                if (backendStep === 'select_package_specs') {
+                    console.log('[handleResponse] Package selected - backend moved to select_package_specs');
                     flowState.variant = data.flowState?.variantName || 'Default';
                     flowState.packageData = null;
+                    
+                    // Set packageSpecsData with currentQuestion
+                    if (!flowState.packageSpecsData) {
+                        flowState.packageSpecsData = {};
+                    }
+                    if (data.currentQuestion) {
+                        flowState.packageSpecsData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] Set packageSpecsData.currentQuestion:', data.currentQuestion);
+                    }
                 } else if (data.flowState.hasVariant && data.flowState.variantName) {
                     console.log('[handleResponse] Variant auto-selected (single variant):', data.flowState.variantName);
                     flowState.variant = data.flowState.variantName;
@@ -1560,6 +1583,13 @@
                 }
                 flowState[dataKey].currentQuestion = data.currentQuestion;
                 console.log(`[handleResponse] ${dataKey} after update:`, flowState[dataKey]);
+                
+                // CRITICAL: If we just moved to select_package_specs after product selection,
+                // ensure packageData is cleared so we don't show product selection UI
+                if (backendStep === 'select_package_specs' && metadata && metadata.type === 'product') {
+                    console.log('[handleResponse] Moved to package_specs after product selection - clearing packageData');
+                    flowState.packageData = null;
+                }
             } else {
                 // No currentQuestion means we're in a non-consultation step (like select_package)
                 // BUT: For init type, if we're in product_details step, we should have a currentQuestion
