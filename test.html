@@ -282,6 +282,47 @@
             color: #6c63ff;
         }
         
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        
+        .radio-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .radio-label:hover {
+            border-color: #6c63ff;
+            background: #f5f4ff;
+        }
+        
+        .radio-label input[type="radio"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .radio-label input[type="radio"]:checked + span {
+            font-weight: 600;
+            color: #6c63ff;
+        }
+        
+        .radio-label:has(input[type="radio"]:checked) {
+            border-color: #6c63ff;
+            background: #f5f4ff;
+        }
+        
         .question-text {
             font-size: 15px;
             color: #333;
@@ -452,8 +493,7 @@
         };
         
         const steps = [
-            { id: 'product', name: 'Select Product', key: 'product' },
-            { id: 'variant', name: 'Select Variant', key: 'variant' },
+            { id: 'product', name: 'Select Product', key: 'product' }, // Includes variant as substep
             { id: 'consultation', name: 'Project Details', key: 'consultation' },
             { id: 'order', name: 'Draft Order', key: 'order' }
         ];
@@ -518,8 +558,7 @@
         }
         
         function isStepCompleted(stepId) {
-            if (stepId === 'product') return !!flowState.product;
-            if (stepId === 'variant') return !!flowState.variant;
+            if (stepId === 'product') return !!flowState.product && (!!flowState.variant || flowState.variant === 'Default');
             if (stepId === 'consultation') return flowState.draftOrder || Object.keys(flowState.consultation || {}).length > 0;
             if (stepId === 'order') return !!flowState.draftOrder;
             return false;
@@ -528,8 +567,7 @@
         function isStepActive(stepId) {
             const result = (() => {
                 if (flowState.draftOrder) return stepId === 'order';
-                if (!flowState.product) return stepId === 'product';
-                if (!flowState.variant) return stepId === 'variant';
+                if (!flowState.product || (!flowState.variant && flowState.variant !== 'Default')) return stepId === 'product';
                 if (!flowState.draftOrder) return stepId === 'consultation';
                 return false;
             })();
@@ -543,7 +581,6 @@
         
         function getStepData(stepId) {
             if (stepId === 'product') return flowState.productData;
-            if (stepId === 'variant') return flowState.variantData;
             if (stepId === 'consultation') {
                 console.log('[getStepData] consultation data:', flowState.consultationData);
                 return flowState.consultationData;
@@ -552,8 +589,18 @@
         }
         
         function getStepDetail(stepId, stepData) {
-            if (stepId === 'product' && flowState.product) return flowState.product;
-            if (stepId === 'variant' && flowState.variant) return flowState.variant;
+            if (stepId === 'product') {
+                if (flowState.product) {
+                    let detail = flowState.product;
+                    if (flowState.variant && flowState.variant !== 'Default') {
+                        detail += ' | Variant: ' + flowState.variant;
+                    } else if (flowState.variant === 'Default') {
+                        detail += ' | Default variant';
+                    }
+                    return detail;
+                }
+                return 'Pending';
+            }
             if (stepId === 'consultation' && Object.keys(flowState.consultation || {}).length > 0) {
                 return `${Object.keys(flowState.consultation).length} question(s) answered`;
             }
@@ -590,10 +637,12 @@
                     html += '<div class="completed-questions-section">';
                     html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
                     Object.entries(flowState.consultation).forEach(([questionId, answer]) => {
-                        html += `<div class="completed-question-item">
-                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
-                            <div style="color: #333;">${answer}</div>
-                        </div>`;
+                        if (answer && answer !== 'undefined' && answer !== undefined) {
+                            html += `<div class="completed-question-item">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                                <div style="color: #333;">${answer}</div>
+                            </div>`;
+                        }
                     });
                     html += '</div>';
                 }
@@ -620,10 +669,13 @@
         
         function renderCompletedView(stepId, stepData) {
             if (stepId === 'product' && flowState.product) {
-                return `<div class="step-body completed-view"><div class="answer-display">${flowState.product}</div></div>`;
-            }
-            if (stepId === 'variant' && flowState.variant) {
-                return `<div class="step-body completed-view"><div class="answer-display">${flowState.variant}</div></div>`;
+                let html = `<div class="step-body completed-view">
+                    <div class="answer-display"><strong>Product:</strong> ${flowState.product}</div>`;
+                if (flowState.variant) {
+                    html += `<div class="answer-display" style="margin-top: 10px;"><strong>Variant:</strong> ${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>`;
+                }
+                html += '</div>';
+                return html;
             }
             if (stepId === 'consultation' && flowState.consultation) {
                 let html = '<div class="step-body completed-view">';
@@ -693,27 +745,53 @@
             let html = '<div class="step-body"><div class="question-text">' + question.question + '</div>';
             
             if (question.options && question.options.length > 0) {
-                // Render as checkboxes with notes field
-                html += '<div class="checkbox-group" id="checkbox-group-' + question.id + '">';
-                question.options.forEach((option, index) => {
-                    html += `
-                        <label class="checkbox-label">
-                            <input type="checkbox" value="${String(option).replace(/"/g, '&quot;')}" 
-                                   id="checkbox-${question.id}-${index}">
-                            <span>${option}</span>
-                        </label>
-                    `;
-                });
-                html += '</div>';
+                const isMultiple = question.multiple !== false; // Default to true (checkboxes) unless explicitly false
                 
-                // Additional notes field
-                html += `
-                    <div class="input-group" style="margin-top: 16px;">
-                        <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
-                        <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
-                    </div>
-                    <button class="submit-btn" onclick="submitCheckboxAnswer('${question.id}')">Submit</button>
-                `;
+                if (isMultiple) {
+                    // Render as checkboxes with notes field (for multiple selections)
+                    html += '<div class="checkbox-group" id="option-group-' + question.id + '">';
+                    question.options.forEach((option, index) => {
+                        html += `
+                            <label class="checkbox-label">
+                                <input type="checkbox" value="${String(option).replace(/"/g, '&quot;')}" 
+                                       id="option-${question.id}-${index}">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    // Additional notes field
+                    html += `
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                            <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                        </div>
+                        <button class="submit-btn" onclick="submitCheckboxAnswer('${question.id}')">Submit</button>
+                    `;
+                } else {
+                    // Render as radio buttons (single selection)
+                    html += '<div class="radio-group" id="option-group-' + question.id + '">';
+                    question.options.forEach((option, index) => {
+                        html += `
+                            <label class="radio-label">
+                                <input type="radio" name="radio-${question.id}" value="${String(option).replace(/"/g, '&quot;')}" 
+                                       id="option-${question.id}-${index}">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    // Additional notes field
+                    html += `
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                            <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                        </div>
+                        <button class="submit-btn" onclick="submitRadioAnswer('${question.id}')">Submit</button>
+                    `;
+                }
             } else {
                 // Render as input field(s)
                 if (question.id === 'dimensions') {
@@ -795,7 +873,7 @@
         }
         
         function submitCheckboxAnswer(questionId) {
-            const checkboxes = document.querySelectorAll(`#checkbox-group-${questionId} input[type="checkbox"]:checked`);
+            const checkboxes = document.querySelectorAll(`#option-group-${questionId} input[type="checkbox"]:checked`);
             const notesInput = document.getElementById(`notes-${questionId}`);
             const notes = notesInput ? notesInput.value.trim() : '';
             
@@ -811,7 +889,25 @@
                 answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
             }
             
-            sendSelection(answer, { type: 'answer', questionId });
+            sendSelection(answer, { type: 'answer', questionId, answer: answer });
+        }
+        
+        function submitRadioAnswer(questionId) {
+            const radio = document.querySelector(`#option-group-${questionId} input[type="radio"]:checked`);
+            const notesInput = document.getElementById(`notes-${questionId}`);
+            const notes = notesInput ? notesInput.value.trim() : '';
+            
+            if (!radio && !notes) {
+                alert('Please select an option or add notes.');
+                return;
+            }
+            
+            let answer = radio ? radio.value : '';
+            if (notes) {
+                answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
+            }
+            
+            sendSelection(answer, { type: 'answer', questionId, answer: answer });
         }
         
         function submitAnswer(questionId) {
@@ -832,7 +928,7 @@
             }
             
             const dimensions = `${length} x ${width} x ${height}`;
-            sendSelection(dimensions, { type: 'answer', questionId });
+            sendSelection(dimensions, { type: 'answer', questionId, answer: dimensions });
         }
         
         // Auto-focus input when step becomes active
@@ -963,9 +1059,12 @@
             }
             
             if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
-                console.log('[handleResponse] Answer/option recorded:', metadata.questionId, metadata.option || metadata.message);
+                console.log('[handleResponse] Answer/option recorded:', metadata.questionId, metadata.answer || metadata.option || metadata.message);
                 if (!flowState.consultation) flowState.consultation = {};
-                flowState.consultation[metadata.questionId] = metadata.option || metadata.message;
+                const answerValue = metadata.answer || metadata.option || metadata.message;
+                if (answerValue && answerValue !== 'undefined') {
+                    flowState.consultation[metadata.questionId] = answerValue;
+                }
             }
             
             // Update step data

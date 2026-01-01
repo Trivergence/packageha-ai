@@ -7,7 +7,8 @@ export interface CharterStep {
     id: string;
     question: string;
     validation?: (answer: string) => boolean | string;
-    options?: string[]; // Optional predefined options for checkboxes
+    options?: string[]; // Optional predefined options for checkboxes/radio buttons
+    multiple?: boolean; // If true, allow multiple selections (checkboxes), if false, single selection (radio buttons)
     defaultValue?: string; // Optional default value for UI hints
 }
 
@@ -85,7 +86,8 @@ export const SALES_CHARTER: Charter = {
             { 
                 id: "material", 
                 question: "Do you have a preference for Material?",
-                options: ["Corrugated", "Folding Carton", "Rigid Box", "Paperboard", "Kraft", "White Cardboard"]
+                options: ["Corrugated", "Folding Carton", "Rigid Box", "Paperboard", "Kraft", "White Cardboard"],
+                multiple: false // Single selection (radio buttons)
             },
             { 
                 id: "dimensions", 
@@ -99,17 +101,20 @@ export const SALES_CHARTER: Charter = {
             { 
                 id: "print", 
                 question: "Tell me about the Printing/Finish.",
-                options: ["Full color printing", "Logo only", "No printing", "Gold foil", "Silver foil", "Matte lamination", "Glossy lamination", "UV coating", "Embossing", "Debossing"]
+                options: ["Full color printing", "Logo only", "No printing", "Gold foil", "Silver foil", "Matte lamination", "Glossy lamination", "UV coating", "Embossing", "Debossing"],
+                multiple: true // Multiple selections allowed (checkboxes)
             },
             { 
                 id: "timeline", 
                 question: "When is your deadline for delivery?",
-                options: ["1-2 weeks", "2-4 weeks", "1-2 months", "2-3 months", "3+ months", "Flexible"]
+                options: ["1-2 weeks", "2-4 weeks", "1-2 months", "2-3 months", "3+ months", "Flexible"],
+                multiple: false // Single selection (radio buttons)
             },
             { 
                 id: "budget", 
                 question: "Do you have a target budget? (per unit or total)",
-                options: ["Under 1 SAR/unit", "1-5 SAR/unit", "5-10 SAR/unit", "10-20 SAR/unit", "20+ SAR/unit", "Budget flexible", "Will discuss"]
+                options: ["Under 1 SAR/unit", "1-5 SAR/unit", "5-10 SAR/unit", "10-20 SAR/unit", "20+ SAR/unit", "Budget flexible", "Will discuss"],
+                multiple: false // Single selection (radio buttons)
             }
         ]
     }

@@ -181,6 +181,7 @@ export class PackagehaSession {
                             id: currentStep.id,
                             question: currentStep.question,
                             options: (currentStep as any).options || null,
+                            multiple: (currentStep as any).multiple !== undefined ? (currentStep as any).multiple : true, // Default to multiple if not specified
                             defaultValue: defaultValue
                         };
                     }
