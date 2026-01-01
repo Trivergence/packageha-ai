@@ -714,6 +714,11 @@ export class PackagehaSession {
             memory.step = "select_package_discovery";
             const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
             
+            // If discovery returned productMatches (multiple matches), return them immediately
+            if (result.productMatches && result.productMatches.length > 0) {
+                return result;
+            }
+            
             // If discovery found a product, handle variant selection
             if (memory.productId && memory.variants) {
                 if (memory.variants.length === 1) {

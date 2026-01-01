@@ -531,7 +531,8 @@
             fulfillmentSpecs: {}, // Fulfillment specifications
             launchKit: {}, // Launch kit services
             draftOrder: null, // Draft order result
-            backendStep: null // Track backend step for step completion logic
+            backendStep: null, // Track backend step for step completion logic
+            previousBackendStep: null // Track previous backend step to detect transitions
         };
         let isLoading = false; // Track loading state
         
@@ -561,7 +562,8 @@
                 fulfillmentSpecs: {},
                 launchKit: {},
                 draftOrder: null,
-                backendStep: null
+                backendStep: null,
+                previousBackendStep: null
             };
             renderSteps();
         }
@@ -1195,7 +1197,8 @@
         function submitAnswer(questionId) {
             const input = document.getElementById('questionInput');
             if (input && input.value.trim()) {
-                sendSelection(input.value.trim(), { type: 'answer', questionId });
+                const answer = input.value.trim();
+                sendSelection(answer, { type: 'answer', questionId, answer: answer });
             }
         }
         
@@ -1242,6 +1245,11 @@
             isLoading = true;
             updateLoadingState(true, metadata);
             
+            // Ensure metadata includes the message for answer extraction
+            if (metadata && !metadata.message) {
+                metadata.message = message;
+            }
+            
             console.log('[sendSelection] Sending request:', { message, metadata, flow: currentFlow });
             
             try {
@@ -1261,6 +1269,7 @@
                 
                 const data = await response.json();
                 console.log('[sendSelection] Response data:', data);
+                console.log('[sendSelection] productMatches in response:', data.productMatches ? `${data.productMatches.length} matches` : 'none');
                 
                 handleResponse(data, metadata);
             } catch (error) {
@@ -1348,12 +1357,15 @@
         
         function handleResponse(data, metadata) {
             console.log('[handleResponse] Called with:', { data, metadata });
+            console.log('[handleResponse] Response data.productMatches:', data.productMatches ? `${data.productMatches.length} matches` : 'none');
             console.log('[handleResponse] Current flowState:', JSON.parse(JSON.stringify(flowState)));
             console.log('[handleResponse] Response data.flowState:', data.flowState);
             console.log('[handleResponse] Response data.currentQuestion:', data.currentQuestion ? 'present' : 'missing');
             console.log('[handleResponse] Response data.variants:', data.variants ? `${data.variants.length} variants` : 'none');
             
             const backendStep = data.flowState?.step || '';
+            // Store the message from metadata for answer extraction (fallback)
+            const messageFromMetadata = metadata && metadata.message ? metadata.message : null;
             
             // Store backend step in flowState early so other logic can use it
             flowState.backendStep = backendStep;
@@ -1376,10 +1388,17 @@
             // Handle package search - show matches
             // IMPORTANT: Don't return early - continue processing to update backend step
             if (metadata && metadata.type === 'product_search') {
-                console.log('[handleResponse] Handling product_search');
+                console.log('[handleResponse] Handling product_search, backendStep:', backendStep);
+                // Ensure we're in package selection step state
+                if (backendStep !== 'select_package' && backendStep !== 'select_package_discovery' && backendStep !== 'select_package_variant') {
+                    console.log('[handleResponse] WARNING: product_search but backendStep is', backendStep, '- this might cause issues');
+                }
+                
                 if (data.productMatches && data.productMatches.length > 0) {
                     console.log('[handleResponse] Found package matches:', data.productMatches.length);
-                    flowState.packageData = { matches: data.productMatches };
+                    flowState.packageData = flowState.packageData || {};
+                    flowState.packageData.matches = data.productMatches;
+                    console.log('[handleResponse] Set flowState.packageData.matches:', flowState.packageData);
                     // Continue processing - don't return early
                 } else if (data.flowState && data.flowState.hasProduct) {
                     // If no matches but we have a reply, the package was found directly
@@ -1428,21 +1447,51 @@
                 flowState.packageData = null;
             }
             
-            // Store answers in the appropriate consultation state based on backend step
+            // Store answers in the appropriate consultation state based on questionId
+            // We can't rely on backendStep because it may have changed after processing the answer
             if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
                 console.log('[handleResponse] Answer/option recorded:', metadata.questionId, metadata.answer || metadata.option || metadata.message);
-                const consultationKey = getCurrentConsultationState(backendStep);
+                // Determine which consultation phase this question belongs to based on questionId
+                let consultationKey = 'fulfillmentSpecs'; // default
+                if (metadata.questionId && (
+                    metadata.questionId === 'product_description' ||
+                    metadata.questionId === 'product_dimensions' ||
+                    metadata.questionId === 'product_weight' ||
+                    metadata.questionId === 'fragility' ||
+                    metadata.questionId === 'budget'
+                )) {
+                    consultationKey = 'productDetails';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'material' ||
+                    metadata.questionId === 'dimensions' ||
+                    metadata.questionId === 'print'
+                )) {
+                    consultationKey = 'packageSpecs';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'service_selection' ||
+                    metadata.questionId === 'service_timeline' ||
+                    metadata.questionId === 'service_notes'
+                )) {
+                    consultationKey = 'launchKit';
+                }
+                
                 if (!flowState[consultationKey]) flowState[consultationKey] = {};
-                const answerValue = metadata.answer || metadata.option || metadata.message;
-                if (answerValue && answerValue !== 'undefined') {
+                // Get answer value - prioritize metadata.answer, then metadata.option, then metadata.message
+                const answerValue = metadata.answer || metadata.option || metadata.message || messageFromMetadata;
+                if (answerValue && answerValue !== 'undefined' && answerValue !== 'null' && answerValue.trim() !== '') {
                     flowState[consultationKey][metadata.questionId] = answerValue;
+                    console.log(`[handleResponse] Stored answer in ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
+                } else {
+                    console.warn(`[handleResponse] Could not extract answer value for ${metadata.questionId} from metadata:`, metadata, 'messageFromMetadata:', messageFromMetadata);
                 }
             }
             
-            // Update step data
+            // Update step data - handle productMatches and variants
+            // NOTE: This should happen AFTER product_search handler, but we check here too for safety
             if (data.productMatches) {
-                console.log('[handleResponse] Updating productMatches:', data.productMatches.length);
-                flowState.packageData = { matches: data.productMatches };
+                console.log('[handleResponse] Updating productMatches (general handler):', data.productMatches.length);
+                flowState.packageData = flowState.packageData || {};
+                flowState.packageData.matches = data.productMatches;
             }
             if (data.variants) {
                 console.log('[handleResponse] Updating variants:', data.variants.length, data.variants);
