@@ -1122,7 +1122,8 @@ Return JSON:
       return { reply: decision.reply || "I focus on packaging solutions. What are you looking for?" };
     }
     if (decision.type === "none") {
-      return { reply: "I couldn't find that product. We offer Boxes, Bags, and Printing services. What do you need?" };
+      const fallbackMessage = "I couldn't find an exact match for that. Let me suggest some options:\n\n\u2022 Try a simpler search like 'box', 'bag', or 'packaging'\n\u2022 Or describe what you're looking for in different words\n\u2022 You can also browse our catalog by searching for 'show all packages'\n\nWhat type of packaging are you looking for?";
+      return { reply: fallbackMessage };
     }
     if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
       const matches = decision.matches.filter((m) => m.id !== void 0 && products[m.id]).slice(0, 5).map((m) => ({
@@ -1245,6 +1246,18 @@ ${SALES_CHARTER.packageSpecs.steps[0].question}`
   async handleConsultationPhase(userMessage, memory, consultationPhase, nextStep) {
     const steps = consultationPhase.steps;
     const currentIndex = memory.questionIndex;
+    if (!userMessage || userMessage.trim() === "") {
+      if (currentIndex >= steps.length) {
+        memory.step = nextStep;
+        memory.questionIndex = 0;
+        if (nextStep === "draft_order") {
+          return await this.createProjectQuote(memory);
+        }
+        return this.getNextStepPrompt(nextStep);
+      }
+      const currentStep2 = steps[currentIndex];
+      return { reply: currentStep2.question };
+    }
     if (currentIndex >= steps.length) {
       memory.step = nextStep;
       memory.questionIndex = 0;

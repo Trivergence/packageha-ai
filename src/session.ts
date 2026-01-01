@@ -548,7 +548,13 @@ export class PackagehaSession {
         }
 
         if (decision.type === "none") {
-            return { reply: "I couldn't find that product. We offer Boxes, Bags, and Printing services. What do you need?" };
+            // Smart fallback: suggest simpler search terms or show popular packages
+            const fallbackMessage = "I couldn't find an exact match for that. Let me suggest some options:\n\n" +
+                "• Try a simpler search like 'box', 'bag', or 'packaging'\n" +
+                "• Or describe what you're looking for in different words\n" +
+                "• You can also browse our catalog by searching for 'show all packages'\n\n" +
+                "What type of packaging are you looking for?";
+            return { reply: fallbackMessage };
         }
 
         // Handle multiple matches - return for user selection
@@ -691,6 +697,22 @@ export class PackagehaSession {
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any }> {
         const steps = consultationPhase.steps;
         const currentIndex = memory.questionIndex;
+
+        // If userMessage is empty, return the current question (this happens on initial load or after step transition)
+        if (!userMessage || userMessage.trim() === "") {
+            if (currentIndex >= steps.length) {
+                // All questions answered - move to next step
+                memory.step = nextStep;
+                memory.questionIndex = 0;
+                if (nextStep === "draft_order") {
+                    return await this.createProjectQuote(memory);
+                }
+                return this.getNextStepPrompt(nextStep);
+            }
+            // Return current question
+            const currentStep = steps[currentIndex];
+            return { reply: currentStep.question };
+        }
 
         if (currentIndex >= steps.length) {
             // All questions answered - move to next step
