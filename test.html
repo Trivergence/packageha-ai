@@ -13,22 +13,28 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f5f5;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
         
         .header {
-            background: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             padding: 20px 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 100;
         }
         
         .header h1 {
             font-size: 24px;
-            color: #333;
             margin-bottom: 15px;
         }
         
@@ -36,182 +42,289 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            margin-bottom: 15px;
         }
         
         .config-section input {
             flex: 1;
             padding: 8px 12px;
-            border: 2px solid #e0e0e0;
+            border: none;
             border-radius: 6px;
             font-size: 14px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .config-section input::placeholder {
+            color: rgba(255,255,255,0.7);
         }
         
         .config-section button {
             padding: 8px 16px;
-            background: #667eea;
-            color: white;
+            background: white;
+            color: #667eea;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 600;
         }
         
-        .progress-tracker {
+        .flow-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .flow-btn {
+            padding: 6px 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: transparent;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .flow-btn.active {
             background: white;
-            padding: 25px 30px;
-            border-bottom: 1px solid #e0e0e0;
+            color: #667eea;
+            border-color: white;
         }
         
-        .progress-steps {
+        .steps-container {
+            padding: 30px;
+        }
+        
+        .step-section {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        
+        .step-section.completed {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        .step-section.active {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .step-header {
+            padding: 20px;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            max-width: 800px;
-            margin: 0 auto;
+            background: white;
+            transition: background 0.2s;
         }
         
-        .progress-step {
-            flex: 1;
+        .step-section.active .step-header {
+            background: #f8f9ff;
+        }
+        
+        .step-section.completed .step-header {
+            background: #f8fff9;
+        }
+        
+        .step-header:hover {
+            background: #f5f5f5;
+        }
+        
+        .step-title {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            position: relative;
+            gap: 15px;
+            flex: 1;
         }
         
-        .progress-step:not(:last-child)::after {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 60%;
-            right: -40%;
-            height: 2px;
-            background: #e0e0e0;
-            z-index: 0;
-        }
-        
-        .progress-step.completed:not(:last-child)::after {
-            background: #28a745;
-        }
-        
-        .progress-step.active:not(:last-child)::after {
-            background: linear-gradient(to right, #28a745 0%, #e0e0e0 50%);
-        }
-        
-        .step-icon {
-            width: 40px;
-            height: 40px;
+        .step-number {
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             background: #e0e0e0;
-            color: #999;
+            color: #666;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 16px;
-            position: relative;
-            z-index: 1;
-            transition: all 0.3s;
+            font-size: 14px;
+            flex-shrink: 0;
         }
         
-        .progress-step.completed .step-icon {
+        .step-section.completed .step-number {
             background: #28a745;
             color: white;
         }
         
-        .progress-step.active .step-icon {
+        .step-section.active .step-number {
             background: #667eea;
             color: white;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
         }
         
-        .step-label {
-            margin-top: 8px;
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-            font-weight: 500;
+        .step-info {
+            flex: 1;
         }
         
-        .progress-step.completed .step-label {
-            color: #28a745;
+        .step-name {
             font-weight: 600;
-        }
-        
-        .progress-step.active .step-label {
-            color: #667eea;
-            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 4px;
         }
         
         .step-detail {
-            margin-top: 4px;
-            font-size: 11px;
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .step-chevron {
+            font-size: 20px;
             color: #999;
-            text-align: center;
-            max-width: 100px;
+            transition: transform 0.3s;
+        }
+        
+        .step-section.active .step-chevron {
+            transform: rotate(180deg);
+            color: #667eea;
+        }
+        
+        .step-content {
+            max-height: 0;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            transition: max-height 0.3s ease-out;
         }
         
-        .main-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 30px;
-            background: #f8f9fa;
+        .step-section.active .step-content {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
         }
         
-        .content-card {
-            max-width: 900px;
-            margin: 0 auto;
+        .step-body {
+            padding: 0 20px 20px 20px;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 25px;
+        }
+        
+        .step-body.completed-view {
+            padding: 20px;
+            background: #f8fff9;
+        }
+        
+        .answer-display {
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            font-size: 15px;
+            color: #333;
+        }
+        
+        .question-text {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
             margin-bottom: 20px;
         }
         
-        .product-matches {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .product-card {
+        .option-card {
+            padding: 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            padding: 15px;
             cursor: pointer;
+            text-align: center;
             transition: all 0.2s;
             background: white;
         }
         
-        .product-card:hover {
+        .option-card:hover {
             border-color: #667eea;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
             transform: translateY(-2px);
         }
         
-        .product-card h3 {
-            font-size: 16px;
-            color: #333;
+        .option-card.selected {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
             margin-bottom: 8px;
         }
         
-        .product-card p {
-            font-size: 13px;
-            color: #666;
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
         }
         
-        .draft-order-card {
+        .input-group input:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .dimensions-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        .submit-btn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            background: #5568d3;
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .draft-order-success {
+            padding: 30px;
+            text-align: center;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 12px;
-            padding: 25px;
-            text-align: center;
         }
         
-        .draft-order-card h2 {
+        .draft-order-success h2 {
             font-size: 24px;
             margin-bottom: 20px;
         }
@@ -238,188 +351,56 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
-        .chat-container {
-            background: white;
-            border-top: 1px solid #e0e0e0;
-            padding: 20px 30px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .chat-messages {
-            max-width: 900px;
-            margin: 0 auto 15px auto;
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        .message {
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            max-width: 80%;
-        }
-        
-        .message.user {
-            background: #667eea;
-            color: white;
-            margin-left: auto;
-            text-align: right;
-        }
-        
-        .message.ai {
-            background: white;
-            color: #333;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .chat-input-area {
-            max-width: 900px;
-            margin: 0 auto;
-            display: flex;
-            gap: 10px;
-        }
-        
-        .chat-input-area textarea {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-            resize: none;
-            min-height: 50px;
-            max-height: 120px;
-        }
-        
-        .chat-input-area textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .chat-input-area button {
-            padding: 12px 24px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .chat-input-area button:hover:not(:disabled) {
-            background: #5568d3;
-        }
-        
-        .chat-input-area button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .loading {
-            text-align: center;
-            color: #666;
-            padding: 10px;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .flow-selector {
-            margin-bottom: 20px;
-        }
-        
-        .flow-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .flow-btn {
-            padding: 8px 16px;
-            border: 2px solid #e0e0e0;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        
-        .flow-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+        @media (max-width: 768px) {
+            .dimensions-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .steps-container {
+                padding: 15px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📦 Packageha AI - Flow Tester</h1>
-        <div class="config-section">
-            <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
-            <button onclick="loadAvailableModels()">Check Models</button>
-        </div>
-        <div class="flow-selector" style="margin-top: 15px;">
-            <div class="flow-buttons">
+    <div class="container">
+        <div class="header">
+            <h1>📦 Packageha AI - Flow Tester</h1>
+            <div class="config-section">
+                <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
+                <button onclick="loadAvailableModels()">Check Models</button>
+            </div>
+            <div class="flow-selector">
                 <button class="flow-btn active" data-flow="direct_sales" onclick="selectFlow('direct_sales')">Direct Sales</button>
                 <button class="flow-btn" data-flow="package_order" onclick="selectFlow('package_order')">Package Order</button>
                 <button class="flow-btn" data-flow="launch_kit" onclick="selectFlow('launch_kit')">Launch Kit</button>
                 <button class="flow-btn" data-flow="packaging_assistant" onclick="selectFlow('packaging_assistant')">Packaging Assistant</button>
             </div>
         </div>
-    </div>
-    
-    <div class="progress-tracker">
-        <div class="progress-steps">
-            <div class="progress-step" id="step-product">
-                <div class="step-icon">1</div>
-                <div class="step-label">Product</div>
-                <div class="step-detail" id="step-product-detail"></div>
-            </div>
-            <div class="progress-step" id="step-variant">
-                <div class="step-icon">2</div>
-                <div class="step-label">Variant</div>
-                <div class="step-detail" id="step-variant-detail"></div>
-            </div>
-            <div class="progress-step" id="step-consultation">
-                <div class="step-icon">3</div>
-                <div class="step-label">Details</div>
-                <div class="step-detail" id="step-consultation-detail"></div>
-            </div>
-            <div class="progress-step" id="step-order">
-                <div class="step-icon">✓</div>
-                <div class="step-label">Draft Order</div>
-                <div class="step-detail"></div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="main-content" id="mainContent">
-        <!-- Dynamic content will be inserted here -->
-    </div>
-    
-    <div class="chat-container">
-        <div class="chat-messages" id="chatMessages">
-            <div class="message ai">Hello! I'm your packaging consultant. What are you looking for?</div>
-        </div>
-        <div class="chat-input-area">
-            <textarea id="userMessage" placeholder="Type your message..." rows="1"></textarea>
-            <button id="sendBtn" onclick="sendMessage()">Send</button>
+        
+        <div class="steps-container" id="stepsContainer">
+            <!-- Steps will be dynamically generated -->
         </div>
     </div>
     
     <script>
         let currentFlow = 'direct_sales';
-        let currentStep = 'product';
         let flowState = {
             product: null,
             variant: null,
             consultation: {}
         };
+        
+        const steps = [
+            { id: 'product', name: 'Select Product', key: 'product' },
+            { id: 'variant', name: 'Select Variant', key: 'variant' },
+            { id: 'consultation', name: 'Project Details', key: 'consultation' },
+            { id: 'order', name: 'Draft Order', key: 'order' }
+        ];
         
         function selectFlow(flow) {
             currentFlow = flow;
@@ -431,281 +412,320 @@
         }
         
         function resetFlow() {
-            currentStep = 'product';
             flowState = { product: null, variant: null, consultation: {} };
-            updateProgressTracker();
-            document.getElementById('mainContent').innerHTML = '';
-            document.getElementById('chatMessages').innerHTML = '<div class="message ai">Hello! I\'m your packaging consultant. What are you looking for?</div>';
+            renderSteps();
         }
         
-        function updateProgressTracker() {
-            const steps = ['product', 'variant', 'consultation', 'order'];
+        function renderSteps() {
+            const container = document.getElementById('stepsContainer');
+            let html = '';
+            
             steps.forEach((step, index) => {
-                const stepEl = document.getElementById(`step-${step}`);
-                stepEl.classList.remove('active', 'completed');
+                const isCompleted = isStepCompleted(step.id);
+                const isActive = isStepActive(step.id);
+                const stepData = getStepData(step.id);
                 
-                const stepIndex = steps.indexOf(step);
-                const currentIndex = steps.indexOf(currentStep);
-                
-                if (stepIndex < currentIndex || (step === 'order' && flowState.draftOrder)) {
-                    stepEl.classList.add('completed');
-                } else if (stepIndex === currentIndex) {
-                    stepEl.classList.add('active');
-                }
-                
-                // Update details
-                if (step === 'product' && flowState.product) {
-                    document.getElementById('step-product-detail').textContent = flowState.product;
-                }
-                if (step === 'variant' && flowState.variant) {
-                    document.getElementById('step-variant-detail').textContent = flowState.variant;
-                }
-                if (step === 'consultation' && Object.keys(flowState.consultation).length > 0) {
-                    document.getElementById('step-consultation-detail').textContent = 'In progress...';
+                html += `
+                    <div class="step-section ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}" data-step="${step.id}">
+                        <div class="step-header" onclick="toggleStep('${step.id}')">
+                            <div class="step-title">
+                                <div class="step-number">${isCompleted ? '✓' : (index + 1)}</div>
+                                <div class="step-info">
+                                    <div class="step-name">${step.name}</div>
+                                    <div class="step-detail">${getStepDetail(step.id, stepData)}</div>
+                                </div>
+                            </div>
+                            <div class="step-chevron">▼</div>
+                        </div>
+                        <div class="step-content">
+                            ${isActive ? renderStepContent(step.id, stepData) : (isCompleted ? renderCompletedView(step.id, stepData) : '')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+            // Expand active step
+            steps.forEach(step => {
+                if (isStepActive(step.id)) {
+                    const stepEl = document.querySelector(`[data-step="${step.id}"]`);
+                    if (stepEl && !stepEl.classList.contains('active')) {
+                        stepEl.classList.add('active');
+                    }
                 }
             });
         }
         
-        function showProductMatches(matches) {
-            const mainContent = document.getElementById('mainContent');
-            let html = '<div class="content-card"><h2>Select a Product</h2><div class="product-matches">';
+        function isStepCompleted(stepId) {
+            if (stepId === 'product') return !!flowState.product;
+            if (stepId === 'variant') return !!flowState.variant;
+            if (stepId === 'consultation') return flowState.draftOrder || Object.keys(flowState.consultation || {}).length > 0;
+            if (stepId === 'order') return !!flowState.draftOrder;
+            return false;
+        }
+        
+        function isStepActive(stepId) {
+            if (flowState.draftOrder) return stepId === 'order';
+            if (!flowState.product) return stepId === 'product';
+            if (!flowState.variant) return stepId === 'variant';
+            if (!flowState.draftOrder) return stepId === 'consultation';
+            return false;
+        }
+        
+        function getStepData(stepId) {
+            if (stepId === 'product') return flowState.productData;
+            if (stepId === 'variant') return flowState.variantData;
+            if (stepId === 'consultation') return flowState.consultationData;
+            return null;
+        }
+        
+        function getStepDetail(stepId, stepData) {
+            if (stepId === 'product' && flowState.product) return flowState.product;
+            if (stepId === 'variant' && flowState.variant) return flowState.variant;
+            if (stepId === 'consultation' && Object.keys(flowState.consultation || {}).length > 0) {
+                return `${Object.keys(flowState.consultation).length} question(s) answered`;
+            }
+            if (stepId === 'order' && flowState.draftOrder) return 'Order created successfully';
+            return 'Pending';
+        }
+        
+        function toggleStep(stepId) {
+            const stepEl = document.querySelector(`[data-step="${stepId}"]`);
+            if (stepEl) {
+                stepEl.classList.toggle('active');
+            }
+        }
+        
+        function renderStepContent(stepId, stepData) {
+            if (stepId === 'product') {
+                if (stepData && stepData.matches) {
+                    return renderProductSelection(stepData.matches);
+                }
+                return '<div class="step-body"><p>Searching for products...</p></div>';
+            }
+            if (stepId === 'variant') {
+                if (stepData && stepData.variants) {
+                    return renderVariantSelection(stepData.variants);
+                }
+                return '<div class="step-body"><p>Loading variants...</p></div>';
+            }
+            if (stepId === 'consultation') {
+                if (stepData && stepData.currentQuestion) {
+                    return renderQuestion(stepData.currentQuestion);
+                }
+                return '<div class="step-body"><p>Loading question...</p></div>';
+            }
+            if (stepId === 'order') {
+                if (flowState.draftOrder) {
+                    return renderDraftOrder(flowState.draftOrder);
+                }
+                return '<div class="step-body"><p>Generating draft order...</p></div>';
+            }
+            return '';
+        }
+        
+        function renderCompletedView(stepId, stepData) {
+            if (stepId === 'product' && flowState.product) {
+                return `<div class="step-body completed-view"><div class="answer-display">${flowState.product}</div></div>`;
+            }
+            if (stepId === 'variant' && flowState.variant) {
+                return `<div class="step-body completed-view"><div class="answer-display">${flowState.variant}</div></div>`;
+            }
+            if (stepId === 'consultation' && flowState.consultation) {
+                let html = '<div class="step-body completed-view">';
+                Object.entries(flowState.consultation).forEach(([key, value]) => {
+                    html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${key}:</strong> ${value}</div>`;
+                });
+                html += '</div>';
+                return html;
+            }
+            return '';
+        }
+        
+        function renderProductSelection(matches) {
+            let html = '<div class="step-body"><div class="question-text">Select a product:</div><div class="options-grid">';
             matches.forEach((match, index) => {
                 html += `
-                    <div class="product-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}')">
-                        <h3>${match.name}</h3>
-                        <p>${match.reason}</p>
+                    <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}')">
+                        <div style="font-weight: 600; margin-bottom: 8px;">${match.name}</div>
+                        <div style="font-size: 12px; color: #666;">${match.reason}</div>
                     </div>
                 `;
             });
             html += '</div></div>';
-            mainContent.innerHTML = html;
+            return html;
         }
         
-        function selectProduct(index, name) {
-            // Reflect in chat
-            addChatMessage(`Selected: ${name}`, true);
-            // Send the selection as a message
-            sendMessageInternal(String(index + 1));
-        }
-        
-        function showVariantSelection(variants) {
-            const mainContent = document.getElementById('mainContent');
-            let html = '<div class="content-card"><h2>Select a Variant</h2><div class="product-matches">';
+        function renderVariantSelection(variants) {
+            let html = '<div class="step-body"><div class="question-text">Select a variant:</div><div class="options-grid">';
             variants.forEach((variant, index) => {
                 html += `
-                    <div class="product-card" onclick="selectVariant(${index}, '${variant.title.replace(/'/g, "\\'")}', ${variant.id})">
-                        <h3>${variant.title}</h3>
-                        <p>Price: ${variant.price}</p>
+                    <div class="option-card" onclick="selectVariant(${index}, '${variant.title.replace(/'/g, "\\'")}', ${variant.id})">
+                        <div style="font-weight: 600; margin-bottom: 8px;">${variant.title}</div>
+                        <div style="font-size: 12px; color: #666;">Price: ${variant.price}</div>
                     </div>
                 `;
             });
             html += '</div></div>';
-            mainContent.innerHTML = html;
+            return html;
         }
         
-        function selectVariant(index, title, id) {
-            // Reflect in chat
-            addChatMessage(`Selected: ${title}`, true);
-            // Send the selection
-            sendMessageInternal(title);
-        }
-        
-        function showQuestionInput(question) {
-            const mainContent = document.getElementById('mainContent');
-            let html = '<div class="content-card"><h2>Project Details</h2>';
-            html += `<p style="margin-bottom: 15px; color: #666;">${question.question}</p>`;
+        function renderQuestion(question) {
+            let html = '<div class="step-body"><div class="question-text">' + question.question + '</div>';
             
             if (question.options && question.options.length > 0) {
-                // Show as selection widget
-                html += '<div class="product-matches">';
+                // Render as option cards
+                html += '<div class="options-grid">';
                 question.options.forEach((option, index) => {
                     html += `
-                        <div class="product-card" onclick="selectOption(${index}, '${String(option).replace(/'/g, "\\'")}', '${question.id}')">
-                            <h3>${option}</h3>
+                        <div class="option-card" onclick="selectOption('${String(option).replace(/'/g, "\\'")}', '${question.id}')">
+                            ${option}
                         </div>
                     `;
                 });
                 html += '</div>';
             } else {
-                // Show as input field
-                const defaultValue = question.defaultValue || '';
-                html += `
-                    <div style="margin-top: 15px;">
-                        <input type="text" id="questionInput" placeholder="Enter your answer..." value="${defaultValue}" 
-                               style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
-                               onkeydown="if(event.key==='Enter') submitAnswer('${question.id}')">
-                        <button onclick="submitAnswer('${question.id}')" 
-                                style="margin-top: 10px; padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                            Submit
-                        </button>
-                    </div>
-                `;
+                // Render as input field(s)
+                if (question.id === 'dimensions') {
+                    // Special handling for dimensions - 3 separate inputs
+                    html += `
+                        <div class="dimensions-row">
+                            <div class="input-group">
+                                <label>Length</label>
+                                <input type="text" id="dim_length" placeholder="e.g., 20 cm">
+                            </div>
+                            <div class="input-group">
+                                <label>Width</label>
+                                <input type="text" id="dim_width" placeholder="e.g., 15 cm">
+                            </div>
+                            <div class="input-group">
+                                <label>Height</label>
+                                <input type="text" id="dim_height" placeholder="e.g., 10 cm">
+                            </div>
+                        </div>
+                        <button class="submit-btn" onclick="submitDimensions('${question.id}')">Submit</button>
+                    `;
+                } else if (question.id === 'quantity') {
+                    // Number input for quantity
+                    html += `
+                        <div class="input-group">
+                            <input type="number" id="questionInput" value="${question.defaultValue || '1'}" min="1" placeholder="Enter quantity">
+                        </div>
+                        <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
+                    `;
+                } else {
+                    // Regular text input
+                    html += `
+                        <div class="input-group">
+                            <input type="text" id="questionInput" value="${question.defaultValue || ''}" placeholder="Enter your answer...">
+                        </div>
+                        <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
+                    `;
+                }
             }
-            html += '</div>';
-            mainContent.innerHTML = html;
             
-            // Focus input if it's a text field
-            const input = document.getElementById('questionInput');
-            if (input) {
-                setTimeout(() => input.focus(), 100);
-            }
+            html += '</div>';
+            return html;
         }
         
-        function selectOption(index, option, questionId) {
-            // Reflect in chat
-            addChatMessage(option, true);
-            // Send the selection
-            sendMessageInternal(option);
+        function renderDraftOrder(draftOrder) {
+            return `
+                <div class="draft-order-success">
+                    <h2>✅ Draft Order Created!</h2>
+                    <div class="draft-order-links">
+                        ${draftOrder.adminUrl ? `<a href="${draftOrder.adminUrl}" target="_blank">📋 View Draft Order</a>` : ''}
+                        ${draftOrder.invoiceUrl ? `<a href="${draftOrder.invoiceUrl}" target="_blank">💳 View Invoice & Pay</a>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function selectProduct(index, name) {
+            sendSelection(String(index + 1), { type: 'product', name });
+        }
+        
+        function selectVariant(index, title, id) {
+            sendSelection(title, { type: 'variant', title, id });
+        }
+        
+        function selectOption(option, questionId) {
+            sendSelection(option, { type: 'option', questionId, option });
         }
         
         function submitAnswer(questionId) {
             const input = document.getElementById('questionInput');
             if (input && input.value.trim()) {
-                const answer = input.value.trim();
-                // Reflect in chat
-                addChatMessage(answer, true);
-                // Send the answer
-                sendMessageInternal(answer);
+                sendSelection(input.value.trim(), { type: 'answer', questionId });
             }
         }
         
-        function sendMessageInternal(message) {
-            // Internal function to send message without adding to chat (chat already updated)
+        function submitDimensions(questionId) {
+            const length = document.getElementById('dim_length')?.value.trim() || '';
+            const width = document.getElementById('dim_width')?.value.trim() || '';
+            const height = document.getElementById('dim_height')?.value.trim() || '';
+            
+            if (!length || !width || !height) {
+                alert('Please fill in all dimension fields');
+                return;
+            }
+            
+            const dimensions = `${length} x ${width} x ${height}`;
+            sendSelection(dimensions, { type: 'answer', questionId });
+        }
+        
+        async function sendSelection(message, metadata) {
             const apiUrl = document.getElementById('apiUrl').value.trim();
-            const sendBtn = document.getElementById('sendBtn');
+            if (!apiUrl) return;
             
-            if (!message || !apiUrl) return;
-            
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Sending...';
-            
-            fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, flow: currentFlow })
-            })
-            .then(response => response.json())
-            .then(data => handleResponse(data))
-            .catch(error => {
-                addChatMessage(`Error: ${error.message}`, false);
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send';
-            });
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, flow: currentFlow })
+                });
+                
+                const data = await response.json();
+                handleResponse(data, metadata);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
         }
         
-        function handleResponse(data) {
-            const sendBtn = document.getElementById('sendBtn');
-            
-            // Add AI response to chat
-            if (data.reply) {
-                addChatMessage(data.reply, false);
+        function handleResponse(data, metadata) {
+            // Update flow state based on metadata and response
+            if (metadata.type === 'product' && data.flowState && data.flowState.hasProduct) {
+                flowState.product = data.flowState.productName || metadata.name;
+                flowState.productData = null;
             }
             
-            // Handle product matches
-            if (data.productMatches && data.productMatches.length > 0) {
-                showProductMatches(data.productMatches);
+            if (metadata.type === 'variant' && data.flowState && data.flowState.hasVariant) {
+                flowState.variant = data.flowState.variantName || metadata.title;
+                flowState.variantData = null;
             }
             
-            // Handle variant selection
-            if (data.variants && data.variants.length > 0) {
-                showVariantSelection(data.variants);
+            if (metadata.type === 'answer' || metadata.type === 'option') {
+                if (!flowState.consultation) flowState.consultation = {};
+                flowState.consultation[metadata.questionId] = metadata.option || metadata.message;
             }
             
-            // Handle current question
+            // Update step data
+            if (data.productMatches) {
+                flowState.productData = { matches: data.productMatches };
+            }
+            if (data.variants) {
+                flowState.variantData = { variants: data.variants };
+            }
             if (data.currentQuestion) {
-                showQuestionInput(data.currentQuestion);
+                flowState.consultationData = { currentQuestion: data.currentQuestion };
             }
-            
-            // Handle draft order
             if (data.draftOrder) {
-                showDraftOrder(data.draftOrder);
+                flowState.draftOrder = data.draftOrder;
             }
             
-            // Update flow state
-            if (data.flowState) {
-                if (data.flowState.hasProduct && data.flowState.productName) {
-                    flowState.product = data.flowState.productName;
-                    if (currentStep === 'product') {
-                        currentStep = data.flowState.hasVariant ? 'consultation' : 'variant';
-                    }
-                }
-                if (data.flowState.hasVariant && data.flowState.variantName) {
-                    flowState.variant = data.flowState.variantName;
-                    if (currentStep === 'variant') {
-                        currentStep = 'consultation';
-                    }
-                }
-                if (data.flowState.step === 'consultation') {
-                    currentStep = 'consultation';
-                }
-                updateProgressTracker();
-            } else if (data.reply) {
-                // Fallback: try to extract info from reply text
-                if (!data.productMatches && currentStep === 'product') {
-                    const productMatch = data.reply.match(/\*\*(.+?)\*\*/);
-                    if (productMatch) {
-                        flowState.product = productMatch[1];
-                        currentStep = 'variant';
-                        updateProgressTracker();
-                    }
-                }
-                if (data.reply.includes('project details') || data.reply.includes('Let\'s get')) {
-                    currentStep = 'consultation';
-                    updateProgressTracker();
-                }
-            }
-            
-            sendBtn.disabled = false;
-            sendBtn.textContent = 'Send';
+            // Re-render steps
+            renderSteps();
         }
-        
-        function showDraftOrder(draftOrder) {
-            const mainContent = document.getElementById('mainContent');
-            let html = '<div class="draft-order-card"><h2>✅ Draft Order Created!</h2><div class="draft-order-links">';
-            if (draftOrder.adminUrl) {
-                html += `<a href="${draftOrder.adminUrl}" target="_blank">📋 View Draft Order</a>`;
-            }
-            if (draftOrder.invoiceUrl) {
-                html += `<a href="${draftOrder.invoiceUrl}" target="_blank">💳 View Invoice & Pay</a>`;
-            }
-            html += '</div></div>';
-            mainContent.innerHTML = html;
-            currentStep = 'order';
-            flowState.draftOrder = draftOrder;
-            updateProgressTracker();
-        }
-        
-        function addChatMessage(text, isUser = false) {
-            const chatMessages = document.getElementById('chatMessages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
-            messageDiv.textContent = text;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        async function sendMessage() {
-            const message = document.getElementById('userMessage').value.trim();
-            if (!message) return;
-            
-            addChatMessage(message, true);
-            document.getElementById('userMessage').value = '';
-            sendMessageInternal(message);
-        }
-        
-        // Enter key handling
-        document.getElementById('userMessage').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-        
-        // Auto-resize textarea
-        document.getElementById('userMessage').addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-        });
         
         async function loadAvailableModels() {
             const apiUrl = document.getElementById('apiUrl').value.trim();
@@ -726,7 +746,7 @@
         }
         
         // Initialize
-        updateProgressTracker();
+        renderSteps();
     </script>
 </body>
 </html>
