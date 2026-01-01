@@ -1,5 +1,6 @@
 name = "packageha-ai"
 main = "src/index.ts"
+assets = { directory = "." }
 compatibility_date = "2024-12-16"
 
 [observability]
