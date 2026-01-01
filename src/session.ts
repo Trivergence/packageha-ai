@@ -356,7 +356,8 @@ export class PackagehaSession {
                     // Auto-skip variant selection if only one variant
                     if (memory.variants.length === 1) {
                         memory.selectedVariantId = memory.variants[0].id;
-                        memory.selectedVariantName = memory.variants[0].title;
+                        // Use "Default" instead of the variant title when auto-selecting single variant
+                        memory.selectedVariantName = "Default";
                         memory.step = "consultation";
                         memory.questionIndex = 0;
                         return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };

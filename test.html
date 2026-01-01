@@ -746,8 +746,85 @@
             
             if (question.options && question.options.length > 0) {
                 const isMultiple = question.multiple !== false; // Default to true (checkboxes) unless explicitly false
+                const isGrouped = question.multiple === "grouped";
                 
-                if (isMultiple) {
+                if (isGrouped && Array.isArray(question.options) && question.options.length > 0 && Array.isArray(question.options[0])) {
+                    // Grouped mode: first group is radio buttons, rest are checkboxes
+                    html += '<div id="option-group-' + question.id + '">';
+                    
+                    // First group: mutually exclusive (radio buttons)
+                    if (question.options[0] && question.options[0].length > 0) {
+                        html += '<div style="margin-bottom: 20px;"><div style="font-weight: 600; margin-bottom: 12px; color: #666;">Printing Type (choose one):</div>';
+                        html += '<div class="radio-group" id="radio-group-' + question.id + '">';
+                        question.options[0].forEach((option, index) => {
+                            html += `
+                                <label class="radio-label">
+                                    <input type="radio" name="radio-${question.id}" value="${String(option).replace(/"/g, '&quot;')}" 
+                                           id="radio-${question.id}-${index}">
+                                    <span>${option}</span>
+                                </label>
+                            `;
+                        });
+                        html += '</div></div>';
+                    }
+                    
+                    // Second group: combinable options (checkboxes)
+                    if (question.options[1] && question.options[1].length > 0) {
+                        // Further split: lamination is mutually exclusive, others can combine
+                        const laminationOptions = [];
+                        const otherOptions = [];
+                        question.options[1].forEach(opt => {
+                            if (opt.includes('lamination')) {
+                                laminationOptions.push(opt);
+                            } else {
+                                otherOptions.push(opt);
+                            }
+                        });
+                        
+                        // Lamination options as radio (mutually exclusive)
+                        if (laminationOptions.length > 0) {
+                            html += '<div style="margin-bottom: 20px;"><div style="font-weight: 600; margin-bottom: 12px; color: #666;">Lamination (choose one):</div>';
+                            html += '<div class="radio-group" id="lamination-radio-' + question.id + '">';
+                            laminationOptions.forEach((option, index) => {
+                                html += `
+                                    <label class="radio-label">
+                                        <input type="radio" name="lamination-radio-${question.id}" value="${String(option).replace(/"/g, '&quot;')}" 
+                                               id="lamination-${question.id}-${index}">
+                                        <span>${option}</span>
+                                    </label>
+                                `;
+                            });
+                            html += '</div></div>';
+                        }
+                        
+                        // Other options as checkboxes (can combine)
+                        if (otherOptions.length > 0) {
+                            html += '<div style="margin-bottom: 20px;"><div style="font-weight: 600; margin-bottom: 12px; color: #666;">Additional Finishing (select all that apply):</div>';
+                            html += '<div class="checkbox-group" id="checkbox-group-' + question.id + '">';
+                            otherOptions.forEach((option, index) => {
+                                html += `
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="${String(option).replace(/"/g, '&quot;')}" 
+                                               id="checkbox-${question.id}-${index}">
+                                        <span>${option}</span>
+                                    </label>
+                                `;
+                            });
+                            html += '</div></div>';
+                        }
+                    }
+                    
+                    html += '</div>';
+                    
+                    // Additional notes field
+                    html += `
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                            <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                        </div>
+                        <button class="submit-btn" onclick="submitGroupedAnswer('${question.id}')">Submit</button>
+                    `;
+                } else if (isMultiple) {
                     // Render as checkboxes with notes field (for multiple selections)
                     html += '<div class="checkbox-group" id="option-group-' + question.id + '">';
                     question.options.forEach((option, index) => {
@@ -903,6 +980,34 @@
             }
             
             let answer = radio ? radio.value : '';
+            if (notes) {
+                answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
+            }
+            
+            sendSelection(answer, { type: 'answer', questionId, answer: answer });
+        }
+        
+        function submitGroupedAnswer(questionId) {
+            // Get printing type (radio)
+            const printingRadio = document.querySelector(`#radio-group-${questionId} input[type="radio"]:checked`);
+            // Get lamination (radio)
+            const laminationRadio = document.querySelector(`#lamination-radio-${questionId} input[type="radio"]:checked`);
+            // Get additional finishing (checkboxes)
+            const checkboxes = document.querySelectorAll(`#checkbox-group-${questionId} input[type="checkbox"]:checked`);
+            const notesInput = document.getElementById(`notes-${questionId}`);
+            const notes = notesInput ? notesInput.value.trim() : '';
+            
+            const selectedOptions = [];
+            if (printingRadio) selectedOptions.push(printingRadio.value);
+            if (laminationRadio) selectedOptions.push(laminationRadio.value);
+            Array.from(checkboxes).forEach(cb => selectedOptions.push(cb.value));
+            
+            if (selectedOptions.length === 0 && !notes) {
+                alert('Please select at least one option or add notes.');
+                return;
+            }
+            
+            let answer = selectedOptions.join(', ');
             if (notes) {
                 answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
             }

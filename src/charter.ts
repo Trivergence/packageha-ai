@@ -7,8 +7,8 @@ export interface CharterStep {
     id: string;
     question: string;
     validation?: (answer: string) => boolean | string;
-    options?: string[]; // Optional predefined options for checkboxes/radio buttons
-    multiple?: boolean; // If true, allow multiple selections (checkboxes), if false, single selection (radio buttons)
+    options?: string[] | string[][]; // Optional predefined options - can be flat array or grouped array (for grouped mode)
+    multiple?: boolean | "grouped"; // If true, allow multiple selections (checkboxes), if false, single selection (radio buttons), if "grouped", first group is radio, rest are checkboxes
     defaultValue?: string; // Optional default value for UI hints
 }
 
@@ -101,8 +101,14 @@ export const SALES_CHARTER: Charter = {
             { 
                 id: "print", 
                 question: "Tell me about the Printing/Finish.",
-                options: ["Full color printing", "Logo only", "No printing", "Gold foil", "Silver foil", "Matte lamination", "Glossy lamination", "UV coating", "Embossing", "Debossing"],
-                multiple: true // Multiple selections allowed (checkboxes)
+                // Grouped options: first array is mutually exclusive (radio), second array can be combined (checkboxes)
+                options: [
+                    // Printing type - mutually exclusive (choose one)
+                    ["Full color printing", "Logo only", "No printing"],
+                    // Finishing options - can be combined (select multiple)
+                    ["Gold foil", "Silver foil", "Matte lamination", "Glossy lamination", "UV coating", "Embossing", "Debossing"]
+                ],
+                multiple: "grouped" // Special mode: first group is radio, second group is checkboxes
             },
             { 
                 id: "timeline", 
