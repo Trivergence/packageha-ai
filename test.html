@@ -1431,10 +1431,10 @@
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) fallbackMsg.style.display = 'none';
                     // Continue processing - don't return early
-                } else if (data.flowState && data.flowState.hasProduct) {
+                } else if (data.flowState && data.flowState.hasPackage) {
                     // If no matches but we have a reply, the package was found directly
-                    console.log('[handleResponse] Package found directly:', data.flowState.productName);
-                    flowState.package = data.flowState.productName;
+                    console.log('[handleResponse] Package found directly:', data.flowState.packageName);
+                    flowState.package = data.flowState.packageName;
                     flowState.packageData = null;
                     // Hide fallback message
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
@@ -1456,7 +1456,7 @@
                     // Continue processing - don't return early
                 } else {
                     // No matches found - show fallback message
-                    console.log('[handleResponse] No productMatches and no hasProduct - search returned no results');
+                    console.log('[handleResponse] No productMatches and no hasPackage - search returned no results');
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) {
                         fallbackMsg.style.display = 'block';
@@ -1465,9 +1465,9 @@
             }
             
             // Update flow state based on metadata and response
-            if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasProduct) {
-                console.log('[handleResponse] Package selected:', data.flowState.productName);
-                flowState.package = data.flowState.productName || metadata.name;
+            if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasPackage) {
+                console.log('[handleResponse] Package selected:', data.flowState.packageName);
+                flowState.package = data.flowState.packageName || metadata.name;
                 flowState.packageData = null;
                 
                 // CRITICAL: When product is selected and backend moved to select_package_specs, 

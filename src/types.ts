@@ -25,12 +25,12 @@ export interface Env {
 export interface Memory {
   flow: AgentFlow; // Which flow is active
   step: string; // Flow-specific step (union type too complex, use string)
-  productName?: string;
-  productId?: number;
-  variants?: Variant[];
-  selectedVariantId?: number;
-  selectedVariantName?: string;
-  clipboard: Record<string, string>;
+  packageName?: string; // Packageha's package name (what we sell) - NOT the client's product
+  packageId?: number; // Packageha's package ID (what we sell) - NOT the client's product
+  variants?: Variant[]; // Variants of the selected Packageha package
+  selectedVariantId?: number; // Selected variant ID of the Packageha package
+  selectedVariantName?: string; // Selected variant name of the Packageha package
+  clipboard: Record<string, string>; // Stores client product details (product_description, product_dimensions, etc.)
   questionIndex: number;
   createdAt?: number;
   lastActivity?: number;
@@ -45,8 +45,8 @@ export interface Memory {
     dimensions?: string;
     print?: string;
   };
-  // For product selection from multiple matches
-  pendingMatches?: Array<{ id: number; productId: number; name: string; reason: string }>;
+  // For package selection from multiple matches (Packageha packages, not client products)
+  pendingMatches?: Array<{ id: number; packageId: number; name: string; reason: string }>;
 }
 
 export interface PackageRecommendation {
@@ -63,6 +63,8 @@ export interface Variant {
   price: string;
 }
 
+// Represents a Packageha package (what we sell) - NOT a client's product
+// Note: Shopify API uses "product" terminology, but these are actually packages
 export interface Product {
   id: number;
   title: string;

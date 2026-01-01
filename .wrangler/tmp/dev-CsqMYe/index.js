@@ -92,11 +92,11 @@ var SALES_CHARTER = {
     tone: "Professional, thorough, and consultative. Always helpful, never pushy.",
     version: "3.0"
   },
-  // PHASE 1: FINDING THE PACKAGE
+  // PHASE 1: FINDING THE PACKAGE (Packageha's packages, not client's product)
   discovery: {
     mission: "Find the best match ID for the user's request from the provided inventory list.",
     rules: [
-      "IGNORE prefixes like 'TEST' or 'rs-' in product titles.",
+      "IGNORE prefixes like 'TEST' or 'rs-' in package titles.",
       "MATCH LOOSELY: 'Box' matches 'Custom Box Calculator'. 'Photo' matches '\u062E\u062F\u0645\u0629 \u062A\u0635\u0648\u064A\u0631'.",
       "If multiple matches exist, pick the most relevant one based on the user's specific keywords.",
       "Be culturally aware - support both English and Arabic product names.",
@@ -150,10 +150,11 @@ var SALES_CHARTER = {
       }
     ]
   },
-  // STEP 2: Package Selection - Package search/selection with specifications
-  // This uses discovery + variant for finding the package, then collects package specs
+  // STEP 2: Package Selection - Packageha package search/selection with specifications
+  // This uses discovery + variant for finding the Packageha package, then collects package specs
+  // Note: "package" here refers to Packageha's packages (what we sell), NOT the client's product
   packageSpecs: {
-    mission: "Collect package specifications (material, dimensions, print) after package is selected.",
+    mission: "Collect package specifications (material, dimensions, print) after Packageha package is selected.",
     steps: [
       {
         id: "material",
@@ -779,13 +780,15 @@ var PackagehaSession = class {
       if (productMatches) response.productMatches = productMatches;
       response.flowState = {
         step: memory.step,
-        productName: memory.productName,
+        packageName: memory.packageName,
+        // Packageha's package (what we sell), NOT client's product
         variantName: memory.selectedVariantName,
-        hasProduct: !!memory.productId,
+        hasPackage: !!memory.packageId,
+        // Packageha's package selected, NOT client's product
         hasVariant: !!memory.selectedVariantId,
         questionIndex: memory.questionIndex
       };
-      if (memory.productId && memory.variants && !memory.selectedVariantId) {
+      if (memory.packageId && memory.variants && !memory.selectedVariantId) {
         if (memory.step === "ask_variant" || memory.step === "select_package_variant" || memory.step === "consultation" && memory.variants.length > 1) {
           response.variants = memory.variants.map((v) => ({
             id: v.id,
@@ -980,20 +983,20 @@ var PackagehaSession = class {
       if (numMatch) {
         const selectedNum = parseInt(numMatch[1]) - 1;
         if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
-          const selectedProductIndex2 = memory.pendingMatches[selectedNum].id;
+          const selectedPackageIndex2 = memory.pendingMatches[selectedNum].id;
           let products2;
           try {
             products2 = await this.getCachedProducts();
           } catch (error) {
-            return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+            return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
           }
-          const product = products2[selectedProductIndex2];
-          if (!product) {
-            return { reply: "I found a match but couldn't load the product details. Please try again." };
+          const packageProduct = products2[selectedPackageIndex2];
+          if (!packageProduct) {
+            return { reply: "I found a match but couldn't load the package details. Please try again." };
           }
-          memory.productName = product.title;
-          memory.productId = product.id;
-          memory.variants = product.variants.map((v) => ({
+          memory.packageName = packageProduct.title;
+          memory.packageId = packageProduct.id;
+          memory.variants = packageProduct.variants.map((v) => ({
             id: v.id,
             title: v.title,
             price: v.price
@@ -1008,13 +1011,13 @@ var PackagehaSession = class {
               if (!SALES_CHARTER.packageSpecs) {
                 return { reply: "Error: Package specs configuration missing." };
               }
-              return { reply: `Found **${product.title}**.
+              return { reply: `Found **${packageProduct.title}**.
 
 ${SALES_CHARTER.packageSpecs.steps[0].question}` };
             } else {
               memory.step = "consultation";
               memory.questionIndex = 0;
-              return { reply: `Found **${product.title}**.
+              return { reply: `Found **${packageProduct.title}**.
 
 Let's get your project details.
 
@@ -1027,7 +1030,7 @@ ${charter.consultation.steps[0].question}` };
             memory.step = "ask_variant";
           }
           const options = memory.variants.map((v) => v.title).join(", ");
-          return { reply: `Found **${product.title}**.
+          return { reply: `Found **${packageProduct.title}**.
 
 Which type are you interested in?
 
@@ -1055,11 +1058,11 @@ ${matchesList}`,
     try {
       products = await this.getCachedProducts();
     } catch (error) {
-      console.error("[handleDiscovery] Error fetching products:", error);
-      return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+      console.error("[handleDiscovery] Error fetching packages:", error);
+      return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
     }
     if (products.length === 0) {
-      return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+      return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
     }
     const inventoryList = products.map((p, index) => {
       const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
@@ -1113,7 +1116,8 @@ Return JSON:
     if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
       const matches = decision.matches.filter((m) => m.id !== void 0 && products[m.id]).slice(0, 5).map((m) => ({
         id: m.id,
-        productId: products[m.id].id,
+        packageId: products[m.id].id,
+        // Packageha's package ID
         name: products[m.id].title,
         reason: m.reason || "Matches your search"
       }));
@@ -1123,23 +1127,23 @@ Return JSON:
       memory.pendingMatches = matches;
       const matchesList = matches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
       return {
-        reply: `I found ${matches.length} matching products:
+        reply: `I found ${matches.length} matching packages:
 
 ${matchesList}
 
-Please select a product by number (1-${matches.length}) or describe what you need more specifically.`,
+Please select a package by number (1-${matches.length}) or describe what you need more specifically.`,
         productMatches: matches
       };
     }
-    const selectedProductIndex = decision.id;
-    if (selectedProductIndex !== void 0 && products[selectedProductIndex]) {
-      const product = products[selectedProductIndex];
-      if (!product) {
-        return { reply: "I found a match but couldn't load the product details. Please try again." };
+    const selectedPackageIndex = decision.id;
+    if (selectedPackageIndex !== void 0 && products[selectedPackageIndex]) {
+      const packageProduct = products[selectedPackageIndex];
+      if (!packageProduct) {
+        return { reply: "I found a match but couldn't load the package details. Please try again." };
       }
-      memory.productName = product.title;
-      memory.productId = product.id;
-      memory.variants = product.variants.map((v) => ({
+      memory.packageName = packageProduct.title;
+      memory.packageId = packageProduct.id;
+      memory.variants = packageProduct.variants.map((v) => ({
         id: v.id,
         title: v.title,
         price: v.price
@@ -1153,13 +1157,13 @@ Please select a product by number (1-${matches.length}) or describe what you nee
           if (!SALES_CHARTER.packageSpecs) {
             return { reply: "Error: Package specs configuration missing." };
           }
-          return { reply: `Found **${product.title}**.
+          return { reply: `Found **${packageProduct.title}**.
 
 ${SALES_CHARTER.packageSpecs.steps[0].question}` };
         } else {
           memory.step = "consultation";
           memory.questionIndex = 0;
-          return { reply: `Found **${product.title}**.
+          return { reply: `Found **${packageProduct.title}**.
 
 Let's get your project details.
 
@@ -1172,7 +1176,7 @@ ${charter.consultation.steps[0].question}` };
         memory.step = "ask_variant";
       }
       const options = memory.variants.map((v) => v.title).join(", ");
-      return { reply: `Found **${product.title}**.
+      return { reply: `Found **${packageProduct.title}**.
 
 Which type are you interested in?
 
@@ -1283,7 +1287,7 @@ ${SALES_CHARTER.packageSpecs.steps[0].question}`
    * Handle package selection (discovery -> variant -> specs)
    */
   async handlePackageSelection(userMessage, memory) {
-    if (!memory.productId) {
+    if (!memory.packageId) {
       if (!userMessage || userMessage.trim() === "") {
         memory.step = "select_package_discovery";
         return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
@@ -1293,7 +1297,7 @@ ${SALES_CHARTER.packageSpecs.steps[0].question}`
       if (result.productMatches && result.productMatches.length > 0) {
         return result;
       }
-      if (memory.productId && memory.variants) {
+      if (memory.packageId && memory.variants) {
         if (memory.variants.length === 1) {
           memory.selectedVariantId = memory.variants[0].id;
           memory.selectedVariantName = "Default";
@@ -1306,7 +1310,7 @@ ${SALES_CHARTER.packageSpecs.steps[0].question}`
         } else {
           memory.step = "select_package_variant";
           const options = memory.variants.map((v) => v.title).join(", ");
-          return { reply: `Found **${memory.productName}**.
+          return { reply: `Found **${memory.packageName}**.
 
 Which type are you interested in?
 
@@ -1376,7 +1380,7 @@ Options: ${options}` };
       });
     }
     const briefNote = `--- PROJECT BRIEF ---
-Package: ${memory.selectedVariantName || memory.productName || "Not selected"}
+Package: ${memory.selectedVariantName || memory.packageName || "Not selected"}
 ${allAnswers.join("\n")}
 ---------------------
 Generated by Studium AI Agent (${SALES_CHARTER.meta.name})

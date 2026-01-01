@@ -55,11 +55,11 @@ export const SALES_CHARTER: Charter = {
         version: "3.0",
     },
 
-    // PHASE 1: FINDING THE PACKAGE
+    // PHASE 1: FINDING THE PACKAGE (Packageha's packages, not client's product)
     discovery: {
         mission: "Find the best match ID for the user's request from the provided inventory list.",
         rules: [
-            "IGNORE prefixes like 'TEST' or 'rs-' in product titles.",
+            "IGNORE prefixes like 'TEST' or 'rs-' in package titles.",
             "MATCH LOOSELY: 'Box' matches 'Custom Box Calculator'. 'Photo' matches 'خدمة تصوير'.",
             "If multiple matches exist, pick the most relevant one based on the user's specific keywords.",
             "Be culturally aware - support both English and Arabic product names.",
@@ -116,10 +116,11 @@ export const SALES_CHARTER: Charter = {
         ]
     },
 
-    // STEP 2: Package Selection - Package search/selection with specifications
-    // This uses discovery + variant for finding the package, then collects package specs
+    // STEP 2: Package Selection - Packageha package search/selection with specifications
+    // This uses discovery + variant for finding the Packageha package, then collects package specs
+    // Note: "package" here refers to Packageha's packages (what we sell), NOT the client's product
     packageSpecs: {
-        mission: "Collect package specifications (material, dimensions, print) after package is selected.",
+        mission: "Collect package specifications (material, dimensions, print) after Packageha package is selected.",
         steps: [
             { 
                 id: "material", 

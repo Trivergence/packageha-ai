@@ -134,16 +134,16 @@ export class PackagehaSession {
             // Add flow state for UI tracking
             response.flowState = {
                 step: memory.step,
-                productName: memory.productName,
+                packageName: memory.packageName, // Packageha's package (what we sell), NOT client's product
                 variantName: memory.selectedVariantName,
-                hasProduct: !!memory.productId,
+                hasPackage: !!memory.packageId, // Packageha's package selected, NOT client's product
                 hasVariant: !!memory.selectedVariantId,
                 questionIndex: memory.questionIndex
             };
             
-            // Add variant options if we're in variant selection step OR if product is selected but variant isn't
+            // Add variant options if we're in variant selection step OR if package is selected but variant isn't
             // This helps frontend know what variants are available even if we haven't explicitly asked yet
-            if (memory.productId && memory.variants && !memory.selectedVariantId) {
+            if (memory.packageId && memory.variants && !memory.selectedVariantId) {
                 // Include variants for variant selection steps
                 if (memory.step === "ask_variant" || memory.step === "select_package_variant" || 
                     (memory.step === "consultation" && memory.variants.length > 1)) {
@@ -389,26 +389,26 @@ export class PackagehaSession {
             if (numMatch) {
                 const selectedNum = parseInt(numMatch[1]) - 1;
                 if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
-                    // User selected a product - get the product index from the match
-                    const selectedProductIndex = memory.pendingMatches[selectedNum].id;
+                    // User selected a package - get the package index from the match
+                    const selectedPackageIndex = memory.pendingMatches[selectedNum].id;
                     
-                    // Fetch products to get full details
+                    // Fetch packages from Shopify (they call them "products" in their API)
                     let products;
                     try {
                         products = await this.getCachedProducts();
                     } catch (error: any) {
-                        return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+                        return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
                     }
                     
-                    const product = products[selectedProductIndex];
-                    if (!product) {
-                        return { reply: "I found a match but couldn't load the product details. Please try again." };
+                    const packageProduct = products[selectedPackageIndex];
+                    if (!packageProduct) {
+                        return { reply: "I found a match but couldn't load the package details. Please try again." };
                     }
 
-                    // Store product info
-                    memory.productName = product.title;
-                    memory.productId = product.id;
-                    memory.variants = product.variants.map((v: any) => ({
+                    // Store package info (Packageha's package, not client's product)
+                    memory.packageName = packageProduct.title;
+                    memory.packageId = packageProduct.id;
+                    memory.variants = packageProduct.variants.map((v: any) => ({
                         id: v.id,
                         title: v.title,
                         price: v.price,
@@ -427,12 +427,12 @@ export class PackagehaSession {
                             if (!SALES_CHARTER.packageSpecs) {
                                 return { reply: "Error: Package specs configuration missing." };
                             }
-                            return { reply: `Found **${product.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
+                            return { reply: `Found **${packageProduct.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
                         } else {
                             // Legacy flow
                             memory.step = "consultation";
                             memory.questionIndex = 0;
-                            return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                            return { reply: `Found **${packageProduct.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
                         }
                     }
 
@@ -444,7 +444,7 @@ export class PackagehaSession {
                         memory.step = "ask_variant";
                     }
                     const options = memory.variants.map(v => v.title).join(", ");
-                    return { reply: `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
+                    return { reply: `Found **${packageProduct.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
                 } else {
                     // Invalid number
                     const matchesList = memory.pendingMatches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
@@ -469,17 +469,17 @@ export class PackagehaSession {
             return { reply: "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')" };
         }
 
-        // Fetch products (with caching)
+        // Fetch packages from Shopify (they call them "products" in their API, but these are Packageha packages)
         let products;
         try {
             products = await this.getCachedProducts();
         } catch (error: any) {
-            console.error("[handleDiscovery] Error fetching products:", error);
-            return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+            console.error("[handleDiscovery] Error fetching packages:", error);
+            return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
         }
 
         if (products.length === 0) {
-            return { reply: "I'm having trouble accessing the product catalog. Please try again later." };
+            return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
         }
 
         // Prepare inventory context - include full product names (including Arabic) for better AI reasoning
@@ -536,7 +536,7 @@ export class PackagehaSession {
                 .slice(0, 5) // Limit to 5 matches
                 .map(m => ({
                     id: m.id!,
-                    productId: products[m.id!].id,
+                    packageId: products[m.id!].id, // Packageha's package ID
                     name: products[m.id!].title,
                     reason: m.reason || "Matches your search"
                 }));
@@ -550,24 +550,24 @@ export class PackagehaSession {
 
             const matchesList = matches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
             return {
-                reply: `I found ${matches.length} matching products:\n\n${matchesList}\n\nPlease select a product by number (1-${matches.length}) or describe what you need more specifically.`,
+                reply: `I found ${matches.length} matching packages:\n\n${matchesList}\n\nPlease select a package by number (1-${matches.length}) or describe what you need more specifically.`,
                 productMatches: matches
             };
         }
 
         // Handle single match
-        const selectedProductIndex = decision.id;
+        const selectedPackageIndex = decision.id;
 
-        if (selectedProductIndex !== undefined && products[selectedProductIndex]) {
-            const product = products[selectedProductIndex];
-            if (!product) {
-                return { reply: "I found a match but couldn't load the product details. Please try again." };
+        if (selectedPackageIndex !== undefined && products[selectedPackageIndex]) {
+            const packageProduct = products[selectedPackageIndex];
+            if (!packageProduct) {
+                return { reply: "I found a match but couldn't load the package details. Please try again." };
             }
 
-            // Store product info
-            memory.productName = product.title;
-            memory.productId = product.id;
-            memory.variants = product.variants.map((v: any) => ({
+            // Store package info (Packageha's package, not client's product)
+            memory.packageName = packageProduct.title;
+            memory.packageId = packageProduct.id;
+            memory.variants = packageProduct.variants.map((v: any) => ({
                 id: v.id,
                 title: v.title,
                 price: v.price,
@@ -584,12 +584,12 @@ export class PackagehaSession {
                     if (!SALES_CHARTER.packageSpecs) {
                         return { reply: "Error: Package specs configuration missing." };
                     }
-                    return { reply: `Found **${product.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
+                    return { reply: `Found **${packageProduct.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
                 } else {
                     // Legacy flow
                     memory.step = "consultation";
                     memory.questionIndex = 0;
-                    return { reply: `Found **${product.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
+                    return { reply: `Found **${packageProduct.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
                 }
             }
 
@@ -601,7 +601,7 @@ export class PackagehaSession {
                 memory.step = "ask_variant";
             }
             const options = memory.variants.map(v => v.title).join(", ");
-            return { reply: `Found **${product.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
+            return { reply: `Found **${packageProduct.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
         }
 
         return { reply: "I'm not sure how to help with that. What packaging solution are you looking for?" };
@@ -743,7 +743,7 @@ export class PackagehaSession {
         memory: Memory
     ): Promise<{ reply: string; productMatches?: any[] }> {
         // If we haven't selected a package yet, do discovery
-        if (!memory.productId) {
+        if (!memory.packageId) {
             // If message is empty or just whitespace, return a prompt (don't call handleDiscovery)
             if (!userMessage || userMessage.trim() === "") {
                 memory.step = "select_package_discovery";
@@ -758,8 +758,8 @@ export class PackagehaSession {
                 return result;
             }
             
-            // If discovery found a product, handle variant selection
-            if (memory.productId && memory.variants) {
+            // If discovery found a package, handle variant selection
+            if (memory.packageId && memory.variants) {
                 if (memory.variants.length === 1) {
                     // Auto-select single variant
                     memory.selectedVariantId = memory.variants[0].id;
@@ -774,7 +774,7 @@ export class PackagehaSession {
                     // Ask for variant
                     memory.step = "select_package_variant";
                     const options = memory.variants.map(v => v.title).join(", ");
-                    return { reply: `Found **${memory.productName}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
+                    return { reply: `Found **${memory.packageName}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
                 }
             }
             
@@ -878,7 +878,7 @@ export class PackagehaSession {
         
         // Format project brief
         const briefNote = `--- PROJECT BRIEF ---
-Package: ${memory.selectedVariantName || memory.productName || "Not selected"}
+Package: ${memory.selectedVariantName || memory.packageName || "Not selected"}
 ${allAnswers.join("\n")}
 ---------------------
 Generated by Studium AI Agent (${SALES_CHARTER.meta.name})
