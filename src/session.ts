@@ -1238,16 +1238,34 @@ export class PackagehaSession {
      */
     private async getNextStepPrompt(nextStep: string, memory: Memory): Promise<{ reply: string; productMatches?: any[]; isAutoSearch?: boolean }> {
         if (nextStep === "select_package") {
-            // Transition to package selection step immediately (don't wait for search)
+            // Transition to package selection step immediately
             memory.step = "select_package_discovery";
-            // Set flag to trigger auto-search on next empty message
-            memory.clipboard['_autoSearch'] = 'true';
-            // Return immediately so frontend can show loading indicator
-            // The search will happen on the next request (empty message triggers it)
-            return { 
-                reply: "Searching for packages that match your product...",
-                isAutoSearch: true // Signal that auto-search should happen
-            };
+            // Build comprehensive search query from all product details
+            const productContext: string[] = [];
+            if (memory.clipboard) {
+                if (memory.clipboard.product_description) {
+                    productContext.push(memory.clipboard.product_description);
+                }
+                if (memory.clipboard.product_dimensions) {
+                    productContext.push(`dimensions: ${memory.clipboard.product_dimensions}`);
+                }
+                if (memory.clipboard.product_weight) {
+                    productContext.push(`weight: ${memory.clipboard.product_weight}`);
+                }
+                if (memory.clipboard.fragility) {
+                    productContext.push(`fragility: ${memory.clipboard.fragility}`);
+                }
+                if (memory.clipboard.budget) {
+                    productContext.push(`budget: ${memory.clipboard.budget}`);
+                }
+            }
+            const autoSearchQuery = productContext.length > 0 ? productContext.join(', ') : "packaging";
+            console.log("[getNextStepPrompt] Auto-triggering search with query:", autoSearchQuery);
+            
+            // Trigger the search immediately
+            memory.clipboard['_autoSearch'] = 'true'; // Mark for response
+            const result = await this.handlePackageSelection(autoSearchQuery, memory);
+            return result;
         } else if (nextStep === "fulfillment_specs") {
             if (!SALES_CHARTER.fulfillmentSpecs) {
                 return { reply: "Error: Fulfillment specs configuration missing." };
