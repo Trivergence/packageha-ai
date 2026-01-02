@@ -701,6 +701,7 @@
                 
                 // Map backend steps to frontend steps
                 const stepMapping = {
+                    'start': 'product_details', // 'start' step maps to product_details
                     'product_details': 'product_details',
                     'select_package': 'package_selection',
                     'select_package_discovery': 'package_selection',
@@ -717,10 +718,15 @@
                     if (mappedStep) {
                         return stepId === mappedStep;
                     }
+                    // If backendStep exists but isn't in mapping, fall through to completion-based logic
                 }
                 
                 // Fallback: Determine which step should be active based on completion state
-                // This is used when backend step is not yet set (initial load)
+                // This is used when backend step is not yet set (initial load) or doesn't map to a step
+                // On initial load, product_details should be active
+                if (!backendStep || backendStep === 'start') {
+                    return stepId === 'product_details';
+                }
                 if (!isStepCompleted('product_details')) return stepId === 'product_details';
                 if (!isStepCompleted('package_selection')) return stepId === 'package_selection';
                 if (!isStepCompleted('fulfillment_specs')) return stepId === 'fulfillment_specs';
@@ -1003,12 +1009,16 @@
             
             // Determine which consultation state to use
             let consultationKey = 'fulfillmentSpecs';
+            let dataKey = 'fulfillmentSpecsData';
             if (stepId === 'product_details') {
                 consultationKey = 'productDetails';
+                dataKey = 'productDetailsData';
             } else if (stepId === 'package_specs') {
                 consultationKey = 'packageSpecs';
+                dataKey = 'packageSpecsData';
             } else if (stepId === 'launch_kit') {
                 consultationKey = 'launchKit';
+                dataKey = 'launchKitData';
             }
             
             // Remove the answer from the state
@@ -1016,10 +1026,10 @@
                 delete flowState[consultationKey][questionId];
             }
             
-            // Reset the question index to the question being edited
-            // We need to find which question index this is
-            // For now, send a message to the backend to re-ask this question
-            // The backend should handle going back to the specific question
+            // Clear the current question data so it will be re-fetched
+            if (flowState[dataKey]) {
+                flowState[dataKey].currentQuestion = null;
+            }
             
             // Send a message to re-ask this question
             sendSelection(`edit:${questionId}`, { 
@@ -1551,9 +1561,11 @@
                         input.focus();
                         
                         // Initialize Google Maps autocomplete for shipping address
-                        if (input.getAttribute('data-question-id') === 'shipping_address' || 
-                            (input.closest('.step-body') && input.closest('.step-body').querySelector('[id*="shipping"]'))) {
-                            initializeAddressAutocomplete(input);
+                        if (input.getAttribute('data-question-id') === 'shipping_address') {
+                            // Delay to ensure input is fully rendered
+                            setTimeout(() => {
+                                initializeAddressAutocomplete(input);
+                            }, 200);
                         }
                     }
                 }
@@ -1562,29 +1574,51 @@
         
         // Initialize Google Maps autocomplete for address input
         function initializeAddressAutocomplete(input) {
-            if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-                console.warn('[initializeAddressAutocomplete] Google Maps API not loaded');
+            if (!input) {
+                console.warn('[initializeAddressAutocomplete] Input element not found');
                 return;
             }
             
-            try {
-                const autocomplete = new google.maps.places.Autocomplete(input, {
-                    componentRestrictions: { country: ['sa'] }, // Restrict to Saudi Arabia
-                    fields: ['formatted_address', 'geometry', 'address_components'],
-                    types: ['address']
-                });
-                
-                autocomplete.addListener('place_changed', function() {
-                    const place = autocomplete.getPlace();
-                    if (place.formatted_address) {
-                        input.value = place.formatted_address;
-                    }
-                });
-                
-                console.log('[initializeAddressAutocomplete] Autocomplete initialized for shipping address');
-            } catch (error) {
-                console.error('[initializeAddressAutocomplete] Error:', error);
+            // Check if already initialized (avoid duplicate initialization)
+            if (input.dataset.autocompleteInitialized === 'true') {
+                console.log('[initializeAddressAutocomplete] Already initialized, skipping');
+                return;
             }
+            
+            // Wait for Google Maps API to load
+            const initAutocomplete = () => {
+                if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+                    console.warn('[initializeAddressAutocomplete] Google Maps API not loaded yet, retrying...');
+                    setTimeout(initAutocomplete, 500);
+                    return;
+                }
+                
+                try {
+                    // Use legacy Autocomplete API (works reliably, deprecation warning is just a notice)
+                    const autocomplete = new google.maps.places.Autocomplete(input, {
+                        componentRestrictions: { country: ['sa'] }, // Restrict to Saudi Arabia
+                        fields: ['formatted_address', 'geometry', 'address_components'],
+                        types: ['address']
+                    });
+                    
+                    autocomplete.addListener('place_changed', function() {
+                        const place = autocomplete.getPlace();
+                        if (place && place.formatted_address) {
+                            input.value = place.formatted_address;
+                            console.log('[initializeAddressAutocomplete] Address selected:', place.formatted_address);
+                        }
+                    });
+                    
+                    // Mark as initialized
+                    input.dataset.autocompleteInitialized = 'true';
+                    console.log('[initializeAddressAutocomplete] Autocomplete initialized for shipping address');
+                } catch (error) {
+                    console.error('[initializeAddressAutocomplete] Error initializing autocomplete:', error);
+                }
+            };
+            
+            // Start initialization
+            initAutocomplete();
         }
         
         async function sendSelection(message, metadata) {
@@ -1708,12 +1742,13 @@
         // Helper function to get the current consultation state property based on backend step
         function getCurrentConsultationState(backendStep) {
             const mapping = {
+                'start': 'productDetails', // 'start' step should show product details questions
                 'product_details': 'productDetails',
                 'select_package_specs': 'packageSpecs',
                 'fulfillment_specs': 'fulfillmentSpecs',
                 'launch_kit': 'launchKit'
             };
-            const result = mapping[backendStep] || 'fulfillmentSpecs';
+            const result = mapping[backendStep] || 'productDetails'; // Default to productDetails for initial state
             console.log(`[getCurrentConsultationState] Backend step: ${backendStep} -> Consultation key: ${result}`);
             return result;
         }
@@ -1785,6 +1820,44 @@
                         fallbackMsg.style.display = 'block';
                     }
                 }
+            }
+            
+            // Handle edit requests - backend returns the question to edit
+            if (metadata && metadata.type === 'edit' && data.currentQuestion) {
+                console.log('[handleResponse] Handling edit response for question:', metadata.questionId);
+                
+                // Determine which consultation state this question belongs to
+                let consultationKey = 'fulfillmentSpecs';
+                let dataKey = 'fulfillmentSpecsData';
+                if (metadata.stepId === 'product_details') {
+                    consultationKey = 'productDetails';
+                    dataKey = 'productDetailsData';
+                } else if (metadata.stepId === 'package_specs') {
+                    consultationKey = 'packageSpecs';
+                    dataKey = 'packageSpecsData';
+                } else if (metadata.stepId === 'launch_kit') {
+                    consultationKey = 'launchKit';
+                    dataKey = 'launchKitData';
+                }
+                
+                // Set the current question data
+                if (!flowState[dataKey]) {
+                    flowState[dataKey] = {};
+                }
+                flowState[dataKey].currentQuestion = data.currentQuestion;
+                
+                // Update backend step to match the step being edited
+                if (metadata.stepId === 'product_details') {
+                    flowState.backendStep = 'product_details';
+                } else if (metadata.stepId === 'package_specs') {
+                    flowState.backendStep = 'select_package_specs';
+                } else if (metadata.stepId === 'fulfillment_specs') {
+                    flowState.backendStep = 'fulfillment_specs';
+                } else if (metadata.stepId === 'launch_kit') {
+                    flowState.backendStep = 'launch_kit';
+                }
+                
+                console.log('[handleResponse] Edit response processed, step should become active');
             }
             
             // Handle custom package selection
@@ -1939,7 +2012,33 @@
             } else {
                 console.warn('[handleResponse] NO currentQuestion in response!');
                 console.warn('[handleResponse] Backend step:', backendStep);
+                console.warn('[handleResponse] Reply:', data.reply);
                 console.warn('[handleResponse] This might indicate an issue with the backend response');
+                
+                // Fallback: If we're in product_details or start step and have a reply but no currentQuestion,
+                // try to create a basic currentQuestion from the reply
+                // This handles the case where backend transitions from "start" to "product_details" 
+                // but doesn't include currentQuestion in the response
+                if ((backendStep === 'product_details' || backendStep === 'start') && data.reply) {
+                    console.log('[handleResponse] Creating fallback currentQuestion for product_details from reply');
+                    const consultationKey = getCurrentConsultationState(backendStep);
+                    const dataKey = consultationKey + 'Data';
+                    
+                    if (!flowState[dataKey]) {
+                        flowState[dataKey] = {};
+                    }
+                    
+                    // Create a basic currentQuestion from the reply
+                    // The first product details question is typically "product_description"
+                    flowState[dataKey].currentQuestion = {
+                        id: 'product_description',
+                        question: data.reply,
+                        options: null,
+                        multiple: false,
+                        defaultValue: null
+                    };
+                    console.log('[handleResponse] Created fallback currentQuestion:', flowState[dataKey].currentQuestion.id);
+                }
                 
                 // No currentQuestion means we're in a non-consultation step (like select_package)
                 // Make sure we clear any old consultation data
@@ -1985,8 +2084,40 @@
                 return;
             }
             
-            // Full page refresh
-            window.location.reload();
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (apiUrl) {
+                try {
+                    // Send reset request to backend to clear Durable Object memory
+                    await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reset: true, flow: currentFlow })
+                    });
+                } catch (error) {
+                    console.error('[resetSession] Error resetting backend:', error);
+                }
+            }
+            
+            // Reset frontend state
+            flowState = {
+                productDetails: {},
+                package: null,
+                variant: null,
+                packageSpecs: {},
+                fulfillmentSpecs: {},
+                launchKit: {},
+                draftOrder: null,
+                backendStep: null,
+                previousBackendStep: null,
+                productDetailsData: null,
+                packageData: null,
+                packageSpecsData: null,
+                fulfillmentSpecsData: null,
+                launchKitData: null
+            };
+            
+            // Re-initialize the flow
+            await initializeFlow();
         }
         
         // Initialize - make initial API call to get first question
@@ -2000,12 +2131,21 @@
             }
             
             try {
+                // Check if we should reset (e.g., if there's a URL parameter)
+                const urlParams = new URLSearchParams(window.location.search);
+                const shouldReset = urlParams.get('reset') === 'true';
+                
                 // Send empty message to trigger start step
-                console.log('[initializeFlow] Sending initial request to:', apiUrl);
+                // If reset is needed, send reset parameter to clear stale Durable Object data
+                console.log('[initializeFlow] Sending initial request to:', apiUrl, shouldReset ? '(with reset)' : '');
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: '', flow: currentFlow })
+                    body: JSON.stringify({ 
+                        message: shouldReset ? 'reset' : '', 
+                        flow: currentFlow,
+                        reset: shouldReset
+                    })
                 });
                 
                 console.log('[initializeFlow] Response status:', response.status);
@@ -2019,6 +2159,9 @@
                 
                 const data = await response.json();
                 console.log('[initializeFlow] Initial response:', data);
+                console.log('[initializeFlow] Backend step:', data.flowState?.step);
+                console.log('[initializeFlow] Current question:', data.currentQuestion);
+                
                 // Use handleResponse to process the initial response properly
                 handleResponse(data, { type: 'init' });
             } catch (error) {

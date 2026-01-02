@@ -197,26 +197,38 @@ export class PackagehaSession {
                 memory.questionIndex = 0;
             }
             
-            // Validate memory state - if we're in an invalid state, reset to start
+            // Validate memory state - if we're in an invalid state, reset appropriately
             // Invalid states: 
             // 1. In package specs/variant/fulfillment/launch_kit steps without a package selected
             // 2. In package selection steps without completing product_details first (no product_details in clipboard)
+            // 3. Stale or corrupted memory states
             const hasProductDetails = memory.clipboard && (
                 memory.clipboard["product_description"] || 
                 memory.clipboard["product_dimensions"] || 
                 memory.clipboard["product_weight"]
             );
             
+            // Reset invalid states
             if ((memory.step === "select_package_specs" || memory.step === "select_package_variant" || 
                  memory.step === "fulfillment_specs" || memory.step === "launch_kit") && !memory.packageId) {
                 console.log("[PackagehaSession] Invalid memory state: in package steps without package selected - resetting to start");
                 memory.step = "start";
                 memory.questionIndex = 0;
                 memory.clipboard = {};
+                memory.packageId = undefined;
+                memory.selectedVariantId = undefined;
+                memory.packageName = undefined;
+                memory.selectedVariantName = undefined;
             } else if ((memory.step === "select_package" || memory.step === "select_package_discovery") && !hasProductDetails) {
                 console.log("[PackagehaSession] Invalid memory state: in package selection without product details - resetting to product_details");
                 memory.step = "product_details";
                 memory.questionIndex = 0;
+            } else if (memory.step === "start" && userMessage === "" && hasProductDetails) {
+                // If we're at start but have product details, something is wrong - reset
+                console.log("[PackagehaSession] Invalid memory state: at start with product details - resetting");
+                memory.step = "start";
+                memory.questionIndex = 0;
+                memory.clipboard = {};
             }
 
             // Route to appropriate flow handler
