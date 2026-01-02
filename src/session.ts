@@ -555,7 +555,7 @@ export class PackagehaSession {
         }
     }
 
-    private async handleDiscovery(userMessage: string, memory: Memory, charter: any): Promise<{ reply: string; productMatches?: any[] }> {
+    private async handleDiscovery(userMessage: string, memory: Memory, charter: any, isAutoSearch: boolean = false): Promise<{ reply: string; productMatches?: any[] }> {
         // If we're in select_product or select_package_discovery step, check if user is selecting a number first
         if ((memory.step === "select_product" || memory.step === "select_package_discovery") && memory.pendingMatches) {
             const numMatch = userMessage.trim().match(/^(\d+)$/);
@@ -660,9 +660,13 @@ export class PackagehaSession {
         // Build AI prompt with Charter - request multiple matches if available
         const systemPrompt = buildCharterPrompt("discovery", charter);
         
-        // Include ALL product details context for intelligent matching
+        // Include product details context ONLY for auto-search (when matching product specifications)
+        // For user-initiated searches, focus ONLY on the user's query
         let productContext = '';
-        if (memory.clipboard && Object.keys(memory.clipboard).length > 0) {
+        let promptInstructions = '';
+        
+        if (isAutoSearch && memory.clipboard && Object.keys(memory.clipboard).length > 0) {
+            // AUTO-SEARCH: Include product information for intelligent matching
             const contextParts = [];
             if (memory.clipboard.product_description) {
                 contextParts.push(`Product Description: ${memory.clipboard.product_description}`);
@@ -688,10 +692,14 @@ export class PackagehaSession {
             }
             if (contextParts.length > 0) {
                 productContext = `\n\nCOMPLETE PRODUCT INFORMATION:\n${contextParts.join('\n')}\n\nAnalyze ALL this information to find packages that best fit the product's specifications. Consider dimensions, weight, fragility, material preferences, and budget. Return ALL suitable packages (not just one) with a brief explanation of why each package fits the product's needs.`;
+                promptInstructions = `\n\nIMPORTANT: Analyze the complete product information and return ALL packages that can fit the product's specifications. For each match, provide a brief statement explaining why it fits (e.g., "Fits dimensions", "Suitable material for fragile items", "Matches budget", etc.).`;
             }
+        } else {
+            // USER SEARCH: Focus ONLY on the user's query, ignore product information
+            promptInstructions = `\n\nIMPORTANT: Focus ONLY on the user's search query "${userMessage}". Find packages that match what the user is looking for based on their query words. Do NOT consider any product information from previous steps. Return ALL packages that match the user's query with a brief explanation of why each package matches the search terms.`;
         }
         
-        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}\n\nIMPORTANT: Analyze the complete product information and return ALL packages that can fit the product's specifications. For each match, provide a brief statement explaining why it fits (e.g., "Fits dimensions", "Suitable material for fragile items", "Matches budget", etc.).\n\nReturn JSON:\n- If multiple suitable matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "Brief explanation of why this package fits the product..."}, ...] }\n- If single match: { "type": "found", "id": <index>, "reason": "Brief explanation..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
+        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}${promptInstructions}\n\nReturn JSON:\n- If multiple suitable matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "Brief explanation of why this package matches..."}, ...] }\n- If single match: { "type": "found", "id": <index>, "reason": "Brief explanation..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
 
         // Get AI decision
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
@@ -1268,7 +1276,8 @@ export class PackagehaSession {
             console.log("[getNextStepPrompt] Executing auto-search with query:", autoSearchQuery);
             
             // Execute the search immediately (frontend will show loading while waiting)
-            const result = await this.handleDiscovery(autoSearchQuery, memory, SALES_CHARTER);
+            // Pass isAutoSearch=true to include product context
+            const result = await this.handleDiscovery(autoSearchQuery, memory, SALES_CHARTER, true);
             console.log("[getNextStepPrompt] Auto-search completed:", result.productMatches?.length || 0, "matches");
             
             // Return results with isAutoSearch flag
@@ -1399,7 +1408,8 @@ export class PackagehaSession {
                     const autoSearchQuery = productContext.length > 0 ? productContext.join(', ') : "packaging";
                     console.log("[handlePackageSelection] Auto-triggering search with query:", autoSearchQuery);
                     memory.clipboard['_autoSearch'] = 'true'; // Mark for response
-                    const result = await this.handleDiscovery(autoSearchQuery, memory, SALES_CHARTER);
+                    // Pass isAutoSearch=true to include product context
+                    const result = await this.handleDiscovery(autoSearchQuery, memory, SALES_CHARTER, true);
                     console.log("[handlePackageSelection] Auto-search result:", result.productMatches?.length || 0, "matches");
                     // Ensure isAutoSearch flag is included in the result
                     return {
@@ -1414,7 +1424,8 @@ export class PackagehaSession {
             }
             
             memory.step = "select_package_discovery";
-            const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
+            // Pass isAutoSearch=false to exclude product context and focus on user query only
+            const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER, false);
             
             // If discovery returned productMatches (multiple matches), return them immediately
             // This is a user-initiated search, so ensure isAutoSearch is NOT set
