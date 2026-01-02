@@ -862,10 +862,18 @@
                 console.log('[renderStepContent] stepData:', stepData);
                 console.log('[renderStepContent] backendStep:', backendStep);
                 
-                // If we have package specs question, render that instead
+                // If we have package specs question, render that with package/variant shown as completed
                 if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
                     console.log('[renderStepContent] Rendering package_specs consultation step');
-                    return renderConsultationStep('package_specs', flowState.packageSpecs, flowState.packageSpecsData);
+                    // Create a combined answers object that includes package, variant, and package specs
+                    const combinedAnswers = { ...flowState.packageSpecs };
+                    if (flowState.package) {
+                        combinedAnswers['_package'] = flowState.package; // Use _package to distinguish from package specs
+                    }
+                    if (flowState.variant) {
+                        combinedAnswers['_variant'] = flowState.variant; // Use _variant to distinguish
+                    }
+                    return renderConsultationStep('package_specs', combinedAnswers, flowState.packageSpecsData, true);
                 }
                 // Otherwise show product search/selection
                 if (stepData && stepData.matches) {
@@ -920,7 +928,7 @@
         }
         
         // Helper function to render consultation-style steps
-        function renderConsultationStep(stepId, answers, stepData) {
+        function renderConsultationStep(stepId, answers, stepData, includePackageVariant = false) {
             console.log(`[renderConsultationStep] ========== START Rendering ${stepId} ==========`);
             console.log(`[renderConsultationStep] answers:`, answers);
             console.log(`[renderConsultationStep] answers keys:`, answers ? Object.keys(answers) : 'null');
@@ -929,6 +937,7 @@
             console.log(`[renderConsultationStep] hasStepData:`, !!stepData);
             console.log(`[renderConsultationStep] hasCurrentQuestion:`, !!(stepData && stepData.currentQuestion));
             console.log(`[renderConsultationStep] currentQuestion:`, stepData?.currentQuestion);
+            console.log(`[renderConsultationStep] includePackageVariant:`, includePackageVariant);
             
             let html = '';
             
@@ -937,14 +946,35 @@
                 html += '<div class="completed-questions-section">';
                 html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
                 
+                // For package_specs step, show package and variant first if they exist
+                if (includePackageVariant && stepId === 'package_specs') {
+                    if (answers['_package']) {
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
+                                <div style="color: #333;">${answers['_package']}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
+                        </div>`;
+                    }
+                    if (answers['_variant']) {
+                        html += `<div class="completed-question-item" style="margin-top: 10px;">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Variant</div>
+                                <div style="color: #333;">${answers['_variant'] === 'Default' ? 'Default' : answers['_variant']}</div>
+                            </div>
+                        </div>`;
+                    }
+                }
+                
                 // Get the correct question order for this step
                 const questionOrder = getQuestionOrder(stepId);
                 
-                // Render questions in the correct order
+                // Render questions in the correct order (excluding _package and _variant)
                 questionOrder.forEach(questionId => {
                     const answer = answers[questionId];
                     if (answer && answer !== 'undefined' && answer !== undefined) {
-                        html += `<div class="completed-question-item">
+                        html += `<div class="completed-question-item" ${includePackageVariant && stepId === 'package_specs' ? 'style="margin-top: 10px;"' : ''}>
                             <div class="answer-content">
                                 <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
                                 <div style="color: #333;">${answer}</div>
@@ -954,10 +984,11 @@
                     }
                 });
                 
-                // Also render any questions that aren't in the order map (fallback)
+                // Also render any questions that aren't in the order map (fallback, excluding _package and _variant)
                 Object.entries(answers).forEach(([questionId, answer]) => {
-                    if (!questionOrder.includes(questionId) && answer && answer !== 'undefined' && answer !== undefined) {
-                        html += `<div class="completed-question-item">
+                    if (questionId !== '_package' && questionId !== '_variant' && 
+                        !questionOrder.includes(questionId) && answer && answer !== 'undefined' && answer !== undefined) {
+                        html += `<div class="completed-question-item" ${includePackageVariant && stepId === 'package_specs' ? 'style="margin-top: 10px;"' : ''}>
                             <div class="answer-content">
                                 <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
                                 <div style="color: #333;">${answer}</div>
