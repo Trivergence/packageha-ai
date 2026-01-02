@@ -862,7 +862,19 @@
                 console.log('[renderStepContent] stepData:', stepData);
                 console.log('[renderStepContent] backendStep:', backendStep);
                 
+                // CRITICAL: If backend is in discovery mode, always show search UI (even if packageSpecsData exists)
+                // This handles the case when editing package - we want to show search, not package specs
+                if (backendStep === 'select_package_discovery' || backendStep === 'select_package') {
+                    if (stepData && stepData.matches && stepData.matches.length > 0) {
+                        console.log('[renderStepContent] Rendering product selection with matches (discovery mode)');
+                        return renderProductSelection(stepData.matches);
+                    }
+                    console.log('[renderStepContent] Rendering product search (discovery mode)');
+                    return renderProductSearch();
+                }
+                
                 // If we have package specs question, render that with package/variant shown as completed
+                // BUT only if we're NOT in discovery mode
                 if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
                     console.log('[renderStepContent] Rendering package_specs consultation step');
                     // Create a combined answers object that includes package, variant, and package specs
@@ -876,7 +888,7 @@
                     return renderConsultationStep('package_specs', combinedAnswers, flowState.packageSpecsData, true);
                 }
                 // Otherwise show product search/selection
-                if (stepData && stepData.matches) {
+                if (stepData && stepData.matches && stepData.matches.length > 0) {
                     console.log('[renderStepContent] Rendering product selection with matches');
                     return renderProductSelection(stepData.matches);
                 }
@@ -1227,7 +1239,8 @@
             flowState.package = null;
             flowState.variant = null;
             // DO NOT clear flowState.packageSpecs - preserve existing answers
-            // DO NOT clear flowState.packageSpecsData - preserve the data structure
+            // Clear packageSpecsData so it doesn't interfere with showing search UI during edit
+            flowState.packageSpecsData = null;
             flowState.packageData = null; // Clear package search/selection data
             
             console.log('[editPackageSelection] After clearing - flowState:', JSON.parse(JSON.stringify({
@@ -2113,6 +2126,9 @@
                 console.log('[handleResponse] data.currentQuestion:', data.currentQuestion);
                 console.log('[handleResponse] flowState.packageSpecs BEFORE:', flowState.packageSpecs);
                 
+                // If this is an edit request, ensure we show the search UI even if no matches
+                const isEditRequest = metadata.isEdit === true;
+                
                 if (data.productMatches && data.productMatches.length > 0) {
                     console.log('[handleResponse] Showing product matches');
                     flowState.packageData = flowState.packageData || {};
@@ -2120,6 +2136,11 @@
                     // Hide fallback message if matches found
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) fallbackMsg.style.display = 'none';
+                } else if (isEditRequest && backendStep === 'select_package_discovery') {
+                    // For edit requests, ensure we show the search UI even if no matches yet
+                    console.log('[handleResponse] Edit request - ensuring search UI is shown');
+                    flowState.packageData = flowState.packageData || {};
+                    flowState.packageData.matches = []; // Empty matches to trigger search UI
                 } else if (data.flowState && data.flowState.hasPackage) {
                     console.log('[handleResponse] Package found directly, updating flowState');
                     // If no matches but we have a reply, the package was found directly
