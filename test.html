@@ -30,7 +30,15 @@
     <title>Packageha AI - Direct Sales Flow Tester</title>
     <!-- Google Maps Places API for address autocomplete -->
     <!-- NOTE: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual Google Maps API key -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAYiLzZ_7ccJatguVNSOq4YTwOrcKhgY&libraries=places&language=ar"></script>
+    <!-- IMPORTANT: Enable "Places API" in Google Cloud Console for this API key -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAYiLzZ_7ccJatguVNSOq4YTwOrcKhgY&libraries=places&language=ar&callback=initGoogleMaps"></script>
+    <script>
+        // Global flag to track if Google Maps loaded successfully
+        window.googleMapsLoaded = false;
+        function initGoogleMaps() {
+            window.googleMapsLoaded = true;
+        }
+    </script>
     <style>
         * {
             margin: 0;
@@ -1624,6 +1632,7 @@
         }
         
         // Initialize Google Maps autocomplete for address input
+        // Handles API errors gracefully and allows manual input as fallback
         function initializeAddressAutocomplete(input) {
             if (!input) {
                 console.warn('[initializeAddressAutocomplete] Input element not found');
@@ -1636,16 +1645,35 @@
                 return;
             }
             
+            let retryCount = 0;
+            const maxRetries = 10; // Try for 5 seconds (10 * 500ms)
+            
             // Wait for Google Maps API to load
             const initAutocomplete = () => {
-                if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-                    console.warn('[initializeAddressAutocomplete] Google Maps API not loaded yet, retrying...');
-                    setTimeout(initAutocomplete, 500);
+                retryCount++;
+                
+                // Check if Google Maps is loaded
+                if (typeof google === 'undefined' || !google.maps) {
+                    if (retryCount < maxRetries) {
+                        setTimeout(initAutocomplete, 500);
+                        return;
+                    } else {
+                        console.warn('[initializeAddressAutocomplete] Google Maps API failed to load after retries');
+                        showAutocompleteError(input, 'Google Maps API failed to load. Please enter your address manually.');
+                        return;
+                    }
+                }
+                
+                // Check if Places API is available
+                if (!google.maps.places) {
+                    console.error('[initializeAddressAutocomplete] Places API library not loaded');
+                    showAutocompleteError(input, 'Places API not available. Please enter your address manually.');
                     return;
                 }
                 
                 try {
-                    // Use legacy Autocomplete API (works reliably, deprecation warning is just a notice)
+                    // Try to use the legacy Autocomplete API
+                    // Note: This requires "Places API" (not "Places API (New)") to be enabled in Google Cloud Console
                     const autocomplete = new google.maps.places.Autocomplete(input, {
                         componentRestrictions: { country: ['sa'] }, // Restrict to Saudi Arabia
                         fields: ['formatted_address', 'geometry', 'address_components'],
@@ -1657,19 +1685,59 @@
                         if (place && place.formatted_address) {
                             input.value = place.formatted_address;
                             console.log('[initializeAddressAutocomplete] Address selected:', place.formatted_address);
+                            
+                            // Remove any error messages
+                            const errorMsg = input.parentNode.querySelector('.autocomplete-error');
+                            if (errorMsg) errorMsg.remove();
                         }
                     });
                     
                     // Mark as initialized
                     input.dataset.autocompleteInitialized = 'true';
-                    console.log('[initializeAddressAutocomplete] Autocomplete initialized for shipping address');
+                    console.log('[initializeAddressAutocomplete] Autocomplete initialized successfully');
+                    
+                    // Update the help text to indicate it's working
+                    const helpText = input.parentNode.querySelector('small');
+                    if (helpText) {
+                        helpText.textContent = '📍 Address autocomplete is active. Start typing your address in Saudi Arabia...';
+                        helpText.style.color = '#28a745';
+                    }
+                    
                 } catch (error) {
                     console.error('[initializeAddressAutocomplete] Error initializing autocomplete:', error);
+                    
+                    // Check if it's an API not enabled error
+                    if (error.message && error.message.includes('not enabled')) {
+                        showAutocompleteError(input, '⚠️ Places API is not enabled for this API key. Please enable "Places API" in Google Cloud Console, or enter your address manually.');
+                    } else {
+                        showAutocompleteError(input, '⚠️ Address autocomplete unavailable. Please enter your address manually.');
+                    }
                 }
             };
             
             // Start initialization
             initAutocomplete();
+        }
+        
+        // Helper function to show autocomplete error message
+        function showAutocompleteError(input, message) {
+            // Remove any existing error messages
+            const existingError = input.parentNode.querySelector('.autocomplete-error');
+            if (existingError) existingError.remove();
+            
+            // Create error message
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'autocomplete-error';
+            errorMsg.style.cssText = 'margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404; font-size: 12px;';
+            errorMsg.textContent = message;
+            input.parentNode.appendChild(errorMsg);
+            
+            // Update help text
+            const helpText = input.parentNode.querySelector('small');
+            if (helpText) {
+                helpText.textContent = '📍 Please enter your address manually';
+                helpText.style.color = '#856404';
+            }
         }
         
         async function sendSelection(message, metadata) {
