@@ -57,14 +57,17 @@ export const SALES_CHARTER: Charter = {
 
     // PHASE 1: FINDING THE PACKAGE (Packageha's packages, not client's product)
     discovery: {
-        mission: "Find the best match ID for the user's request from the provided inventory list.",
+        mission: "Analyze ALL product information (description, dimensions, weight, fragility, budget, material preferences) and find ALL packages from the inventory that can fit the product's specifications. Return multiple suitable matches with brief explanations of why each package fits.",
         rules: [
             "IGNORE prefixes like 'TEST' or 'rs-' in package titles.",
-            "MATCH LOOSELY: 'Box' matches 'Custom Box Calculator'. 'Photo' matches 'خدمة تصوير'.",
-            "If multiple matches exist, pick the most relevant one based on the user's specific keywords.",
+            "MATCH INTELLIGENTLY: Consider product dimensions, weight, fragility, and material preferences when matching.",
+            "Return ALL suitable packages, not just one. A package is suitable if it can accommodate the product's dimensions, weight, and protection needs.",
+            "For each match, provide a brief statement explaining why it fits (e.g., 'Fits dimensions', 'Suitable material for fragile items', 'Matches budget', 'Appropriate size and protection').",
+            "If multiple matches exist, prioritize based on: 1) Dimension fit, 2) Material suitability, 3) Protection level, 4) Budget match.",
             "Be culturally aware - support both English and Arabic product names.",
             "If the user is just greeting or chatting, respond warmly but guide them to search.",
             "Return ONLY a JSON object with 'type' and relevant fields. NO MARKDOWN.",
+            "Always return type 'multiple' with matches array when suitable packages are found, even if only one package matches perfectly.",
         ]
     },
 

@@ -648,31 +648,38 @@ export class PackagehaSession {
         // Build AI prompt with Charter - request multiple matches if available
         const systemPrompt = buildCharterPrompt("discovery", charter);
         
-        // Include product details context if available (for direct sales flow)
+        // Include ALL product details context for intelligent matching
         let productContext = '';
         if (memory.clipboard && Object.keys(memory.clipboard).length > 0) {
             const contextParts = [];
             if (memory.clipboard.product_description) {
-                contextParts.push(`Product: ${memory.clipboard.product_description}`);
+                contextParts.push(`Product Description: ${memory.clipboard.product_description}`);
             }
             if (memory.clipboard.product_dimensions) {
-                contextParts.push(`Dimensions: ${memory.clipboard.product_dimensions}`);
+                contextParts.push(`Product Dimensions: ${memory.clipboard.product_dimensions}`);
             }
             if (memory.clipboard.product_weight) {
-                contextParts.push(`Weight: ${memory.clipboard.product_weight}`);
+                contextParts.push(`Product Weight: ${memory.clipboard.product_weight}`);
             }
             if (memory.clipboard.fragility) {
-                contextParts.push(`Fragility: ${memory.clipboard.fragility}`);
+                contextParts.push(`Fragility Level: ${memory.clipboard.fragility}`);
             }
             if (memory.clipboard.budget) {
                 contextParts.push(`Budget: ${memory.clipboard.budget}`);
             }
+            // Include package specs if they exist (for re-searching after edit)
+            if (memory.clipboard.material) {
+                contextParts.push(`Preferred Material: ${memory.clipboard.material}`);
+            }
+            if (memory.clipboard.print) {
+                contextParts.push(`Printing Requirements: ${memory.clipboard.print}`);
+            }
             if (contextParts.length > 0) {
-                productContext = `\n\nProduct Details:\n${contextParts.join('\n')}\n\nUse this context to recommend the most suitable packaging solution.`;
+                productContext = `\n\nCOMPLETE PRODUCT INFORMATION:\n${contextParts.join('\n')}\n\nAnalyze ALL this information to find packages that best fit the product's specifications. Consider dimensions, weight, fragility, material preferences, and budget. Return ALL suitable packages (not just one) with a brief explanation of why each package fits the product's needs.`;
             }
         }
         
-        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}\n\nReturn JSON:\n- If single match: { "type": "found", "id": <index>, "reason": "..." }\n- If multiple matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "..."}, ...] }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
+        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}\n\nIMPORTANT: Analyze the complete product information and return ALL packages that can fit the product's specifications. For each match, provide a brief statement explaining why it fits (e.g., "Fits dimensions", "Suitable material for fragile items", "Matches budget", etc.).\n\nReturn JSON:\n- If multiple suitable matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "Brief explanation of why this package fits the product..."}, ...] }\n- If single match: { "type": "found", "id": <index>, "reason": "Brief explanation..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
 
         // Get AI decision
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
@@ -693,10 +700,14 @@ export class PackagehaSession {
         }
 
         // Handle multiple matches - return for user selection
+        // IMPORTANT: Always return multiple matches if available, even if AI suggests single match
+        // This allows user to see all suitable options
+        let matches: any[] = [];
+        
         if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
-            const matches = decision.matches
+            matches = decision.matches
                 .filter(m => m.id !== undefined && products[m.id])
-                .slice(0, 5) // Limit to 5 matches
+                .slice(0, 10) // Increased limit to 10 matches for better selection
                 .map(m => {
                     const product = products[m.id!];
                     // Get first image URL if available
@@ -709,14 +720,37 @@ export class PackagehaSession {
                         : null;
                     
                     return {
-                    id: m.id!,
+                        id: m.id!,
                         packageId: product.id, // Packageha's package ID
                         name: product.title,
-                        reason: m.reason || "Matches your search",
+                        reason: m.reason || "Suitable for your product",
                         imageUrl: imageUrl,
                         price: price
                     };
                 });
+        } else if (decision.type === "found" && decision.id !== undefined) {
+            // Convert single match to multiple matches format for consistency
+            const product = products[decision.id];
+            if (product) {
+                const imageUrl = product.images && product.images.length > 0 
+                    ? product.images[0].src 
+                    : null;
+                const price = product.variants && product.variants.length > 0
+                    ? product.variants[0].price
+                    : null;
+                
+                matches = [{
+                    id: decision.id,
+                    packageId: product.id,
+                    name: product.title,
+                    reason: decision.reason || "Suitable for your product",
+                    imageUrl: imageUrl,
+                    price: price
+                }];
+            }
+        }
+        
+        if (matches.length > 0) {
 
             // Keep the current step (select_package_discovery) instead of resetting to select_product
             // Only set to select_product if we're in the old flow

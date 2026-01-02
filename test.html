@@ -589,6 +589,7 @@
             productDetails: {}, // Product details answers
             package: null, // Package name
             variant: null, // Variant name
+            packageImageUrl: null, // Package image URL for display in saved answers
             packageSpecs: {}, // Package specifications (material, dimensions, print)
             fulfillmentSpecs: {}, // Fulfillment specifications
             launchKit: {}, // Launch kit services
@@ -614,6 +615,7 @@
                 productDetails: {},
                 package: null,
                 variant: null,
+                packageImageUrl: null,
                 packageSpecs: {},
                 fulfillmentSpecs: {},
                 launchKit: {},
@@ -862,15 +864,20 @@
                 console.log('[renderStepContent] stepData:', stepData);
                 console.log('[renderStepContent] backendStep:', backendStep);
                 
-                // CRITICAL: If backend is in discovery mode, always show search UI (even if packageSpecsData exists)
-                // This handles the case when editing package - we want to show search, not package specs
+                // CRITICAL: If backend is in discovery mode, show search UI AND matches if available
+                // This handles the case when editing package - show both search box and existing matches
                 if (backendStep === 'select_package_discovery' || backendStep === 'select_package') {
+                    let html = '';
+                    // Always show search box when in discovery mode
+                    html += renderProductSearch();
+                    // Also show matches if they exist
                     if (stepData && stepData.matches && stepData.matches.length > 0) {
                         console.log('[renderStepContent] Rendering product selection with matches (discovery mode)');
-                        return renderProductSelection(stepData.matches);
+                        html += '<div style="margin-top: 20px;"><div class="question-text">Matching Packages:</div>';
+                        html += renderProductSelection(stepData.matches);
+                        html += '</div>';
                     }
-                    console.log('[renderStepContent] Rendering product search (discovery mode)');
-                    return renderProductSearch();
+                    return html;
                 }
                 
                 // If we have package specs question, render that with package/variant shown as completed
@@ -961,10 +968,15 @@
                 // For package_specs step, show package and variant first if they exist
                 if (includePackageVariant && stepId === 'package_specs') {
                     if (answers['_package']) {
+                        const packageImageUrl = flowState.packageImageUrl || flowState.packageData?.selectedImageUrl;
+                        const imageHtml = packageImageUrl 
+                            ? `<img src="${packageImageUrl}" alt="${answers['_package']}" style="width: 100%; max-width: 200px; height: auto; border-radius: 6px; margin-top: 8px; margin-bottom: 8px; object-fit: cover;">`
+                            : '';
                         html += `<div class="completed-question-item">
                             <div class="answer-content">
                                 <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
                                 <div style="color: #333;">${answers['_package']}</div>
+                                ${imageHtml}
                             </div>
                             <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
                         </div>`;
@@ -1079,13 +1091,18 @@
                 if (flowState.package || (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0)) {
                     let html = `<div class="step-body completed-view">`;
                     
-                    // Show package if it exists
+                    // Show package if it exists (with image if available)
                     if (flowState.package) {
                         console.log('[renderCompletedView] Rendering package:', flowState.package);
+                        const packageImageUrl = flowState.packageImageUrl || flowState.packageData?.selectedImageUrl;
+                        const imageHtml = packageImageUrl 
+                            ? `<img src="${packageImageUrl}" alt="${flowState.package}" style="width: 100%; max-width: 200px; height: auto; border-radius: 6px; margin-top: 8px; margin-bottom: 8px; object-fit: cover;">`
+                            : '';
                         html += `<div class="completed-question-item">
                             <div class="answer-content">
                                 <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
                                 <div style="color: #333;">${flowState.package}</div>
+                                ${imageHtml}
                             </div>
                             <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
                         </div>`;
@@ -1723,6 +1740,14 @@
         }
         
         function selectProduct(index, name) {
+            // Store package image URL from the match before sending
+            if (flowState.packageData && flowState.packageData.matches && flowState.packageData.matches[index]) {
+                const selectedMatch = flowState.packageData.matches[index];
+                if (selectedMatch && selectedMatch.imageUrl) {
+                    flowState.packageImageUrl = selectedMatch.imageUrl;
+                    console.log('[selectProduct] Stored package image URL:', flowState.packageImageUrl);
+                }
+            }
             sendSelection(String(index + 1), { type: 'product', name });
         }
         
@@ -2278,6 +2303,21 @@
                 console.log('[handleResponse] Package name:', data.flowState.packageName);
                 
                 flowState.package = data.flowState.packageName || metadata.name;
+                // Store package image URL if available from productMatches
+                if (data.productMatches && data.productMatches.length > 0) {
+                    const selectedMatch = data.productMatches.find(m => m.name === flowState.package) || data.productMatches[0];
+                    if (selectedMatch && selectedMatch.imageUrl) {
+                        flowState.packageImageUrl = selectedMatch.imageUrl;
+                        console.log('[handleResponse] Stored package image URL:', flowState.packageImageUrl);
+                    }
+                } else if (flowState.packageData && flowState.packageData.matches) {
+                    // Try to find image from existing matches
+                    const selectedMatch = flowState.packageData.matches.find(m => m.name === flowState.package);
+                    if (selectedMatch && selectedMatch.imageUrl) {
+                        flowState.packageImageUrl = selectedMatch.imageUrl;
+                        console.log('[handleResponse] Stored package image URL from existing matches:', flowState.packageImageUrl);
+                    }
+                }
                 flowState.packageData = null;
                 
                 // CRITICAL: When product is selected and backend moved to select_package_specs, 
