@@ -2098,6 +2098,70 @@
                 flowState.packageData = null;
             }
             
+            // Check if this response indicates an edit was completed (backend returns success message)
+            const isEditComplete = data.reply && (
+                data.reply.includes('Answer updated') || 
+                data.reply.includes('✓ Answer updated')
+            );
+            
+            if (isEditComplete && metadata && metadata.questionId) {
+                console.log('[handleResponse] Edit answer completed for question:', metadata.questionId);
+                
+                // Update the answer in frontend state (backend already updated it in memory)
+                let consultationKey = 'fulfillmentSpecs';
+                let dataKey = 'fulfillmentSpecsData';
+                
+                if (metadata.questionId && (
+                    metadata.questionId === 'product_description' ||
+                    metadata.questionId === 'product_dimensions' ||
+                    metadata.questionId === 'product_weight' ||
+                    metadata.questionId === 'fragility' ||
+                    metadata.questionId === 'budget'
+                )) {
+                    consultationKey = 'productDetails';
+                    dataKey = 'productDetailsData';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'material' ||
+                    metadata.questionId === 'dimensions' ||
+                    metadata.questionId === 'print'
+                )) {
+                    consultationKey = 'packageSpecs';
+                    dataKey = 'packageSpecsData';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'service_selection' ||
+                    metadata.questionId === 'service_timeline' ||
+                    metadata.questionId === 'service_notes'
+                )) {
+                    consultationKey = 'launchKit';
+                    dataKey = 'launchKitData';
+                }
+                
+                // Update answer in frontend state
+                if (!flowState[consultationKey]) {
+                    flowState[consultationKey] = {};
+                }
+                const answerValue = metadata.answer || metadata.message || messageFromMetadata;
+                if (answerValue && answerValue !== 'undefined' && answerValue !== 'null' && answerValue.trim() !== '') {
+                    flowState[consultationKey][metadata.questionId] = answerValue;
+                    console.log(`[handleResponse] Updated answer in frontend: ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
+                }
+                
+                // Clear currentQuestion
+                if (flowState[dataKey]) {
+                    flowState[dataKey].currentQuestion = null;
+                }
+                
+                // Restore backend step from response
+                if (data.flowState && data.flowState.step) {
+                    flowState.backendStep = data.flowState.step;
+                    console.log('[handleResponse] Restored backendStep to:', data.flowState.step);
+                }
+                
+                // Refresh the UI
+                renderFlow();
+                return;
+            }
+            
             // Store answers in the appropriate consultation state based on questionId
             // We can't rely on backendStep because it may have changed after processing the answer
             if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {

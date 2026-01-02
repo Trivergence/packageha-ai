@@ -77,123 +77,76 @@ export class PackagehaSession {
             }
 
             // Handle edit requests (format: "edit:questionId")
+            // SIMPLIFIED: Edit only updates the answer, doesn't reset flow or re-ask subsequent questions
             if (userMessage.startsWith("edit:")) {
                 const questionId = userMessage.replace("edit:", "").trim();
                 const memory = await this.loadMemory();
                 
-                // Determine which step this question belongs to
+                // Store the original questionIndex and step before edit
+                const originalQuestionIndex = memory.questionIndex;
+                const originalStep = memory.step;
+                
+                // Determine which step this question belongs to and get the question
+                let question: any = null;
+                let stepName: string = "";
+                
                 if (SALES_CHARTER.productDetails && SALES_CHARTER.productDetails.steps.some(s => s.id === questionId)) {
-                    // Product details question
                     const stepIndex = SALES_CHARTER.productDetails.steps.findIndex(s => s.id === questionId);
                     if (stepIndex >= 0) {
-                        delete memory.clipboard[questionId];
-                        memory.step = "product_details";
-                        memory.questionIndex = stepIndex;
-                        const question = SALES_CHARTER.productDetails.steps[stepIndex];
-                        await this.state.storage.put("memory", memory);
-                        return this.jsonResponse({ 
-                            reply: question.question,
-                            flowState: {
-                                step: memory.step,
-                                packageName: memory.packageName,
-                                variantName: memory.selectedVariantName,
-                                hasPackage: !!memory.packageId,
-                                hasVariant: !!memory.selectedVariantId,
-                                questionIndex: memory.questionIndex
-                            },
-                            currentQuestion: {
-                                id: question.id,
-                                question: question.question,
-                                options: (question as any).options || null,
-                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
-                                defaultValue: memory.clipboard[questionId] || null
-                            }
-                        });
+                        question = SALES_CHARTER.productDetails.steps[stepIndex];
+                        stepName = "product_details";
                     }
                 } else if (SALES_CHARTER.packageSpecs && SALES_CHARTER.packageSpecs.steps.some(s => s.id === questionId)) {
-                    // Package specs question
                     const stepIndex = SALES_CHARTER.packageSpecs.steps.findIndex(s => s.id === questionId);
                     if (stepIndex >= 0) {
-                        delete memory.clipboard[questionId];
-                        memory.step = "select_package_specs";
-                        memory.questionIndex = stepIndex;
-                        const question = SALES_CHARTER.packageSpecs.steps[stepIndex];
-                        await this.state.storage.put("memory", memory);
-                        return this.jsonResponse({ 
-                            reply: question.question,
-                            flowState: {
-                                step: memory.step,
-                                packageName: memory.packageName,
-                                variantName: memory.selectedVariantName,
-                                hasPackage: !!memory.packageId,
-                                hasVariant: !!memory.selectedVariantId,
-                                questionIndex: memory.questionIndex
-                            },
-                            currentQuestion: {
-                                id: question.id,
-                                question: question.question,
-                                options: (question as any).options || null,
-                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
-                                defaultValue: memory.clipboard[questionId] || null
-                            }
-                        });
+                        question = SALES_CHARTER.packageSpecs.steps[stepIndex];
+                        stepName = "select_package_specs";
                     }
                 } else if (SALES_CHARTER.fulfillmentSpecs && SALES_CHARTER.fulfillmentSpecs.steps.some(s => s.id === questionId)) {
-                    // Fulfillment specs question
                     const stepIndex = SALES_CHARTER.fulfillmentSpecs.steps.findIndex(s => s.id === questionId);
                     if (stepIndex >= 0) {
-                        delete memory.clipboard[questionId];
-                        memory.step = "fulfillment_specs";
-                        memory.questionIndex = stepIndex;
-                        const question = SALES_CHARTER.fulfillmentSpecs.steps[stepIndex];
-                        await this.state.storage.put("memory", memory);
-                        return this.jsonResponse({ 
-                            reply: question.question,
-                            flowState: {
-                                step: memory.step,
-                                packageName: memory.packageName,
-                                variantName: memory.selectedVariantName,
-                                hasPackage: !!memory.packageId,
-                                hasVariant: !!memory.selectedVariantId,
-                                questionIndex: memory.questionIndex
-                            },
-                            currentQuestion: {
-                                id: question.id,
-                                question: question.question,
-                                options: (question as any).options || null,
-                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
-                                defaultValue: memory.clipboard[questionId] || null
-                            }
-                        });
+                        question = SALES_CHARTER.fulfillmentSpecs.steps[stepIndex];
+                        stepName = "fulfillment_specs";
                     }
                 } else if (SALES_CHARTER.launchKit && SALES_CHARTER.launchKit.steps.some(s => s.id === questionId)) {
-                    // Launch kit question
                     const stepIndex = SALES_CHARTER.launchKit.steps.findIndex(s => s.id === questionId);
                     if (stepIndex >= 0) {
-                        delete memory.clipboard[questionId];
-                        memory.step = "launch_kit";
-                        memory.questionIndex = stepIndex;
-                        const question = SALES_CHARTER.launchKit.steps[stepIndex];
-                        await this.state.storage.put("memory", memory);
-                        return this.jsonResponse({ 
-                            reply: question.question,
-                            flowState: {
-                                step: memory.step,
-                                packageName: memory.packageName,
-                                variantName: memory.selectedVariantName,
-                                hasPackage: !!memory.packageId,
-                                hasVariant: !!memory.selectedVariantId,
-                                questionIndex: memory.questionIndex
-                            },
-                            currentQuestion: {
-                                id: question.id,
-                                question: question.question,
-                                options: (question as any).options || null,
-                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
-                                defaultValue: memory.clipboard[questionId] || null
-                            }
-                        });
+                        question = SALES_CHARTER.launchKit.steps[stepIndex];
+                        stepName = "launch_kit";
                     }
+                }
+                
+                if (question) {
+                    // Mark that we're editing (store in clipboard for later detection)
+                    memory.clipboard['_editing'] = questionId;
+                    // Store original state to restore after edit
+                    memory.clipboard['_originalQuestionIndex'] = originalQuestionIndex.toString();
+                    memory.clipboard['_originalStep'] = originalStep;
+                    
+                    // Set step to the question's step (for UI activation)
+                    memory.step = stepName;
+                    // DO NOT change questionIndex - keep it at current position
+                    
+                    await this.state.storage.put("memory", memory);
+                    
+                    return this.jsonResponse({ 
+                        reply: question.question,
+                        flowState: {
+                            step: memory.step,
+                            packageName: memory.packageName,
+                            variantName: memory.selectedVariantName,
+                            hasPackage: !!memory.packageId,
+                            hasVariant: !!memory.selectedVariantId,
+                            questionIndex: memory.questionIndex // Keep original questionIndex
+                        },
+                        currentQuestion: {
+                            id: question.id,
+                            question: question.question,
+                            options: (question as any).options || null,
+                            multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
+                            defaultValue: memory.clipboard[questionId] || null // Show current answer as default
+                        }
+                    });
                 }
             }
 
@@ -876,6 +829,11 @@ export class PackagehaSession {
         const steps = consultationPhase.steps;
         const currentIndex = memory.questionIndex;
 
+        // Check if we're in edit mode
+        const editingQuestionId = memory.clipboard['_editing'];
+        const originalQuestionIndex = memory.clipboard['_originalQuestionIndex'] ? parseInt(memory.clipboard['_originalQuestionIndex']) : currentIndex;
+        const originalStep = memory.clipboard['_originalStep'] || memory.step;
+
         // If userMessage is empty, return the current question (this happens on initial load or after step transition)
         if (!userMessage || userMessage.trim() === "") {
             if (currentIndex >= steps.length) {
@@ -890,6 +848,46 @@ export class PackagehaSession {
             // Return current question
             const currentStep = steps[currentIndex];
             return { reply: currentStep.question };
+        }
+
+        // Handle edit mode: if we're editing a question, just update that answer and return to original state
+        if (editingQuestionId) {
+            // Find the question being edited
+            const editingStepIndex = steps.findIndex(s => s.id === editingQuestionId);
+            if (editingStepIndex >= 0) {
+                const editingStep = steps[editingStepIndex];
+                
+                // Validate answer if validator exists
+                if (editingStep.validation) {
+                    const validationResult = editingStep.validation(userMessage);
+                    if (validationResult !== true) {
+                        return { 
+                            reply: typeof validationResult === "string" 
+                                ? validationResult 
+                                : "Please provide a valid answer." 
+                        };
+                    }
+                }
+                
+                // Update the answer
+                memory.clipboard[editingQuestionId] = userMessage;
+                
+                // Restore original state
+                memory.questionIndex = originalQuestionIndex;
+                memory.step = originalStep;
+                
+                // Clear edit flags
+                delete memory.clipboard['_editing'];
+                delete memory.clipboard['_originalQuestionIndex'];
+                delete memory.clipboard['_originalStep'];
+                
+                await this.state.storage.put("memory", memory);
+                
+                // Return success message - frontend will handle showing the updated answer
+                return { 
+                    reply: `✓ Answer updated for "${editingStep.question}". You can continue or edit other questions.`
+                };
+            }
         }
 
         if (currentIndex >= steps.length) {
