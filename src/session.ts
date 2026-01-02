@@ -1395,8 +1395,12 @@ export class PackagehaSession {
             const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER);
             
             // If discovery returned productMatches (multiple matches), return them immediately
+            // This is a user-initiated search, so ensure isAutoSearch is NOT set
             if (result.productMatches && result.productMatches.length > 0) {
-                return result;
+                return {
+                    ...result,
+                    isAutoSearch: false // Explicitly mark as user search
+                };
             }
             
             // If discovery found a package, handle variant selection

@@ -1795,8 +1795,9 @@
             const input = document.getElementById('productSearchInput');
             if (input && input.value.trim()) {
                 const query = input.value.trim();
-                // Mark as user search (not auto-search)
-                sendSelection(query, { type: 'product_search', originalQuery: query, isAutoSearch: false });
+                console.log('[searchProducts] User search query:', query);
+                // Mark as user search (not auto-search) - explicitly set isAutoSearch to false
+                sendSelection(query, { type: 'product_search', originalQuery: query, message: query, isAutoSearch: false });
             } else {
                 // If empty, don't search - just show existing matches
                 console.log('[searchProducts] Empty query - not searching');
@@ -2254,13 +2255,27 @@
                 
                 // If this is an edit request, ensure we show the search UI even if no matches
                 const isEditRequest = metadata && metadata.isEdit === true;
-                // Check if this is an auto-search: either data.isAutoSearch is true OR metadata indicates auto-search
-                const isAutoSearch = data.isAutoSearch === true || (metadata && metadata.isAutoSearch === true);
+                // Determine if this is an auto-search or user search
+                // Priority: backend's data.isAutoSearch > metadata.isAutoSearch
+                // If backend says isAutoSearch === true, it's auto-search
+                // If backend says isAutoSearch === false, it's user search
+                // If backend doesn't set it, check metadata
+                let isAutoSearch = false;
+                if (data.isAutoSearch === true) {
+                    isAutoSearch = true;
+                } else if (data.isAutoSearch === false) {
+                    isAutoSearch = false;
+                } else if (metadata && metadata.isAutoSearch === true) {
+                    isAutoSearch = true;
+                } else if (metadata && metadata.isAutoSearch === false) {
+                    isAutoSearch = false;
+                }
                 const userQuery = metadata && (metadata.originalQuery || metadata.message) || '';
                 
                 if (data.productMatches && data.productMatches.length > 0) {
                     console.log('[handleResponse] Showing product matches');
-                    console.log('[handleResponse] isAutoSearch:', isAutoSearch, 'userQuery:', userQuery);
+                    console.log('[handleResponse] data.isAutoSearch:', data.isAutoSearch, 'metadata.isAutoSearch:', metadata?.isAutoSearch);
+                    console.log('[handleResponse] Determined isAutoSearch:', isAutoSearch, 'userQuery:', userQuery);
                     if (isAutoSearch) {
                         // Store as product matches (auto-generated from product details)
                         // Always update product matches when auto-search completes
@@ -2268,9 +2283,11 @@
                         console.log('[handleResponse] Stored as productMatches (auto-search):', data.productMatches.length, 'matches');
                     } else {
                         // Store as query matches (user search) - always create/update query matches separately
+                        // Use the actual user query from the input, not from metadata
+                        const actualQuery = userQuery || (metadata && metadata.message) || '';
                         flowState.queryMatches = data.productMatches;
-                        flowState.queryMatchesQuery = userQuery;
-                        console.log('[handleResponse] Stored as queryMatches (user search):', userQuery, '-', data.productMatches.length, 'matches');
+                        flowState.queryMatchesQuery = actualQuery;
+                        console.log('[handleResponse] Stored as queryMatches (user search):', actualQuery, '-', data.productMatches.length, 'matches');
                         console.log('[handleResponse] Product matches still exist:', flowState.productMatches?.length || 0);
                     }
                     // Hide fallback message if matches found
