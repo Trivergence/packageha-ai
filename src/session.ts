@@ -227,9 +227,13 @@ export class PackagehaSession {
                 memory.clipboard["product_weight"]
             );
             
+            // Check if custom package is selected
+            const hasCustomPackage = memory.clipboard && memory.clipboard['custom_package'] === 'true';
+            const hasPackage = !!memory.packageId || hasCustomPackage;
+            
             // Reset invalid states
             if ((memory.step === "select_package_specs" || memory.step === "select_package_variant" || 
-                 memory.step === "fulfillment_specs" || memory.step === "launch_kit") && !memory.packageId) {
+                 memory.step === "fulfillment_specs" || memory.step === "launch_kit") && !hasPackage) {
                 console.log("[PackagehaSession] Invalid memory state: in package steps without package selected - resetting to start");
                 memory.step = "start";
                 memory.questionIndex = 0;
