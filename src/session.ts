@@ -315,8 +315,20 @@ export class PackagehaSession {
             if (consultationPhase) {
                 const steps = consultationPhase.steps;
                 const currentIndex = memory.questionIndex;
-                if (currentIndex < steps.length) {
-                    const currentStep = steps[currentIndex];
+                
+                // Skip over already answered questions to find the next unanswered one
+                let questionToShow = currentIndex;
+                while (questionToShow < steps.length) {
+                    const stepId = steps[questionToShow].id;
+                    if (!memory.clipboard[stepId]) {
+                        // Found an unanswered question
+                        break;
+                    }
+                    questionToShow++;
+                }
+                
+                if (questionToShow < steps.length) {
+                    const currentStep = steps[questionToShow];
                     // Generate default value based on product/variant info if applicable
                     let defaultValue = null;
                     if (currentStep.id === "quantity" && memory.clipboard["quantity"]) {
@@ -334,6 +346,7 @@ export class PackagehaSession {
                         defaultValue: defaultValue
                     };
                 }
+                // If questionToShow >= steps.length, all questions are answered, so don't set currentQuestion
             }
 
             return this.jsonResponse(response);
@@ -975,8 +988,78 @@ export class PackagehaSession {
                 }
                 return this.getNextStepPrompt(memory.step);
             }
-            // Return current question
-            const currentStep = steps[currentIndex];
+            // Return current question - but first check if it's already answered
+            // If it is, skip to the next unanswered question
+            let questionToAsk = currentIndex;
+            
+            // Skip over already answered questions
+            while (questionToAsk < steps.length) {
+                const stepId = steps[questionToAsk].id;
+                if (!memory.clipboard[stepId]) {
+                    // Found an unanswered question
+                    break;
+                }
+                questionToAsk++;
+            }
+            
+            // Update questionIndex to the unanswered question
+            memory.questionIndex = questionToAsk;
+            
+            if (questionToAsk >= steps.length) {
+                // All questions answered - move to next step
+                memory.step = nextStep;
+                
+                // Check if next step already has answers - preserve progress
+                let nextStepQuestionIndex = 0;
+                if (nextStep === "fulfillment_specs" && SALES_CHARTER.fulfillmentSpecs) {
+                    const fulfillmentSteps = SALES_CHARTER.fulfillmentSpecs.steps;
+                    for (let i = 0; i < fulfillmentSteps.length; i++) {
+                        const stepId = fulfillmentSteps[i].id;
+                        if (!memory.clipboard[stepId]) {
+                            nextStepQuestionIndex = i;
+                            break;
+                        }
+                    }
+                    // If all answered, check launch_kit
+                    if (nextStepQuestionIndex >= fulfillmentSteps.length && SALES_CHARTER.launchKit) {
+                        memory.step = "launch_kit";
+                        const launchKitSteps = SALES_CHARTER.launchKit.steps;
+                        for (let i = 0; i < launchKitSteps.length; i++) {
+                            const stepId = launchKitSteps[i].id;
+                            if (!memory.clipboard[stepId]) {
+                                nextStepQuestionIndex = i;
+                                break;
+                            }
+                        }
+                        if (nextStepQuestionIndex >= launchKitSteps.length) {
+                            memory.step = "draft_order";
+                            return await this.createProjectQuote(memory);
+                        }
+                    }
+                } else if (nextStep === "launch_kit" && SALES_CHARTER.launchKit) {
+                    const launchKitSteps = SALES_CHARTER.launchKit.steps;
+                    for (let i = 0; i < launchKitSteps.length; i++) {
+                        const stepId = launchKitSteps[i].id;
+                        if (!memory.clipboard[stepId]) {
+                            nextStepQuestionIndex = i;
+                            break;
+                        }
+                    }
+                    if (nextStepQuestionIndex >= launchKitSteps.length) {
+                        memory.step = "draft_order";
+                        return await this.createProjectQuote(memory);
+                    }
+                }
+                
+                memory.questionIndex = nextStepQuestionIndex;
+                
+                if (nextStep === "draft_order" || memory.step === "draft_order") {
+                    return await this.createProjectQuote(memory);
+                }
+                return this.getNextStepPrompt(memory.step);
+            }
+            
+            const currentStep = steps[questionToAsk];
             return { reply: currentStep.question };
         }
 
