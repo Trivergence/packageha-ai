@@ -844,11 +844,50 @@ export class PackagehaSession {
             // If all questions are answered, move to next step
             if (nextQuestionIndex >= packageSpecsSteps.length) {
                 memory.step = "fulfillment_specs";
-                memory.questionIndex = 0;
-                if (!SALES_CHARTER.fulfillmentSpecs) {
-                    return { reply: "Error: Fulfillment specs configuration missing." };
+                
+                // Check if fulfillment specs already exist - preserve progress
+                const hasFulfillmentSpecs = memory.clipboard && (
+                    memory.clipboard['quantity'] || 
+                    memory.clipboard['timeline'] || 
+                    memory.clipboard['shipping_address'] ||
+                    memory.clipboard['special_instructions']
+                );
+                
+                if (hasFulfillmentSpecs && SALES_CHARTER.fulfillmentSpecs) {
+                    // Find the next unanswered question in fulfillment specs
+                    const fulfillmentSteps = SALES_CHARTER.fulfillmentSpecs.steps;
+                    let nextFulfillmentIndex = fulfillmentSteps.length; // Default to end (all answered)
+                    
+                    for (let i = 0; i < fulfillmentSteps.length; i++) {
+                        const stepId = fulfillmentSteps[i].id;
+                        if (!memory.clipboard[stepId]) {
+                            nextFulfillmentIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    memory.questionIndex = nextFulfillmentIndex;
+                    
+                    // If all fulfillment questions are answered, move to launch_kit
+                    if (nextFulfillmentIndex >= fulfillmentSteps.length) {
+                        memory.step = "launch_kit";
+                        memory.questionIndex = 0;
+                        if (!SALES_CHARTER.launchKit) {
+                            return { reply: "Error: Launch kit configuration missing." };
+                        }
+                        return { reply: SALES_CHARTER.launchKit.steps[0].question };
+                    } else {
+                        // Return the next unanswered fulfillment question
+                        return { reply: fulfillmentSteps[nextFulfillmentIndex].question };
+                    }
+                } else {
+                    // No existing fulfillment specs - start from the beginning
+                    memory.questionIndex = 0;
+                    if (!SALES_CHARTER.fulfillmentSpecs) {
+                        return { reply: "Error: Fulfillment specs configuration missing." };
+                    }
+                    return { reply: SALES_CHARTER.fulfillmentSpecs.steps[0].question };
                 }
-                return { reply: SALES_CHARTER.fulfillmentSpecs.steps[0].question };
             } else {
                 // Return the next unanswered question
                 return { reply: packageSpecsSteps[nextQuestionIndex].question };
@@ -886,11 +925,55 @@ export class PackagehaSession {
             if (currentIndex >= steps.length) {
                 // All questions answered - move to next step
                 memory.step = nextStep;
-                memory.questionIndex = 0;
-                if (nextStep === "draft_order") {
+                
+                // Check if next step already has answers - preserve progress
+                let nextStepQuestionIndex = 0;
+                if (nextStep === "fulfillment_specs" && SALES_CHARTER.fulfillmentSpecs) {
+                    const fulfillmentSteps = SALES_CHARTER.fulfillmentSpecs.steps;
+                    for (let i = 0; i < fulfillmentSteps.length; i++) {
+                        const stepId = fulfillmentSteps[i].id;
+                        if (!memory.clipboard[stepId]) {
+                            nextStepQuestionIndex = i;
+                            break;
+                        }
+                    }
+                    // If all answered, check launch_kit
+                    if (nextStepQuestionIndex >= fulfillmentSteps.length && SALES_CHARTER.launchKit) {
+                        memory.step = "launch_kit";
+                        const launchKitSteps = SALES_CHARTER.launchKit.steps;
+                        for (let i = 0; i < launchKitSteps.length; i++) {
+                            const stepId = launchKitSteps[i].id;
+                            if (!memory.clipboard[stepId]) {
+                                nextStepQuestionIndex = i;
+                                break;
+                            }
+                        }
+                        if (nextStepQuestionIndex >= launchKitSteps.length) {
+                            memory.step = "draft_order";
+                            return await this.createProjectQuote(memory);
+                        }
+                    }
+                } else if (nextStep === "launch_kit" && SALES_CHARTER.launchKit) {
+                    const launchKitSteps = SALES_CHARTER.launchKit.steps;
+                    for (let i = 0; i < launchKitSteps.length; i++) {
+                        const stepId = launchKitSteps[i].id;
+                        if (!memory.clipboard[stepId]) {
+                            nextStepQuestionIndex = i;
+                            break;
+                        }
+                    }
+                    if (nextStepQuestionIndex >= launchKitSteps.length) {
+                        memory.step = "draft_order";
+                        return await this.createProjectQuote(memory);
+                    }
+                }
+                
+                memory.questionIndex = nextStepQuestionIndex;
+                
+                if (nextStep === "draft_order" || memory.step === "draft_order") {
                     return await this.createProjectQuote(memory);
                 }
-                return this.getNextStepPrompt(nextStep);
+                return this.getNextStepPrompt(memory.step);
             }
             // Return current question
             const currentStep = steps[currentIndex];
@@ -941,11 +1024,55 @@ export class PackagehaSession {
             // All questions answered - move to next step
             // This shouldn't happen if we're handling questions properly, but handle gracefully
             memory.step = nextStep;
-            memory.questionIndex = 0;
-            if (nextStep === "draft_order") {
+            
+            // Check if next step already has answers - preserve progress
+            let nextStepQuestionIndex = 0;
+            if (nextStep === "fulfillment_specs" && SALES_CHARTER.fulfillmentSpecs) {
+                const fulfillmentSteps = SALES_CHARTER.fulfillmentSpecs.steps;
+                for (let i = 0; i < fulfillmentSteps.length; i++) {
+                    const stepId = fulfillmentSteps[i].id;
+                    if (!memory.clipboard[stepId]) {
+                        nextStepQuestionIndex = i;
+                        break;
+                    }
+                }
+                // If all answered, check launch_kit
+                if (nextStepQuestionIndex >= fulfillmentSteps.length && SALES_CHARTER.launchKit) {
+                    memory.step = "launch_kit";
+                    const launchKitSteps = SALES_CHARTER.launchKit.steps;
+                    for (let i = 0; i < launchKitSteps.length; i++) {
+                        const stepId = launchKitSteps[i].id;
+                        if (!memory.clipboard[stepId]) {
+                            nextStepQuestionIndex = i;
+                            break;
+                        }
+                    }
+                    if (nextStepQuestionIndex >= launchKitSteps.length) {
+                        memory.step = "draft_order";
+                        return await this.createProjectQuote(memory);
+                    }
+                }
+            } else if (nextStep === "launch_kit" && SALES_CHARTER.launchKit) {
+                const launchKitSteps = SALES_CHARTER.launchKit.steps;
+                for (let i = 0; i < launchKitSteps.length; i++) {
+                    const stepId = launchKitSteps[i].id;
+                    if (!memory.clipboard[stepId]) {
+                        nextStepQuestionIndex = i;
+                        break;
+                    }
+                }
+                if (nextStepQuestionIndex >= launchKitSteps.length) {
+                    memory.step = "draft_order";
+                    return await this.createProjectQuote(memory);
+                }
+            }
+            
+            memory.questionIndex = nextStepQuestionIndex;
+            
+            if (nextStep === "draft_order" || memory.step === "draft_order") {
                 return await this.createProjectQuote(memory);
             }
-            return this.getNextStepPrompt(nextStep);
+            return this.getNextStepPrompt(memory.step);
         }
 
         const currentStep = steps[currentIndex];
