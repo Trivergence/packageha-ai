@@ -376,6 +376,61 @@ export class PackagehaSession {
         userMessage: string, 
         memory: Memory
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[] }> {
+        // CRITICAL: Check if this is a package edit request
+        // Detect by: message starts with "edit package:" OR (packageId exists AND we're ahead in flow AND message matches product description)
+        const isEditMessage = userMessage && userMessage.toLowerCase().startsWith("edit package:");
+        const isAheadStep = memory.step === "fulfillment_specs" || 
+                           memory.step === "launch_kit" ||
+                           memory.step === "select_package_specs";
+        const matchesProductDescription = memory.clipboard?.['product_description'] && 
+                                         userMessage && 
+                                         userMessage.trim() === memory.clipboard['product_description'].trim();
+        
+        const isPackageEditRequest = isEditMessage || (memory.packageId && isAheadStep && matchesProductDescription);
+        
+        // Extract actual search query if it's an edit message
+        let searchQuery = userMessage;
+        if (isEditMessage) {
+            searchQuery = userMessage.replace(/^edit package:\s*/i, "").trim() || "packaging";
+            console.log("[handleDirectSalesFlow] Extracted search query from edit message:", searchQuery);
+        }
+        
+        if (isPackageEditRequest) {
+            console.log("[handleDirectSalesFlow] Package edit request detected!");
+            console.log("[handleDirectSalesFlow] Current step:", memory.step);
+            console.log("[handleDirectSalesFlow] Current packageId:", memory.packageId);
+            console.log("[handleDirectSalesFlow] User message:", userMessage);
+            console.log("[handleDirectSalesFlow] Resetting to package selection");
+            
+            // Preserve package specs
+            const preservedPackageSpecs: { [key: string]: string } = {};
+            if (memory.clipboard) {
+                if (memory.clipboard['material']) preservedPackageSpecs['material'] = memory.clipboard['material'];
+                if (memory.clipboard['print']) preservedPackageSpecs['print'] = memory.clipboard['print'];
+                if (memory.clipboard['dimensions']) preservedPackageSpecs['dimensions'] = memory.clipboard['dimensions'];
+                console.log("[handleDirectSalesFlow] Preserving package specs:", preservedPackageSpecs);
+            }
+            
+            // Clear package selection
+            memory.packageId = undefined;
+            memory.selectedVariantId = undefined;
+            memory.packageName = undefined;
+            memory.selectedVariantName = undefined;
+            memory.variants = undefined;
+            
+            // Restore preserved package specs
+            Object.assign(memory.clipboard, preservedPackageSpecs);
+            
+            // Reset to package discovery
+            memory.step = "select_package_discovery";
+            memory.questionIndex = 0;
+            
+            console.log("[handleDirectSalesFlow] After reset - step:", memory.step, "packageId:", memory.packageId);
+            
+            // Now handle as package selection with the search query
+            return await this.handlePackageSelection(searchQuery, memory);
+        }
+        
         switch (memory.step) {
             case "start":
                 // Start with product details step
@@ -1039,17 +1094,25 @@ export class PackagehaSession {
         }
         
         // Check if this is an edit request (user wants to change package)
-        // Detect edit by checking if we're in package selection/discovery step but packageId exists
+        // Detect edit by checking if packageId exists AND we're being called from a step that's NOT package selection
+        // OR if we're explicitly in package selection/discovery step
         // This means user is trying to search/select a new package while one is already selected
         const isEditRequest = memory.packageId && (
             memory.step === "select_package" || 
-            memory.step === "select_package_discovery"
+            memory.step === "select_package_discovery" ||
+            // Also detect if we're ahead in the flow but user sent a product search (edit request)
+            (memory.step !== "select_package" && 
+             memory.step !== "select_package_discovery" && 
+             memory.step !== "select_package_variant" &&
+             memory.step !== "select_package_specs" &&
+             userMessage && userMessage.trim() !== "")
         );
         
         if (isEditRequest) {
             console.log("[handlePackageSelection] Edit request detected - clearing existing package selection");
             console.log("[handlePackageSelection] Current packageId:", memory.packageId);
             console.log("[handlePackageSelection] Current step:", memory.step);
+            console.log("[handlePackageSelection] User message:", userMessage);
             
             // Clear package selection but preserve package specs
             const preservedPackageSpecs: { [key: string]: string } = {};

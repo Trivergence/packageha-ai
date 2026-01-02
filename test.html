@@ -1210,17 +1210,20 @@
             // Set backend step to package selection/discovery to trigger edit mode
             flowState.backendStep = 'select_package_discovery';
             
-            // Send a message that will trigger package discovery/search
-            // The backend will detect this as an edit request because packageId exists
+            // Send a special edit message that backend can recognize
+            // Use product description prefixed with "edit package:" so backend knows it's an edit
             const productDescription = flowState.productDetails?.product_description || 'packaging';
-            console.log('[editPackageSelection] Sending product search to trigger edit:', productDescription);
+            const editMessage = `edit package: ${productDescription}`;
+            
+            console.log('[editPackageSelection] Sending edit message:', editMessage);
             console.log('[editPackageSelection] Backend step set to: select_package_discovery');
             console.log('[editPackageSelection] ========== END ==========');
             
-            sendSelection(productDescription, { 
+            sendSelection(editMessage, { 
                 type: 'product_search', 
                 stepId: 'package_selection',
-                originalQuery: productDescription
+                originalQuery: productDescription,
+                isEdit: true // Mark as edit request
             });
         }
         
