@@ -187,12 +187,27 @@ export class PackagehaSession {
             const hasPackage = !!memory.packageId || hasCustomPackage;
             
             // Reset invalid states
+            // CRITICAL: Preserve package specs (material, print) when resetting package selection
             if ((memory.step === "select_package_specs" || memory.step === "select_package_variant" || 
                  memory.step === "fulfillment_specs" || memory.step === "launch_kit") && !hasPackage) {
                 console.log("[PackagehaSession] Invalid memory state: in package steps without package selected - resetting to start");
+                
+                // Preserve package specs before clearing clipboard
+                const preservedPackageSpecs: { [key: string]: string } = {};
+                if (memory.clipboard) {
+                    // Preserve material, print, and dimensions if they exist
+                    if (memory.clipboard['material']) preservedPackageSpecs['material'] = memory.clipboard['material'];
+                    if (memory.clipboard['print']) preservedPackageSpecs['print'] = memory.clipboard['print'];
+                    if (memory.clipboard['dimensions']) preservedPackageSpecs['dimensions'] = memory.clipboard['dimensions'];
+                }
+                
                 memory.step = "start";
                 memory.questionIndex = 0;
                 memory.clipboard = {};
+                
+                // Restore preserved package specs
+                Object.assign(memory.clipboard, preservedPackageSpecs);
+                
                 memory.packageId = undefined;
                 memory.selectedVariantId = undefined;
                 memory.packageName = undefined;
@@ -561,12 +576,8 @@ export class PackagehaSession {
                         memory.selectedVariantName = "Default";
                         // For direct_sales flow, use select_package_specs instead of consultation
                         if (memory.flow === "direct_sales") {
-                            memory.step = "select_package_specs";
-                            memory.questionIndex = 0;
-                            if (!SALES_CHARTER.packageSpecs) {
-                                return { reply: "Error: Package specs configuration missing." };
-                            }
-                            return { reply: `Found **${packageProduct.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
+                            const result = this.transitionToPackageSpecs(memory);
+                            return { reply: `Found **${packageProduct.title}**.\n\n${result.reply}` };
                         } else {
                             // Legacy flow
                             memory.step = "consultation";
@@ -738,12 +749,8 @@ export class PackagehaSession {
                 memory.selectedVariantName = "Default";
                 // For direct_sales flow, use select_package_specs instead of consultation
                 if (memory.flow === "direct_sales") {
-                    memory.step = "select_package_specs";
-                    memory.questionIndex = 0;
-                    if (!SALES_CHARTER.packageSpecs) {
-                        return { reply: "Error: Package specs configuration missing." };
-                    }
-                    return { reply: `Found **${packageProduct.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
+                    const result = this.transitionToPackageSpecs(memory);
+                    return { reply: `Found **${packageProduct.title}**.\n\n${result.reply}` };
                 } else {
                     // Legacy flow
                     memory.step = "consultation";
@@ -800,20 +807,66 @@ export class PackagehaSession {
             memory.selectedVariantId = selected.id;
             memory.selectedVariantName = selected.title === "Default Title" ? "Default" : selected.title;
             
-            // Move to package specs phase
-            memory.step = "select_package_specs";
-            memory.questionIndex = 0;
-            if (!SALES_CHARTER.packageSpecs) {
-                return { reply: "Error: Package specs configuration missing." };
-            }
+            // Move to package specs phase (preserving existing specs)
+            const result = this.transitionToPackageSpecs(memory);
             return { 
-                reply: `Selected **${selected.title}**.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` 
+                reply: `Selected **${selected.title}**.\n\n${result.reply}` 
             };
         }
 
         return { 
             reply: decision.reply || "Please select one of the options listed above." 
         };
+    }
+
+    /**
+     * Helper function to transition to package specs while preserving existing answers
+     */
+    private transitionToPackageSpecs(memory: Memory): { reply: string } {
+        memory.step = "select_package_specs";
+        
+        // Preserve existing package specs - don't reset questionIndex if specs already exist
+        const hasPackageSpecs = memory.clipboard && (
+            memory.clipboard['material'] || 
+            memory.clipboard['print'] || 
+            memory.clipboard['dimensions']
+        );
+        
+        if (hasPackageSpecs && SALES_CHARTER.packageSpecs) {
+            // We have existing specs - find the next unanswered question
+            const packageSpecsSteps = SALES_CHARTER.packageSpecs.steps;
+            let nextQuestionIndex = packageSpecsSteps.length; // Default to end (all answered)
+            
+            for (let i = 0; i < packageSpecsSteps.length; i++) {
+                const stepId = packageSpecsSteps[i].id;
+                if (!memory.clipboard[stepId]) {
+                    nextQuestionIndex = i;
+                    break;
+                }
+            }
+            
+            memory.questionIndex = nextQuestionIndex;
+            
+            // If all questions are answered, move to next step
+            if (nextQuestionIndex >= packageSpecsSteps.length) {
+                memory.step = "fulfillment_specs";
+                memory.questionIndex = 0;
+                if (!SALES_CHARTER.fulfillmentSpecs) {
+                    return { reply: "Error: Fulfillment specs configuration missing." };
+                }
+                return { reply: SALES_CHARTER.fulfillmentSpecs.steps[0].question };
+            } else {
+                // Return the next unanswered question
+                return { reply: packageSpecsSteps[nextQuestionIndex].question };
+            }
+        } else {
+            // No existing specs - start from the beginning
+            memory.questionIndex = 0;
+            if (!SALES_CHARTER.packageSpecs) {
+                return { reply: "Error: Package specs configuration missing." };
+            }
+            return { reply: SALES_CHARTER.packageSpecs.steps[0].question };
+        }
     }
 
     /**
@@ -1007,12 +1060,8 @@ export class PackagehaSession {
                     // Auto-select single variant
                     memory.selectedVariantId = memory.variants[0].id;
                     memory.selectedVariantName = "Default";
-                    memory.step = "select_package_specs";
-                    memory.questionIndex = 0;
-                    if (!SALES_CHARTER.packageSpecs) {
-                        return { reply: "Error: Package specs configuration missing." };
-                    }
-                    return { reply: SALES_CHARTER.packageSpecs.steps[0].question };
+                    const result = this.transitionToPackageSpecs(memory);
+                    return result;
                 } else {
                     // Ask for variant
                     memory.step = "select_package_variant";

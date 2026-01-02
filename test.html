@@ -883,6 +883,18 @@
             return '';
         }
         
+        // Helper function to get question order for a step (maintains original order from charter)
+        function getQuestionOrder(stepId) {
+            // Define question order based on SALES_CHARTER structure
+            const orderMap = {
+                'product_details': ['product_description', 'product_dimensions', 'product_weight', 'fragility', 'budget'],
+                'package_specs': ['material', 'print'],
+                'fulfillment_specs': ['quantity', 'timeline', 'shipping_address', 'special_instructions'],
+                'launch_kit': ['service_selection', 'service_timeline', 'service_notes']
+            };
+            return orderMap[stepId] || [];
+        }
+        
         // Helper function to render consultation-style steps
         function renderConsultationStep(stepId, answers, stepData) {
             console.log(`[renderConsultationStep] Rendering ${stepId}:`, {
@@ -894,11 +906,17 @@
             
             let html = '';
             
-            // Show completed questions first
+            // Show completed questions first - in the correct order
             if (answers && Object.keys(answers).length > 0) {
                 html += '<div class="completed-questions-section">';
                 html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
-                Object.entries(answers).forEach(([questionId, answer]) => {
+                
+                // Get the correct question order for this step
+                const questionOrder = getQuestionOrder(stepId);
+                
+                // Render questions in the correct order
+                questionOrder.forEach(questionId => {
+                    const answer = answers[questionId];
                     if (answer && answer !== 'undefined' && answer !== undefined) {
                         html += `<div class="completed-question-item">
                             <div class="answer-content">
@@ -909,6 +927,20 @@
                         </div>`;
                     }
                 });
+                
+                // Also render any questions that aren't in the order map (fallback)
+                Object.entries(answers).forEach(([questionId, answer]) => {
+                    if (!questionOrder.includes(questionId) && answer && answer !== 'undefined' && answer !== undefined) {
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                                <div style="color: #333;">${answer}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('${stepId}', '${questionId}')" title="Edit this answer">✏️</span>
+                        </div>`;
+                    }
+                });
+                
                 html += '</div>';
             }
             
@@ -1087,15 +1119,27 @@
         }
         
         function editPackageSelection() {
-            // Reset package selection
+            console.log('[editPackageSelection] Resetting package selection');
+            
+            // Clear only package and variant selection (not package specs)
+            // Package specs should be preserved unless the new package requires different specs
             flowState.package = null;
             flowState.variant = null;
-            flowState.packageSpecs = {};
-            flowState.packageSpecsData = null;
-            flowState.packageData = null;
+            // DO NOT clear flowState.packageSpecs - preserve existing answers
+            // DO NOT clear flowState.packageSpecsData - preserve the data structure
+            flowState.packageData = null; // Clear package search/selection data
             
-            // Send message to go back to package selection
-            sendSelection('change package', { type: 'edit', stepId: 'package_selection' });
+            // Set backend step to package selection
+            flowState.backendStep = 'select_package';
+            
+            // Send a message that will trigger package discovery/search
+            // Use a clear message that the backend will recognize as package search
+            const productDescription = flowState.productDetails?.product_description || 'packaging';
+            sendSelection(productDescription, { 
+                type: 'product_search', 
+                stepId: 'package_selection',
+                originalQuery: productDescription
+            });
         }
         
         function renderProductSearch() {
