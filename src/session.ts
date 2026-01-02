@@ -757,7 +757,7 @@ export class PackagehaSession {
                         : null;
                     
                     return {
-                        id: m.id!,
+                    id: m.id!,
                         packageId: product.id, // Packageha's package ID
                         name: product.title,
                         reason: m.reason || "Matches your search",
@@ -1303,15 +1303,15 @@ Timestamp: ${new Date().toISOString()}
                     price = priceMatch[1].replace(/,/g, '') + ".00";
                 } else {
                     // Fallback pricing if format doesn't match
-                    const servicePricing: Record<string, string> = {
+            const servicePricing: Record<string, string> = {
                         "Hero shot photography": "1200.00",
                         "Stop-motion unboxing video": "1800.00",
                         "E-commerce product photos": "900.00",
                         "3D render with packaging for website": "1500.00",
                         "Package design consultation": "600.00",
                         "Brand styling consultation": "700.00"
-                    };
-                    
+            };
+            
                     // Try to match service name (without price)
                     const serviceName = service.split(' - ')[0].trim();
                     price = servicePricing[serviceName] || "500.00";
@@ -1369,7 +1369,7 @@ Timestamp: ${new Date().toISOString()}
             // createDraftOrder throws on error, so if we reach here, draftOrder is valid
             // Reset memory for new project only if resetMemory is true
             if (resetMemory) {
-                await this.state.storage.delete("memory");
+            await this.state.storage.delete("memory");
             } else {
                 // Update last activity timestamp
                 memory.lastActivity = Date.now();
