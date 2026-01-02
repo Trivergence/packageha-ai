@@ -2146,7 +2146,7 @@
                     console.log(`[handleResponse] Updated answer in frontend: ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
                 }
                 
-                // Clear currentQuestion
+                // Clear currentQuestion for the edited step (so edit form disappears)
                 if (flowState[dataKey]) {
                     flowState[dataKey].currentQuestion = null;
                 }
@@ -2157,14 +2157,15 @@
                     console.log('[handleResponse] Restored backendStep to:', data.flowState.step);
                 }
                 
-                // Refresh the UI
-                renderFlow();
-                return;
+                // Mark that we've processed this as an edit, so we don't process it again as a regular answer
+                // Continue processing to handle currentQuestion if present
+                console.log('[handleResponse] Edit completed, continuing to process currentQuestion if present');
             }
             
             // Store answers in the appropriate consultation state based on questionId
             // We can't rely on backendStep because it may have changed after processing the answer
-            if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
+            // Skip if this was already processed as an edit
+            if (metadata && (metadata.type === 'answer' || metadata.type === 'option') && !isEditComplete) {
                 console.log('[handleResponse] Processing answer/option:', metadata.questionId);
                 // Determine which consultation phase this question belongs to based on questionId
                 let consultationKey = 'fulfillmentSpecs'; // default
