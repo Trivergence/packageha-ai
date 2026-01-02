@@ -874,6 +874,18 @@
                     // Always show search box when in discovery mode (empty initially)
                     html += renderProductSearch();
                     
+                    // Show loading indicator if we're waiting for auto-search results
+                    // Check if we have product details but no product matches yet (search in progress)
+                    const hasProductDetails = flowState.productDetails && Object.keys(flowState.productDetails).length > 0;
+                    const hasNoMatches = (!flowState.productMatches || flowState.productMatches.length === 0) &&
+                                        (!flowState.queryMatches || flowState.queryMatches.length === 0);
+                    if (hasProductDetails && hasNoMatches && backendStep === 'select_package_discovery') {
+                        html += '<div style="margin-top: 20px; padding: 20px; text-align: center; color: #666;">';
+                        html += '<div class="loading-spinner" style="margin: 0 auto 10px; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>';
+                        html += '<div>Searching for packages that match your product...</div>';
+                        html += '</div>';
+                    }
+                    
                     // Show query matches first (user searches) if they exist
                     if (flowState.queryMatches && flowState.queryMatches.length > 0) {
                         const queryTitle = flowState.queryMatchesQuery 
@@ -1267,9 +1279,13 @@
             flowState.package = null;
             flowState.variant = null;
             // DO NOT clear flowState.packageSpecs - preserve existing answers
+            // DO NOT clear productMatches and queryMatches - preserve both lists when editing
             // Clear packageSpecsData so it doesn't interfere with showing search UI during edit
             flowState.packageSpecsData = null;
             flowState.packageData = null; // Clear package search/selection data
+            // Preserve both match lists - don't clear them
+            console.log('[editPackageSelection] Preserving productMatches:', flowState.productMatches?.length || 0);
+            console.log('[editPackageSelection] Preserving queryMatches:', flowState.queryMatches?.length || 0);
             
             console.log('[editPackageSelection] After clearing - flowState:', JSON.parse(JSON.stringify({
                 package: flowState.package,
@@ -2192,6 +2208,16 @@
             flowState.backendStep = backendStep;
             console.log('[handleResponse] Set backendStep to:', backendStep);
             
+            // CRITICAL: If backend indicates auto-search should happen, trigger it immediately
+            if (data.isAutoSearch === true && backendStep === 'select_package_discovery' && 
+                (!data.productMatches || data.productMatches.length === 0)) {
+                console.log('[handleResponse] Auto-search flag detected, triggering search');
+                // Send empty message to trigger auto-search (backend will detect _autoSearch flag)
+                setTimeout(() => {
+                    sendSelection('', { type: 'product_search', isAutoSearch: true });
+                }, 100);
+            }
+            
             // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
             // If backend is in package specs (currentQuestion present) but no variant is selected,
             // it means variant step was auto-skipped (single variant or no variants)
@@ -2206,10 +2232,20 @@
             
             // Handle package search - show matches
             // IMPORTANT: Don't return early - continue processing to update backend step
-            if (metadata && metadata.type === 'product_search' || data.productMatches) {
+            // Check for product matches in response OR if this is a product_search request
+            if (data.productMatches || (metadata && metadata.type === 'product_search')) {
+                // Ensure search box is empty when rendering
+                setTimeout(() => {
+                    const searchInput = document.getElementById('productSearchInput');
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                }, 0);
                 console.log('[handleResponse] Processing product_search response');
                 console.log('[handleResponse] data.productMatches:', data.productMatches?.length || 0);
                 console.log('[handleResponse] data.isAutoSearch:', data.isAutoSearch);
+                console.log('[handleResponse] metadata.type:', metadata?.type);
+                console.log('[handleResponse] metadata.originalQuery:', metadata?.originalQuery);
                 console.log('[handleResponse] data.flowState.hasPackage:', data.flowState?.hasPackage);
                 console.log('[handleResponse] backendStep:', backendStep);
                 console.log('[handleResponse] data.currentQuestion:', data.currentQuestion);
@@ -2217,20 +2253,24 @@
                 
                 // If this is an edit request, ensure we show the search UI even if no matches
                 const isEditRequest = metadata && metadata.isEdit === true;
-                const isAutoSearch = data.isAutoSearch === true; // Auto-search from product details
+                // Check if this is an auto-search: either data.isAutoSearch is true OR metadata indicates auto-search
+                const isAutoSearch = data.isAutoSearch === true || (metadata && metadata.isAutoSearch === true);
                 const userQuery = metadata && (metadata.originalQuery || metadata.message) || '';
                 
                 if (data.productMatches && data.productMatches.length > 0) {
                     console.log('[handleResponse] Showing product matches');
+                    console.log('[handleResponse] isAutoSearch:', isAutoSearch, 'userQuery:', userQuery);
                     if (isAutoSearch) {
                         // Store as product matches (auto-generated from product details)
+                        // Always update product matches when auto-search completes
                         flowState.productMatches = data.productMatches;
-                        console.log('[handleResponse] Stored as productMatches (auto-search)');
+                        console.log('[handleResponse] Stored as productMatches (auto-search):', data.productMatches.length, 'matches');
                     } else {
-                        // Store as query matches (user search)
+                        // Store as query matches (user search) - always create/update query matches separately
                         flowState.queryMatches = data.productMatches;
                         flowState.queryMatchesQuery = userQuery;
-                        console.log('[handleResponse] Stored as queryMatches (user search):', userQuery);
+                        console.log('[handleResponse] Stored as queryMatches (user search):', userQuery, '-', data.productMatches.length, 'matches');
+                        console.log('[handleResponse] Product matches still exist:', flowState.productMatches?.length || 0);
                     }
                     // Hide fallback message if matches found
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
@@ -2689,6 +2729,7 @@
                 productDetails: {},
                 package: null,
                 variant: null,
+                packageImageUrl: null,
                 packageSpecs: {},
                 fulfillmentSpecs: {},
                 launchKit: {},
@@ -2699,7 +2740,10 @@
                 packageData: null,
                 packageSpecsData: null,
                 fulfillmentSpecsData: null,
-                launchKitData: null
+                launchKitData: null,
+                productMatches: [],
+                queryMatches: [],
+                queryMatchesQuery: ''
             };
             
             // Re-initialize the flow
