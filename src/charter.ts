@@ -196,12 +196,12 @@ export const SALES_CHARTER: Charter = {
                 id: "service_selection",
                 question: "Would you like to add any brand launch services? (Select all that apply)",
                 options: [
-                    "Hero shot photography",
-                    "Stop-motion unboxing video",
-                    "E-commerce product photos",
-                    "3D render with packaging for website",
-                    "Package design consultation",
-                    "Brand styling consultation",
+                    "Hero shot photography - 1,200 SAR",
+                    "Stop-motion unboxing video - 1,800 SAR",
+                    "E-commerce product photos - 900 SAR",
+                    "3D render with packaging for website - 1,500 SAR",
+                    "Package design consultation - 600 SAR",
+                    "Brand styling consultation - 700 SAR",
                     "None - skip launch services"
                 ],
                 multiple: true // Checkboxes - can select multiple

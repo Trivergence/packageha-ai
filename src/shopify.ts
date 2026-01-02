@@ -6,10 +6,16 @@
 export interface ShopifyProduct {
     id: number;
     title: string;
+    images?: Array<{
+        id: number;
+        src: string;
+        alt?: string;
+    }>;
     variants: Array<{
         id: number;
         title: string;
         price: string;
+        image_id?: number;
     }>;
 }
 
@@ -19,7 +25,8 @@ export interface ShopifyResponse {
 
 export async function getActiveProducts(shopUrl: string, token: string): Promise<ShopifyProduct[]> {
     const cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
-    const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=50`;
+    // Include images in the response
+    const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=50&fields=id,title,images,variants`;
 
     try {
         const response = await fetch(url, {

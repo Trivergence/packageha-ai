@@ -570,12 +570,26 @@ export class PackagehaSession {
             const matches = decision.matches
                 .filter(m => m.id !== undefined && products[m.id])
                 .slice(0, 5) // Limit to 5 matches
-                .map(m => ({
-                    id: m.id!,
-                    packageId: products[m.id!].id, // Packageha's package ID
-                    name: products[m.id!].title,
-                    reason: m.reason || "Matches your search"
-                }));
+                .map(m => {
+                    const product = products[m.id!];
+                    // Get first image URL if available
+                    const imageUrl = product.images && product.images.length > 0 
+                        ? product.images[0].src 
+                        : null;
+                    // Get price from first variant
+                    const price = product.variants && product.variants.length > 0
+                        ? product.variants[0].price
+                        : null;
+                    
+                    return {
+                        id: m.id!,
+                        packageId: product.id, // Packageha's package ID
+                        name: product.title,
+                        reason: m.reason || "Matches your search",
+                        imageUrl: imageUrl,
+                        price: price
+                    };
+                });
 
             // Keep the current step (select_package_discovery) instead of resetting to select_product
             // Only set to select_product if we're in the old flow
@@ -794,6 +808,22 @@ export class PackagehaSession {
         userMessage: string,
         memory: Memory
     ): Promise<{ reply: string; productMatches?: any[] }> {
+        // Check for custom package selection
+        const lowerMessage = userMessage.toLowerCase().trim();
+        if (lowerMessage === "custom package" || lowerMessage.includes("custom") || 
+            memory.clipboard['package_selection'] === 'custom') {
+            // Handle custom package - skip to fulfillment specs
+            memory.packageName = "Custom Package (Quote Required)";
+            memory.selectedVariantName = "Custom";
+            memory.clipboard['custom_package'] = 'true';
+            memory.step = "fulfillment_specs";
+            memory.questionIndex = 0;
+            if (!SALES_CHARTER.fulfillmentSpecs) {
+                return { reply: "Error: Fulfillment specs configuration missing." };
+            }
+            return { reply: `Great! I've noted that you need a custom package. We'll provide a quote after collecting your requirements.\n\n${SALES_CHARTER.fulfillmentSpecs.steps[0].question}` };
+        }
+        
         // If we haven't selected a package yet, do discovery
         if (!memory.packageId) {
             // If message is empty or just whitespace, return a prompt (don't call handleDiscovery)
@@ -948,23 +978,53 @@ Timestamp: ${new Date().toISOString()}
             // Parse service selection (could be comma-separated or array-like)
             const services = serviceSelection.split(',').map(s => s.trim()).filter(s => s && s !== "None - skip launch services");
             
-            // Default pricing for services (can be configured later)
-            const servicePricing: Record<string, string> = {
-                "Hero shot photography": "500.00",
-                "Stop-motion unboxing video": "800.00",
-                "E-commerce product photos": "400.00",
-                "3D render with packaging for website": "600.00",
-                "Package design consultation": "300.00",
-                "Brand styling consultation": "350.00"
-            };
-            
+            // Pricing for services (Saudi Arabia market prices in SAR)
+            // Prices are extracted from option text (format: "Service Name - X,XXX SAR")
             services.forEach(service => {
-                const price = servicePricing[service] || "500.00"; // Default price
+                // Extract price from service string if present (format: "Service Name - X,XXX SAR")
+                const priceMatch = service.match(/-\s*([\d,]+)\s*SAR/i);
+                let price = "500.00"; // Default fallback
+                
+                if (priceMatch) {
+                    // Remove commas and convert to decimal format
+                    price = priceMatch[1].replace(/,/g, '') + ".00";
+                } else {
+                    // Fallback pricing if format doesn't match
+                    const servicePricing: Record<string, string> = {
+                        "Hero shot photography": "1200.00",
+                        "Stop-motion unboxing video": "1800.00",
+                        "E-commerce product photos": "900.00",
+                        "3D render with packaging for website": "1500.00",
+                        "Package design consultation": "600.00",
+                        "Brand styling consultation": "700.00"
+                    };
+                    
+                    // Try to match service name (without price)
+                    const serviceName = service.split(' - ')[0].trim();
+                    price = servicePricing[serviceName] || "500.00";
+                }
+                
+                // Extract service name (remove price part)
+                const serviceName = service.split(' - ')[0].trim();
+                
                 customLineItems.push({
-                    title: service,
+                    title: serviceName,
                     price: price,
                     quantity: 1
                 });
+            });
+        }
+        
+        // Handle Custom Package option
+        const customPackageSelected = memory.clipboard['custom_package'] === 'true' || 
+                                     memory.clipboard['package_selection'] === 'custom';
+        if (customPackageSelected) {
+            // Add custom package as a line item
+            const customPackagePrice = memory.clipboard['custom_package_price'] || "0.00";
+            customLineItems.push({
+                title: "Custom Package (Quote Required)",
+                price: customPackagePrice,
+                quantity: parseInt(memory.clipboard['quantity'] || "1")
             });
         }
 

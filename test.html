@@ -1,9 +1,36 @@
 <!DOCTYPE html>
+<!--
+    Packageha AI - Direct Sales Flow Tester
+    
+    This is a frontend test interface for the Packageha AI agent's direct_sales flow.
+    It provides a step-by-step UI for testing the complete sales consultation process:
+    
+    Flow Steps:
+    1. Product Details - Collect information about the product that will be packaged
+    2. Package Selection - Search and select a package (includes variant selection and package specs)
+    3. Fulfillment Specs - Collect order fulfillment information (quantity, timeline, shipping, etc.)
+    4. Launch Kit - Optional brand launch services
+    5. Draft Order - Final order creation and confirmation
+    
+    Features:
+    - Visual step-by-step interface with collapsible sections
+    - Handles various question types (text, radio, checkbox, grouped options)
+    - Product search and selection with AI-powered matching
+    - Variant auto-skip handling (when only one variant exists)
+    - State management across all consultation phases
+    - Loading indicators during API calls
+    - Draft order display with links to Shopify admin and invoice
+    
+    Note: Only the direct_sales flow is supported. Other flows have been removed.
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packageha AI - Flow Tester</title>
+    <title>Packageha AI - Direct Sales Flow Tester</title>
+    <!-- Google Maps Places API for address autocomplete -->
+    <!-- NOTE: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual Google Maps API key -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&language=ar"></script>
     <style>
         * {
             margin: 0;
@@ -70,28 +97,7 @@
             font-weight: 600;
         }
         
-        .flow-selector {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .flow-btn {
-            padding: 6px 12px;
-            border: 2px solid rgba(255,255,255,0.3);
-            background: transparent;
-            color: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-        
-        .flow-btn.active {
-            background: white;
-            color: #667eea;
-            border-color: white;
-        }
+        /* Flow selector styles removed - only direct_sales flow is supported */
         
         .steps-container {
             padding: 30px;
@@ -545,14 +551,8 @@
             { id: 'order', name: 'Draft Order', key: 'order' }
         ];
         
-        function selectFlow(flow) {
-            currentFlow = flow;
-            document.querySelectorAll('.flow-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`[data-flow="${flow}"]`).classList.add('active');
-            resetFlow();
-        }
+        // Flow selector removed - only direct_sales flow is supported
+        // function selectFlow() removed - not needed for single flow
         
         function resetFlow() {
             flowState = {
@@ -602,12 +602,10 @@
             // Expand active step and focus input
             steps.forEach(step => {
                 const isActive = isStepActive(step.id);
-                console.log(`[renderSteps] Step ${step.id} isActive:`, isActive);
                 if (isActive) {
                     const stepEl = document.querySelector(`[data-step="${step.id}"]`);
                     if (stepEl) {
                         stepEl.classList.add('active');
-                        console.log(`[renderSteps] Expanded step: ${step.id}`);
                         autoFocusInput(step.id);
                     }
                 }
@@ -650,7 +648,32 @@
             const result = (() => {
                 if (flowState.draftOrder) return stepId === 'order';
                 
-                // Determine which step should be active based on completion state
+                // CRITICAL: Use backend step to determine active step, not just completion status
+                // This ensures we wait for the backend to actually transition before showing the step
+                const backendStep = flowState.backendStep || '';
+                
+                // Map backend steps to frontend steps
+                const stepMapping = {
+                    'product_details': 'product_details',
+                    'select_package': 'package_selection',
+                    'select_package_discovery': 'package_selection',
+                    'select_package_variant': 'package_selection',
+                    'select_package_specs': 'package_selection', // Package specs is part of package_selection
+                    'fulfillment_specs': 'fulfillment_specs',
+                    'launch_kit': 'launch_kit',
+                    'draft_order': 'order'
+                };
+                
+                // If we have a backend step, use it to determine active step
+                if (backendStep) {
+                    const mappedStep = stepMapping[backendStep];
+                    if (mappedStep) {
+                        return stepId === mappedStep;
+                    }
+                }
+                
+                // Fallback: Determine which step should be active based on completion state
+                // This is used when backend step is not yet set (initial load)
                 if (!isStepCompleted('product_details')) return stepId === 'product_details';
                 if (!isStepCompleted('package_selection')) return stepId === 'package_selection';
                 if (!isStepCompleted('fulfillment_specs')) return stepId === 'fulfillment_specs';
@@ -658,25 +681,51 @@
                 
                 return stepId === 'order';
             })();
-            console.log(`[isStepActive] ${stepId}:`, result, 'flowState:', flowState);
+            
+            console.log(`[isStepActive] ${stepId}:`, result, 'backendStep:', flowState.backendStep);
             return result;
         }
         
         function getStepData(stepId) {
-            if (stepId === 'product_details') return flowState.productDetailsData;
+            console.log(`[getStepData] Getting data for ${stepId}, backendStep:`, flowState.backendStep);
+            
+            if (stepId === 'product_details') {
+                console.log(`[getStepData] Returning productDetailsData:`, flowState.productDetailsData);
+                return flowState.productDetailsData;
+            }
+            
             if (stepId === 'package_selection') {
                 // Package selection step can show either packageData (for product search/selection)
                 // or packageSpecsData (for package specs questions)
                 // Prefer packageSpecsData if it has a currentQuestion, otherwise use packageData
-                if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
+                const backendStep = flowState.backendStep || '';
+                
+                // If backend is in package specs, use packageSpecsData
+                if (backendStep === 'select_package_specs') {
+                    console.log(`[getStepData] Backend in select_package_specs, returning packageSpecsData:`, flowState.packageSpecsData);
                     return flowState.packageSpecsData;
                 }
+                
+                // Otherwise use packageData for search/selection
+                console.log(`[getStepData] Returning packageData:`, flowState.packageData);
                 return flowState.packageData;
             }
-            if (stepId === 'fulfillment_specs') return flowState.fulfillmentSpecsData;
-            if (stepId === 'launch_kit') return flowState.launchKitData;
+            
+            if (stepId === 'fulfillment_specs') {
+                console.log(`[getStepData] Returning fulfillmentSpecsData:`, flowState.fulfillmentSpecsData);
+                return flowState.fulfillmentSpecsData;
+            }
+            
+            if (stepId === 'launch_kit') {
+                console.log(`[getStepData] Returning launchKitData:`, flowState.launchKitData);
+                return flowState.launchKitData;
+            }
+            
+            console.log(`[getStepData] No data found for ${stepId}`);
             return null;
         }
+        
+        // Alias for backward compatibility
         
         function getStepDetail(stepId, stepData) {
             if (stepId === 'product_details') {
@@ -717,8 +766,15 @@
         }
         
         function renderStepContent(stepId, stepData) {
+            const backendStep = flowState.backendStep || '';
+            console.log(`[renderStepContent] Rendering ${stepId}, backendStep: ${backendStep}, stepData:`, stepData);
+            
             // Product Details step
             if (stepId === 'product_details') {
+                // Only render if backend is in product_details or we're initializing
+                if (backendStep && backendStep !== 'product_details' && backendStep !== 'start') {
+                    console.warn(`[renderStepContent] Backend step (${backendStep}) doesn't match product_details, but step is active`);
+                }
                 return renderConsultationStep('product_details', flowState.productDetails, stepData);
             }
             
@@ -737,11 +793,22 @@
             
             // Fulfillment Specs step
             if (stepId === 'fulfillment_specs') {
+                // CRITICAL: Only render if backend has actually transitioned to fulfillment_specs
+                if (backendStep && backendStep !== 'fulfillment_specs') {
+                    console.warn(`[renderStepContent] Backend step (${backendStep}) doesn't match fulfillment_specs!`);
+                    console.warn(`[renderStepContent] Waiting for backend to transition to fulfillment_specs...`);
+                    return '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                }
                 return renderConsultationStep('fulfillment_specs', flowState.fulfillmentSpecs, stepData);
             }
             
             // Launch Kit step
             if (stepId === 'launch_kit') {
+                // Only render if backend is in launch_kit
+                if (backendStep && backendStep !== 'launch_kit') {
+                    console.warn(`[renderStepContent] Backend step (${backendStep}) doesn't match launch_kit!`);
+                    return '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                }
                 return renderConsultationStep('launch_kit', flowState.launchKit, stepData);
             }
             
@@ -757,7 +824,13 @@
         
         // Helper function to render consultation-style steps
         function renderConsultationStep(stepId, answers, stepData) {
-            console.log(`[renderConsultationStep] ${stepId} stepData:`, stepData);
+            console.log(`[renderConsultationStep] Rendering ${stepId}:`, {
+                hasAnswers: !!(answers && Object.keys(answers).length > 0),
+                hasStepData: !!stepData,
+                hasCurrentQuestion: !!(stepData && stepData.currentQuestion),
+                stepData: stepData
+            });
+            
             let html = '';
             
             // Show completed questions first
@@ -777,11 +850,13 @@
             
             // Show current question
             if (stepData && stepData.currentQuestion) {
-                console.log(`[renderConsultationStep] Rendering question for ${stepId}:`, stepData.currentQuestion);
+                console.log(`[renderConsultationStep] Rendering question for ${stepId}:`, stepData.currentQuestion.id);
                 html += renderQuestion(stepData.currentQuestion);
             } else {
-                console.log(`[renderConsultationStep] No currentQuestion in stepData for ${stepId}, showing loading`);
-                html += '<div class="step-body"><p>Loading question...</p></div>';
+                console.warn(`[renderConsultationStep] NO currentQuestion for ${stepId}!`);
+                console.warn(`[renderConsultationStep] stepData:`, stepData);
+                console.warn(`[renderConsultationStep] flowState.backendStep:`, flowState.backendStep);
+                html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
             }
             
             return html;
@@ -838,33 +913,84 @@
         }
         
         function renderProductSearch() {
-            // Generate suggested search query based on product details
+            // Generate intelligent suggested search query based on ALL product details
             let suggestedQuery = '';
             if (flowState.productDetails) {
                 const parts = [];
-                if (flowState.productDetails.product_description) {
-                    // Extract key terms from product description
-                    const desc = flowState.productDetails.product_description.toLowerCase();
-                    if (desc.includes('fragile') || (flowState.productDetails.fragility && flowState.productDetails.fragility.includes('fragile'))) {
-                        parts.push('protective');
+                const details = flowState.productDetails;
+                
+                // Extract packaging type from product description
+                if (details.product_description) {
+                    const desc = details.product_description.toLowerCase();
+                    
+                    // Fragility-based suggestions
+                    if (desc.includes('fragile') || (details.fragility && details.fragility.includes('fragile'))) {
+                        parts.push('protective packaging');
                     }
-                    if (desc.includes('food') || desc.includes('edible')) {
-                        parts.push('food-safe');
+                    if (details.fragility && details.fragility.includes('cushioning')) {
+                        parts.push('cushioned box');
                     }
-                    if (desc.includes('electronic') || desc.includes('device')) {
-                        parts.push('electronics packaging');
+                    
+                    // Product type-based suggestions
+                    if (desc.includes('food') || desc.includes('edible') || desc.includes('طعام')) {
+                        parts.push('food-safe packaging');
+                    }
+                    if (desc.includes('electronic') || desc.includes('device') || desc.includes('جهاز')) {
+                        parts.push('electronics packaging box');
+                    }
+                    if (desc.includes('cosmetic') || desc.includes('beauty') || desc.includes('مستحضرات')) {
+                        parts.push('cosmetic packaging box');
+                    }
+                    if (desc.includes('gift') || desc.includes('هدية')) {
+                        parts.push('gift box');
+                    }
+                    if (desc.includes('clothing') || desc.includes('apparel') || desc.includes('ملابس')) {
+                        parts.push('garment bag');
+                    }
+                    if (desc.includes('book') || desc.includes('كتاب')) {
+                        parts.push('book packaging');
                     }
                 }
-                if (flowState.productDetails.product_dimensions) {
-                    parts.push(flowState.productDetails.product_dimensions);
+                
+                // Dimension-based suggestions
+                if (details.product_dimensions) {
+                    // Extract numbers from dimensions
+                    const dims = details.product_dimensions.match(/(\d+)/g);
+                    if (dims && dims.length >= 2) {
+                        const maxDim = Math.max(...dims.map(Number));
+                        if (maxDim > 50) {
+                            parts.push('large box');
+                        } else if (maxDim < 10) {
+                            parts.push('small box');
+                        }
+                    }
                 }
-                if (flowState.productDetails.fragility && flowState.productDetails.fragility.includes('cushioning')) {
-                    parts.push('cushioned box');
+                
+                // Weight-based suggestions
+                if (details.product_weight) {
+                    const weight = details.product_weight.match(/(\d+)/);
+                    if (weight) {
+                        const weightNum = parseInt(weight[1]);
+                        if (weightNum > 1000) {
+                            parts.push('heavy duty packaging');
+                        }
+                    }
                 }
+                
+                // Budget-based suggestions
+                if (details.budget) {
+                    if (details.budget.includes('20+') || details.budget.includes('flexible')) {
+                        parts.push('premium packaging');
+                    } else if (details.budget.includes('Under 1') || details.budget.includes('1-5')) {
+                        parts.push('economy packaging');
+                    }
+                }
+                
+                // Build final query
                 if (parts.length > 0) {
                     suggestedQuery = parts.join(' ');
                 } else {
-                    suggestedQuery = 'custom box';
+                    suggestedQuery = 'custom packaging box';
                 }
             }
             
@@ -877,51 +1003,69 @@
                                onkeydown="if(event.key==='Enter') searchProducts()">
                     </div>
                     <button class="submit-btn" onclick="searchProducts()">Search Packages</button>
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button class="submit-btn" onclick="selectCustomPackage()" style="background: #6c757d; margin-top: 10px;">
+                            📦 Custom Package (Quote Required)
+                        </button>
+                    </div>
                     <div id="searchFallbackMessage" style="display: none; margin-top: 12px; padding: 12px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
-                        No packages found. Try a simpler search like "box" or "packaging".
+                        No packages found. Try a simpler search like "box" or "packaging", or select "Custom Package" above.
                     </div>
                 </div>
             `;
         }
         
-        function searchProductsWithFallback() {
-            const input = document.getElementById('productSearchInput');
-            if (input && input.value.trim()) {
-                const query = input.value.trim();
-                sendSelection(query, { type: 'product_search', originalQuery: query });
-            } else {
-                // If empty, send a generic search
-                sendSelection('show me products', { type: 'product_search' });
-            }
+        function selectCustomPackage() {
+            console.log('[selectCustomPackage] Custom package selected');
+            // Store custom package selection
+            flowState.package = 'Custom Package (Quote Required)';
+            flowState.variant = 'Custom';
+            
+            // Move to fulfillment specs (skip package specs for custom)
+            sendSelection('custom package', { 
+                type: 'custom_package', 
+                questionId: 'package_selection',
+                answer: 'custom'
+            });
         }
         
         function renderProductSelection(matches) {
-            let html = '<div class="step-body"><div class="question-text">Select a product:</div><div class="options-grid">';
+            let html = '<div class="step-body"><div class="question-text">Select a package:</div><div class="options-grid">';
             matches.forEach((match, index) => {
+                const imageHtml = match.imageUrl 
+                    ? `<img src="${match.imageUrl}" alt="${match.name}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 6px; margin-bottom: 10px;">`
+                    : '<div style="width: 100%; height: 150px; background: #f0f0f0; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>';
+                
+                const priceHtml = match.price 
+                    ? `<div style="font-size: 16px; font-weight: 700; color: #667eea; margin-top: 8px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
+                    : '';
+                
                 html += `
                     <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}')">
-                        <div style="font-weight: 600; margin-bottom: 8px;">${match.name}</div>
-                        <div style="font-size: 12px; color: #666;">${match.reason}</div>
+                        ${imageHtml}
+                        <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">${match.name}</div>
+                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${match.reason}</div>
+                        ${priceHtml}
                     </div>
                 `;
             });
+            html += `
+                <div class="option-card" onclick="selectCustomPackage()" style="border: 2px dashed #667eea;">
+                    <div style="width: 100%; height: 150px; background: #f8f9ff; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
+                        <div style="font-size: 12px; color: #667eea; font-weight: 600;">Custom Package</div>
+                    </div>
+                    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Custom Package</div>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Quote required - we'll design a custom solution for you</div>
+                    <div style="font-size: 12px; color: #667eea; font-weight: 600; margin-top: 8px;">Contact for Pricing</div>
+                </div>
+            `;
             html += '</div></div>';
             return html;
         }
         
-        function renderVariantSelection(variants) {
-            let html = '<div class="step-body"><div class="question-text">Select a variant:</div><div class="options-grid">';
-            variants.forEach((variant, index) => {
-                html += `
-                    <div class="option-card" onclick="selectVariant(${index}, '${variant.title.replace(/'/g, "\\'")}', ${variant.id})">
-                        <div style="font-weight: 600; margin-bottom: 8px;">${variant.title}</div>
-                        <div style="font-size: 12px; color: #666;">Price: ${variant.price}</div>
-                    </div>
-                `;
-            });
-            html += '</div></div>';
-            return html;
-        }
+        // renderVariantSelection() removed - variants are handled via backend response
+        // Variant selection is now integrated into package selection step
         
         function getQuestionLabel(questionId) {
             const labels = {
@@ -943,7 +1087,9 @@
                 // Launch Kit
                 'service_selection': 'Services',
                 'service_timeline': 'Service Timeline',
-                'service_notes': 'Service Notes'
+                'service_notes': 'Service Notes',
+                // Custom Package
+                'custom_package': 'Custom Package'
             };
             return labels[questionId] || questionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         }
@@ -1105,6 +1251,15 @@
                         </div>
                         <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
                     `;
+                } else if (question.id === 'shipping_address') {
+                    // Special handling for shipping address with Google Maps autocomplete
+                    html += `
+                        <div class="input-group">
+                            <input type="text" id="questionInput" data-question-id="shipping_address" value="${question.defaultValue || ''}" placeholder="Start typing your address in Saudi Arabia..." autocomplete="off">
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">📍 Address autocomplete enabled for Saudi Arabia</small>
+                        </div>
+                        <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
+                    `;
                 } else {
                     // Regular text input
                     html += `
@@ -1144,18 +1299,14 @@
         }
         
         function selectProduct(index, name) {
-            console.log('[selectProduct] Product selected:', { index, name });
             sendSelection(String(index + 1), { type: 'product', name });
         }
         
         function selectVariant(index, title, id) {
-            console.log('[selectVariant] Variant selected:', { index, title, id });
             sendSelection(title, { type: 'variant', title, id });
         }
         
-        function selectOption(option, questionId) {
-            sendSelection(option, { type: 'option', questionId, option });
-        }
+        // selectOption() removed - not used, options are handled via submit functions
         
         function submitCheckboxAnswer(questionId) {
             const checkboxes = document.querySelectorAll(`#option-group-${questionId} input[type="checkbox"]:checked`);
@@ -1253,9 +1404,44 @@
                     if (input) input.focus();
                 } else {
                     const input = document.getElementById('questionInput');
-                    if (input) input.focus();
+                    if (input) {
+                        input.focus();
+                        
+                        // Initialize Google Maps autocomplete for shipping address
+                        if (input.getAttribute('data-question-id') === 'shipping_address' || 
+                            (input.closest('.step-body') && input.closest('.step-body').querySelector('[id*="shipping"]'))) {
+                            initializeAddressAutocomplete(input);
+                        }
+                    }
                 }
             }, 100);
+        }
+        
+        // Initialize Google Maps autocomplete for address input
+        function initializeAddressAutocomplete(input) {
+            if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+                console.warn('[initializeAddressAutocomplete] Google Maps API not loaded');
+                return;
+            }
+            
+            try {
+                const autocomplete = new google.maps.places.Autocomplete(input, {
+                    componentRestrictions: { country: ['sa'] }, // Restrict to Saudi Arabia
+                    fields: ['formatted_address', 'geometry', 'address_components'],
+                    types: ['address']
+                });
+                
+                autocomplete.addListener('place_changed', function() {
+                    const place = autocomplete.getPlace();
+                    if (place.formatted_address) {
+                        input.value = place.formatted_address;
+                    }
+                });
+                
+                console.log('[initializeAddressAutocomplete] Autocomplete initialized for shipping address');
+            } catch (error) {
+                console.error('[initializeAddressAutocomplete] Error:', error);
+            }
         }
         
         async function sendSelection(message, metadata) {
@@ -1298,7 +1484,9 @@
                 
                 const data = await response.json();
                 console.log('[sendSelection] Response data:', data);
-                console.log('[sendSelection] productMatches in response:', data.productMatches ? `${data.productMatches.length} matches` : 'none');
+                console.log('[sendSelection] Backend step:', data.flowState?.step);
+                console.log('[sendSelection] Has currentQuestion:', !!data.currentQuestion);
+                console.log('[sendSelection] CurrentQuestion ID:', data.currentQuestion?.id);
                 
                 handleResponse(data, metadata);
             } catch (error) {
@@ -1376,21 +1564,28 @@
         
         // Helper function to get the current consultation state property based on backend step
         function getCurrentConsultationState(backendStep) {
-            if (backendStep === 'product_details') return 'productDetails';
-            if (backendStep === 'select_package_specs') return 'packageSpecs';
-            if (backendStep === 'fulfillment_specs') return 'fulfillmentSpecs';
-            if (backendStep === 'launch_kit') return 'launchKit';
-            // Default to fulfillment_specs for backward compatibility
-            return 'fulfillmentSpecs';
+            const mapping = {
+                'product_details': 'productDetails',
+                'select_package_specs': 'packageSpecs',
+                'fulfillment_specs': 'fulfillmentSpecs',
+                'launch_kit': 'launchKit'
+            };
+            const result = mapping[backendStep] || 'fulfillmentSpecs';
+            console.log(`[getCurrentConsultationState] Backend step: ${backendStep} -> Consultation key: ${result}`);
+            return result;
         }
         
         function handleResponse(data, metadata) {
-            console.log('[handleResponse] Called with:', { data, metadata });
-            console.log('[handleResponse] Response data.productMatches:', data.productMatches ? `${data.productMatches.length} matches` : 'none');
-            console.log('[handleResponse] Current flowState:', JSON.parse(JSON.stringify(flowState)));
-            console.log('[handleResponse] Response data.flowState:', data.flowState);
-            console.log('[handleResponse] Response data.currentQuestion:', data.currentQuestion ? 'present' : 'missing');
-            console.log('[handleResponse] Response data.variants:', data.variants ? `${data.variants.length} variants` : 'none');
+            console.log('[handleResponse] ========== START ==========');
+            console.log('[handleResponse] Metadata:', metadata);
+            console.log('[handleResponse] Response data:', data);
+            console.log('[handleResponse] Backend step:', data.flowState?.step);
+            console.log('[handleResponse] Has package:', data.flowState?.hasPackage);
+            console.log('[handleResponse] Has variant:', data.flowState?.hasVariant);
+            console.log('[handleResponse] Current question:', data.currentQuestion);
+            console.log('[handleResponse] Product matches:', data.productMatches?.length || 0);
+            console.log('[handleResponse] Variants:', data.variants?.length || 0);
+            console.log('[handleResponse] Draft order:', data.draftOrder);
             
             const backendStep = data.flowState?.step || '';
             // Store the message from metadata for answer extraction (fallback)
@@ -1398,17 +1593,15 @@
             
             // Store backend step in flowState early so other logic can use it
             flowState.backendStep = backendStep;
+            console.log('[handleResponse] Set backendStep to:', backendStep);
             
             // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
             // If backend is in package specs (currentQuestion present) but no variant is selected,
             // it means variant step was auto-skipped (single variant or no variants)
             if (data.currentQuestion && !flowState.variant && flowState.package && backendStep === 'select_package_specs') {
-                console.log('[handleResponse] CRITICAL: Detecting variant auto-skip - currentQuestion present but no variant');
                 if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
-                    console.log('[handleResponse] Setting variant from flowState.variantName:', data.flowState.variantName);
                     flowState.variant = data.flowState.variantName;
                 } else {
-                    console.log('[handleResponse] No variant name in flowState - using "Default"');
                     flowState.variant = 'Default';
                 }
                 flowState.packageData = null; // Clear package data since we're auto-completing
@@ -1417,24 +1610,14 @@
             // Handle package search - show matches
             // IMPORTANT: Don't return early - continue processing to update backend step
             if (metadata && metadata.type === 'product_search') {
-                console.log('[handleResponse] Handling product_search, backendStep:', backendStep);
-                // Ensure we're in package selection step state
-                if (backendStep !== 'select_package' && backendStep !== 'select_package_discovery' && backendStep !== 'select_package_variant') {
-                    console.log('[handleResponse] WARNING: product_search but backendStep is', backendStep, '- this might cause issues');
-                }
-                
                 if (data.productMatches && data.productMatches.length > 0) {
-                    console.log('[handleResponse] Found package matches:', data.productMatches.length);
                     flowState.packageData = flowState.packageData || {};
                     flowState.packageData.matches = data.productMatches;
-                    console.log('[handleResponse] Set flowState.packageData.matches:', flowState.packageData);
                     // Hide fallback message if matches found
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) fallbackMsg.style.display = 'none';
-                    // Continue processing - don't return early
                 } else if (data.flowState && data.flowState.hasPackage) {
                     // If no matches but we have a reply, the package was found directly
-                    console.log('[handleResponse] Package found directly:', data.flowState.packageName);
                     flowState.package = data.flowState.packageName;
                     flowState.packageData = null;
                     // Hide fallback message
@@ -1443,7 +1626,6 @@
                     
                     // Check if variant was auto-skipped immediately after package selection
                     if (data.currentQuestion && backendStep === 'select_package_specs') {
-                        console.log('[handleResponse] Package found and variant auto-skipped (currentQuestion present)');
                         flowState.variant = data.flowState?.variantName || 'Default';
                         flowState.packageData = null;
                         
@@ -1452,12 +1634,9 @@
                             flowState.packageSpecsData = {};
                         }
                         flowState.packageSpecsData.currentQuestion = data.currentQuestion;
-                        console.log('[handleResponse] Set packageSpecsData in product_search handler:', flowState.packageSpecsData);
                     }
-                    // Continue processing - don't return early
                 } else {
                     // No matches found - show fallback message
-                    console.log('[handleResponse] No productMatches and no hasPackage - search returned no results');
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) {
                         fallbackMsg.style.display = 'block';
@@ -1465,16 +1644,29 @@
                 }
             }
             
+            // Handle custom package selection
+            if (metadata && metadata.type === 'custom_package') {
+                console.log('[handleResponse] Custom package selected');
+                flowState.package = 'Custom Package (Quote Required)';
+                flowState.variant = 'Custom';
+                flowState.packageData = null;
+                // Custom package skips to fulfillment_specs
+                if (backendStep === 'fulfillment_specs' && data.currentQuestion) {
+                    if (!flowState.fulfillmentSpecsData) {
+                        flowState.fulfillmentSpecsData = {};
+                    }
+                    flowState.fulfillmentSpecsData.currentQuestion = data.currentQuestion;
+                }
+            }
+            
             // Update flow state based on metadata and response
             if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasPackage) {
-                console.log('[handleResponse] Package selected:', data.flowState.packageName);
                 flowState.package = data.flowState.packageName || metadata.name;
                 flowState.packageData = null;
                 
                 // CRITICAL: When product is selected and backend moved to select_package_specs, 
                 // we need to clear package selection and set packageSpecsData
                 if (backendStep === 'select_package_specs') {
-                    console.log('[handleResponse] Package selected - backend moved to select_package_specs');
                     flowState.variant = data.flowState?.variantName || 'Default';
                     flowState.packageData = null;
                     
@@ -1484,17 +1676,14 @@
                     }
                     if (data.currentQuestion) {
                         flowState.packageSpecsData.currentQuestion = data.currentQuestion;
-                        console.log('[handleResponse] Set packageSpecsData.currentQuestion:', data.currentQuestion);
                     }
                 } else if (data.flowState.hasVariant && data.flowState.variantName) {
-                    console.log('[handleResponse] Variant auto-selected (single variant):', data.flowState.variantName);
                     flowState.variant = data.flowState.variantName;
                     flowState.packageData = null;
                 }
             }
             
             if (metadata && metadata.type === 'variant' && data.flowState && data.flowState.hasVariant) {
-                console.log('[handleResponse] Variant selected:', data.flowState.variantName);
                 flowState.variant = data.flowState.variantName || metadata.title;
                 flowState.packageData = null;
             }
@@ -1502,7 +1691,7 @@
             // Store answers in the appropriate consultation state based on questionId
             // We can't rely on backendStep because it may have changed after processing the answer
             if (metadata && (metadata.type === 'answer' || metadata.type === 'option')) {
-                console.log('[handleResponse] Answer/option recorded:', metadata.questionId, metadata.answer || metadata.option || metadata.message);
+                console.log('[handleResponse] Processing answer/option:', metadata.questionId);
                 // Determine which consultation phase this question belongs to based on questionId
                 let consultationKey = 'fulfillmentSpecs'; // default
                 if (metadata.questionId && (
@@ -1527,26 +1716,26 @@
                     consultationKey = 'launchKit';
                 }
                 
+                console.log('[handleResponse] Determined consultation key:', consultationKey, 'for question:', metadata.questionId);
+                
                 if (!flowState[consultationKey]) flowState[consultationKey] = {};
                 // Get answer value - prioritize metadata.answer, then metadata.option, then metadata.message
                 const answerValue = metadata.answer || metadata.option || metadata.message || messageFromMetadata;
                 if (answerValue && answerValue !== 'undefined' && answerValue !== 'null' && answerValue.trim() !== '') {
                     flowState[consultationKey][metadata.questionId] = answerValue;
-                    console.log(`[handleResponse] Stored answer in ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
+                    console.log(`[handleResponse] Stored answer: ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
                 } else {
-                    console.warn(`[handleResponse] Could not extract answer value for ${metadata.questionId} from metadata:`, metadata, 'messageFromMetadata:', messageFromMetadata);
+                    console.warn(`[handleResponse] Could not extract answer value for ${metadata.questionId}`);
                 }
             }
             
             // Update step data - handle productMatches and variants
             // NOTE: This should happen AFTER product_search handler, but we check here too for safety
             if (data.productMatches) {
-                console.log('[handleResponse] Updating productMatches (general handler):', data.productMatches.length);
                 flowState.packageData = flowState.packageData || {};
                 flowState.packageData.matches = data.productMatches;
             }
             if (data.variants) {
-                console.log('[handleResponse] Updating variants:', data.variants.length, data.variants);
                 flowState.packageData = flowState.packageData || {};
                 flowState.packageData.variants = data.variants;
             }
@@ -1576,30 +1765,29 @@
             }
             
             if (data.currentQuestion) {
-                console.log('[handleResponse] Updating currentQuestion:', data.currentQuestion.id, data.currentQuestion);
+                console.log('[handleResponse] Processing currentQuestion:', data.currentQuestion.id);
                 const consultationKey = getCurrentConsultationState(backendStep);
                 const dataKey = consultationKey + 'Data';
+                console.log('[handleResponse] Consultation key:', consultationKey, 'Data key:', dataKey);
+                
                 if (!flowState[dataKey]) {
                     flowState[dataKey] = {};
+                    console.log('[handleResponse] Created new', dataKey);
                 }
                 flowState[dataKey].currentQuestion = data.currentQuestion;
-                console.log(`[handleResponse] ${dataKey} after update:`, flowState[dataKey]);
+                console.log('[handleResponse] Set currentQuestion in', dataKey, ':', data.currentQuestion.id);
                 
                 // CRITICAL: If we just moved to select_package_specs after product selection,
                 // ensure packageData is cleared so we don't show product selection UI
                 if (backendStep === 'select_package_specs' && metadata && metadata.type === 'product') {
-                    console.log('[handleResponse] Moved to package_specs after product selection - clearing packageData');
                     flowState.packageData = null;
                 }
             } else {
+                console.warn('[handleResponse] NO currentQuestion in response!');
+                console.warn('[handleResponse] Backend step:', backendStep);
+                console.warn('[handleResponse] This might indicate an issue with the backend response');
+                
                 // No currentQuestion means we're in a non-consultation step (like select_package)
-                // BUT: For init type, if we're in product_details step, we should have a currentQuestion
-                // This handles the case where the first question is returned but currentQuestion isn't set properly
-                if (metadata && metadata.type === 'init' && backendStep === 'product_details') {
-                    // On init, if we're in product_details but no currentQuestion, 
-                    // the backend should have returned one, so this shouldn't happen
-                    console.warn('[handleResponse] Init with product_details but no currentQuestion');
-                }
                 // Make sure we clear any old consultation data
                 if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
                     if (flowState.productDetailsData) {
@@ -1607,22 +1795,16 @@
                     }
                 }
             }
+            
             if (data.draftOrder) {
                 console.log('[handleResponse] Draft order created:', data.draftOrder.id);
                 flowState.draftOrder = data.draftOrder;
             }
             
-            // Special handling: if backend step is "select_package_variant" but we don't have variants yet
-            if (backendStep === 'select_package_variant' && !data.variants && (!flowState.packageData || !flowState.packageData.variants)) {
-                console.log('[handleResponse] Backend is in select_package_variant but no variants in response - may need to fetch');
-            }
-            
-            console.log('[handleResponse] Updated flowState:', JSON.parse(JSON.stringify(flowState)));
-            console.log('[handleResponse] data.flowState from backend:', data.flowState);
-            console.log('[handleResponse] Backend step is:', backendStep);
+            console.log('[handleResponse] Final flowState:', JSON.parse(JSON.stringify(flowState)));
+            console.log('[handleResponse] ========== END ==========');
             
             // Re-render steps
-            console.log('[handleResponse] Re-rendering steps...');
             renderSteps();
         }
         
@@ -1645,55 +1827,12 @@
         }
         
         async function resetSession() {
-            const apiUrl = document.getElementById('apiUrl').value.trim();
-            if (!apiUrl) {
-                alert('Please enter a Worker URL');
-                return;
-            }
-            
             if (!confirm('Are you sure you want to reset the session? This will clear all progress and start fresh.')) {
                 return;
             }
             
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: 'reset', flow: currentFlow })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('[resetSession] Session reset, re-initializing flow...');
-                
-                // Reset frontend state
-                flowState = {
-                    backendStep: 'start',
-                    previousBackendStep: null,
-                    productDetails: {},
-                    productDetailsData: {},
-                    package: null,
-                    packageData: null,
-                    variant: null,
-                    packageSpecs: {},
-                    packageSpecsData: {},
-                    fulfillmentSpecs: {},
-                    fulfillmentSpecsData: {},
-                    launchKit: {},
-                    launchKitData: {},
-                    draftOrder: null
-                };
-                
-                // Re-initialize flow
-                handleResponse(data, { type: 'init' });
-                alert('Session reset successfully!');
-            } catch (error) {
-                console.error('[resetSession] Error:', error);
-                alert(`Error resetting session: ${error.message}`);
-            }
+            // Full page refresh
+            window.location.reload();
         }
         
         // Initialize - make initial API call to get first question
@@ -1708,21 +1847,24 @@
             
             try {
                 // Send empty message to trigger start step
+                console.log('[initializeFlow] Sending initial request to:', apiUrl);
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: '', flow: currentFlow })
                 });
                 
+                console.log('[initializeFlow] Response status:', response.status);
+                
                 if (!response.ok) {
-                    console.error('[initializeFlow] Response error:', response.status);
+                    const errorText = await response.text();
+                    console.error('[initializeFlow] Response error:', errorText);
                     renderSteps();
                     return;
                 }
                 
                 const data = await response.json();
                 console.log('[initializeFlow] Initial response:', data);
-                
                 // Use handleResponse to process the initial response properly
                 handleResponse(data, { type: 'init' });
             } catch (error) {
