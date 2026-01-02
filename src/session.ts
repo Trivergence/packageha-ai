@@ -1242,17 +1242,39 @@ export class PackagehaSession {
      */
     private async getNextStepPrompt(nextStep: string, memory: Memory): Promise<{ reply: string; productMatches?: any[]; isAutoSearch?: boolean }> {
         if (nextStep === "select_package") {
-            // Transition to package selection step immediately (don't wait for search)
+            // Transition to package selection step immediately
             memory.step = "select_package_discovery";
-            // Set flag to trigger auto-search on next empty message
-            memory.clipboard['_autoSearch'] = 'true';
-            // Save memory to ensure flag persists
-            await this.state.storage.put("memory", memory);
-            // Return immediately so frontend can show loading indicator
-            // The search will happen on the next request (empty message triggers it)
-            return { 
-                reply: "Searching for packages that match your product...",
-                isAutoSearch: true // Signal that auto-search should happen
+            
+            // Build comprehensive search query from all product details
+            const productContext: string[] = [];
+            if (memory.clipboard) {
+                if (memory.clipboard.product_description) {
+                    productContext.push(memory.clipboard.product_description);
+                }
+                if (memory.clipboard.product_dimensions) {
+                    productContext.push(`dimensions: ${memory.clipboard.product_dimensions}`);
+                }
+                if (memory.clipboard.product_weight) {
+                    productContext.push(`weight: ${memory.clipboard.product_weight}`);
+                }
+                if (memory.clipboard.fragility) {
+                    productContext.push(`fragility: ${memory.clipboard.fragility}`);
+                }
+                if (memory.clipboard.budget) {
+                    productContext.push(`budget: ${memory.clipboard.budget}`);
+                }
+            }
+            const autoSearchQuery = productContext.length > 0 ? productContext.join(', ') : "packaging";
+            console.log("[getNextStepPrompt] Executing auto-search with query:", autoSearchQuery);
+            
+            // Execute the search immediately (frontend will show loading while waiting)
+            const result = await this.handleDiscovery(autoSearchQuery, memory, SALES_CHARTER);
+            console.log("[getNextStepPrompt] Auto-search completed:", result.productMatches?.length || 0, "matches");
+            
+            // Return results with isAutoSearch flag
+            return {
+                ...result,
+                isAutoSearch: true
             };
         } else if (nextStep === "fulfillment_specs") {
             if (!SALES_CHARTER.fulfillmentSpecs) {
