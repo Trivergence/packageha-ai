@@ -18,8 +18,7 @@ import {
     AIDecision, 
     VariantDecision, 
     RequestBody,
-    AgentFlow,
-    PackageRecommendation
+    AgentFlow
 } from "./types";
 
 // Default memory template - timestamps set when creating new memory
@@ -167,6 +166,53 @@ export class PackagehaSession {
                 memory.step = "start";
                 memory.clipboard = {};
                 memory.questionIndex = 0;
+            }
+
+            // Handle Salla product selection (from store, image, or text)
+            if (body.sallaAccessToken) {
+                memory.sallaAccessToken = body.sallaAccessToken;
+            }
+            
+            if (body.sallaProductId) {
+                // Product selected from Salla store
+                memory.sallaProductId = body.sallaProductId;
+                // Fetch product details and populate clipboard
+                if (body.sallaAccessToken) {
+                    try {
+                        const { getSallaProduct } = await import("./salla");
+                        const sallaProduct = await getSallaProduct(body.sallaAccessToken, body.sallaProductId);
+                        if (sallaProduct) {
+                            // Populate product details from Salla product
+                            if (sallaProduct.name) {
+                                memory.clipboard["product_description"] = sallaProduct.name;
+                                if (sallaProduct.description) {
+                                    memory.clipboard["product_description"] += ` - ${sallaProduct.description}`;
+                                }
+                            }
+                            if (sallaProduct.images && sallaProduct.images.length > 0) {
+                                memory.sallaProductImageUrl = sallaProduct.images[0].url;
+                            }
+                            // If we have product info, skip to package selection
+                            if (memory.step === "start" || memory.step === "product_details") {
+                                memory.step = "select_package";
+                                memory.questionIndex = 0;
+                            }
+                        }
+                    } catch (error: any) {
+                        console.error("[PackagehaSession] Error fetching Salla product:", error);
+                    }
+                }
+            }
+            
+            if (body.productImageUrl || body.productImageBase64) {
+                // Image uploaded or provided
+                memory.uploadedProductImageUrl = body.productImageUrl || 
+                    (body.productImageBase64 ? `data:image/jpeg;base64,${body.productImageBase64}` : undefined);
+                // If we have an image, we can skip some product detail questions
+                if (!memory.clipboard["product_description"] && memory.step === "start") {
+                    memory.step = "product_details";
+                    memory.questionIndex = 0;
+                }
             }
             
             // Validate memory state - if we're in an invalid state, reset appropriately

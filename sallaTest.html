@@ -1,0 +1,3114 @@
+<!DOCTYPE html>
+<!--
+    Packageha AI - Salla Integration Tester
+    
+    This is a frontend test interface for the Packageha AI agent with Salla integration.
+    Merchants can connect their Salla store and select products, upload images, or enter text descriptions
+    to start the package design flow.
+    It provides a step-by-step UI for testing the complete sales consultation process:
+    
+    Flow Steps:
+    1. Product Details - Collect information about the product that will be packaged
+    2. Package Selection - Search and select a package (includes variant selection and package specs)
+    3. Fulfillment Specs - Collect order fulfillment information (quantity, timeline, shipping, etc.)
+    4. Launch Kit - Optional brand launch services
+    5. Draft Order - Final order creation and confirmation
+    
+    Features:
+    - Visual step-by-step interface with collapsible sections
+    - Handles various question types (text, radio, checkbox, grouped options)
+    - Product search and selection with AI-powered matching
+    - Variant auto-skip handling (when only one variant exists)
+    - State management across all consultation phases
+    - Loading indicators during API calls
+    - Draft order display with links to Shopify admin and invoice
+    
+    Note: Only the direct_sales flow is supported. Other flows have been removed.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packageha AI - Salla Integration Tester</title>
+    <!-- Google Maps Places API for address autocomplete -->
+    <!-- NOTE: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual Google Maps API key -->
+    <!-- IMPORTANT: Enable "Places API" in Google Cloud Console for this API key -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAYiLzZ_7ccJatguVNSOq4YTwOrcKhgY&libraries=places&language=ar&callback=initGoogleMaps"></script>
+    <script>
+        // Global flag to track if Google Maps loaded successfully
+        window.googleMapsLoaded = false;
+        function initGoogleMaps() {
+            window.googleMapsLoaded = true;
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        
+        .config-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .config-section input {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .config-section input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .config-section button {
+            padding: 8px 16px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        /* Flow selector styles removed - only direct_sales flow is supported */
+        
+        .steps-container {
+            padding: 30px;
+        }
+        
+        .step-section {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        
+        .step-section.completed {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        .step-section.active {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .step-header {
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            transition: background 0.2s;
+        }
+        
+        .step-section.active .step-header {
+            background: #f8f9ff;
+        }
+        
+        .step-section.completed .step-header {
+            background: #f8fff9;
+        }
+        
+        .step-header:hover {
+            background: #f5f5f5;
+        }
+        
+        .step-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .step-section.completed .step-number {
+            background: #28a745;
+            color: white;
+        }
+        
+        .step-section.active .step-number {
+            background: #667eea;
+            color: white;
+        }
+        
+        .step-info {
+            flex: 1;
+        }
+        
+        .step-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .step-detail {
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .step-chevron {
+            font-size: 20px;
+            color: #999;
+            transition: transform 0.3s;
+        }
+        
+        .step-section.active .step-chevron {
+            transform: rotate(180deg);
+            color: #667eea;
+        }
+        
+        .step-content {
+            position: relative;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .step-section.active .step-content {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }
+        
+        .step-body {
+            padding: 0 20px 20px 20px;
+            background: white;
+        }
+        
+        .step-body.completed-view {
+            padding: 20px;
+            background: #f8fff9;
+        }
+        
+        .answer-display {
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            font-size: 15px;
+            color: #333;
+        }
+        
+        .completed-questions-section {
+            background: #f8fff9;
+            border: 1px solid #d4edda;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .completed-question-item {
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #28a745;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+        
+        .completed-question-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .edit-icon {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #667eea;
+            font-size: 16px;
+            transition: all 0.2s;
+            opacity: 0.7;
+        }
+        
+        .edit-icon:hover {
+            opacity: 1;
+            background: #f0f0f0;
+        }
+        
+        .answer-content {
+            flex: 1;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .checkbox-label:hover {
+            border-color: #6c63ff;
+            background: #f5f4ff;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-label input[type="checkbox"]:checked + span {
+            font-weight: 600;
+            color: #6c63ff;
+        }
+        
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        
+        .radio-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .radio-label:hover {
+            border-color: #6c63ff;
+            background: #f5f4ff;
+        }
+        
+        .radio-label input[type="radio"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .radio-label input[type="radio"]:checked + span {
+            font-weight: 600;
+            color: #6c63ff;
+        }
+        
+        .radio-label:has(input[type="radio"]:checked) {
+            border-color: #6c63ff;
+            background: #f5f4ff;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            border-radius: 8px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #6c63ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed !important;
+        }
+        
+        .question-text {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .option-card {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            background: white;
+        }
+        
+        .option-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .option-card.selected {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        
+        .input-group input:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .dimensions-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        .submit-btn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            background: #5568d3;
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .draft-order-success {
+            padding: 30px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .draft-order-success h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .draft-order-links {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .draft-order-links a {
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .draft-order-links a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .dimensions-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .steps-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Packageha AI - Salla Integration Tester</h1>
+            <div class="config-section">
+                <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
+                <button onclick="loadAvailableModels()" style="margin-right: 8px;">Check Models</button>
+                <button onclick="resetSession()" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Reset Session</button>
+            </div>
+            <!-- Flow selector removed - only direct_sales flow is supported -->
+        </div>
+        
+        <!-- Salla Integration Section -->
+        <div id="sallaIntegration" style="padding: 20px 30px; background: #f8f9fa; border-bottom: 2px solid #e0e0e0;">
+            <h2 style="margin-bottom: 20px; color: #333; font-size: 18px;">🛍️ Connect Your Salla Store</h2>
+            <div id="sallaAuthSection" style="margin-bottom: 20px;">
+                <button onclick="connectSalla()" style="padding: 12px 24px; background: #00d4aa; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    Connect Salla Store
+                </button>
+                <div id="sallaStatus" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+            </div>
+            
+            <div id="productInputSection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">📦 Select Your Product</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <!-- Option 1: Select from Store -->
+                    <div id="selectFromStoreOption" style="padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                         onclick="showProductSelector()" onmouseover="this.style.borderColor='#00d4aa'" onmouseout="this.style.borderColor='#e0e0e0'">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🏪</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">Select from Store</div>
+                        <div style="font-size: 12px; color: #666;">Choose a product from your Salla store</div>
+                    </div>
+                    
+                    <!-- Option 2: Upload Image -->
+                    <div style="padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                         onclick="document.getElementById('imageUploadInput').click()" onmouseover="this.style.borderColor='#00d4aa'" onmouseout="this.style.borderColor='#e0e0e0'">
+                        <div style="font-size: 24px; margin-bottom: 10px;">📷</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">Upload Product Photo</div>
+                        <div style="font-size: 12px; color: #666;">Upload an image of your product</div>
+                        <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                    </div>
+                    
+                    <!-- Option 3: Text Description -->
+                    <div style="padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                         onclick="showTextInput()" onmouseover="this.style.borderColor='#00d4aa'" onmouseout="this.style.borderColor='#e0e0e0'">
+                        <div style="font-size: 24px; margin-bottom: 10px;">✍️</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">Describe Your Product</div>
+                        <div style="font-size: 12px; color: #666;">Enter a text description</div>
+                    </div>
+                </div>
+                
+                <!-- Product Selector Modal -->
+                <div id="productSelectorModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+                    <div style="background: white; border-radius: 12px; padding: 30px; max-width: 600px; max-height: 80vh; overflow-y: auto; margin: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0; color: #333;">Select Product from Store</h3>
+                            <button onclick="closeProductSelector()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                        </div>
+                        <div id="productList" style="display: grid; gap: 15px;">
+                            <div style="text-align: center; padding: 40px; color: #666;">Loading products...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Text Input Modal -->
+                <div id="textInputModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+                    <div style="background: white; border-radius: 12px; padding: 30px; max-width: 500px; margin: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0; color: #333;">Describe Your Product</h3>
+                            <button onclick="closeTextInput()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                        </div>
+                        <textarea id="productDescriptionText" placeholder="Describe your product... e.g., A premium perfume bottle, elegant design, 200ml capacity" 
+                                  style="width: 100%; min-height: 150px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button onclick="closeTextInput()" style="padding: 10px 20px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+                            <button onclick="submitTextDescription()" style="padding: 10px 20px; background: #00d4aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Start Package Design</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="steps-container" id="stepsContainer">
+            <!-- Steps will be dynamically generated -->
+        </div>
+    </div>
+    
+    <script>
+        // Salla Integration State
+        let sallaAccessToken = null;
+        let sallaStoreId = null;
+        
+        let currentFlow = 'direct_sales';
+        let flowState = {
+            productDetails: {}, // Product details answers
+            package: null, // Package name
+            variant: null, // Variant name
+            packageImageUrl: null, // Package image URL for display in saved answers
+            packageSpecs: {}, // Package specifications (material, dimensions, print)
+            fulfillmentSpecs: {}, // Fulfillment specifications
+            launchKit: {}, // Launch kit services
+            draftOrder: null, // Draft order result
+            backendStep: null, // Track backend step for step completion logic
+            previousBackendStep: null, // Track previous backend step to detect transitions
+            productMatches: [], // Auto-generated matches based on product details
+            queryMatches: [], // User search query matches
+            queryMatchesQuery: '' // The query string for query matches
+        };
+        let isLoading = false; // Track loading state
+        
+        const steps = [
+            { id: 'product_details', name: 'Product Details', key: 'productDetails' },
+            { id: 'package_selection', name: 'Package Selection', key: 'package' }, // Includes variant as substep
+            { id: 'fulfillment_specs', name: 'Fulfilment Specs', key: 'fulfillmentSpecs' },
+            { id: 'launch_kit', name: 'Launch Kit', key: 'launchKit' },
+            { id: 'order', name: 'Draft Order', key: 'order' }
+        ];
+        
+        // Flow selector removed - only direct_sales flow is supported
+        // function selectFlow() removed - not needed for single flow
+        
+        function resetFlow() {
+            flowState = {
+                productDetails: {},
+                package: null,
+                variant: null,
+                packageImageUrl: null,
+                packageSpecs: {},
+                fulfillmentSpecs: {},
+                launchKit: {},
+                draftOrder: null,
+                backendStep: null,
+                previousBackendStep: null
+            };
+            renderSteps();
+        }
+        
+        function renderSteps() {
+            const container = document.getElementById('stepsContainer');
+            let html = '';
+            
+            steps.forEach((step, index) => {
+                const isCompleted = isStepCompleted(step.id);
+                const isActive = isStepActive(step.id);
+                const stepData = getStepData(step.id);
+                
+                html += `
+                    <div class="step-section ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}" data-step="${step.id}">
+                        <div class="step-header" onclick="toggleStep('${step.id}')">
+                            <div class="step-title">
+                                <div class="step-number">${isCompleted ? '✓' : (index + 1)}</div>
+                                <div class="step-info">
+                                    <div class="step-name">${step.name}</div>
+                                    <div class="step-detail">${getStepDetail(step.id, stepData)}</div>
+                                </div>
+                            </div>
+                            <div class="step-chevron">▼</div>
+                        </div>
+                        <div class="step-content">
+                            ${isActive ? renderStepContent(step.id, stepData) : (isCompleted ? renderCompletedView(step.id, stepData) : '')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+            // Expand active step and focus input
+            steps.forEach(step => {
+                const isActive = isStepActive(step.id);
+                if (isActive) {
+                    const stepEl = document.querySelector(`[data-step="${step.id}"]`);
+                    if (stepEl) {
+                        stepEl.classList.add('active');
+                        autoFocusInput(step.id);
+                    }
+                }
+            });
+        }
+        
+        function isStepCompleted(stepId) {
+            if (stepId === 'product_details') {
+                // Check if backend has moved past this step
+                const backendStep = flowState.backendStep || '';
+                if (backendStep === 'select_package' || backendStep === 'select_package_discovery' || 
+                    backendStep === 'select_package_variant' || backendStep === 'select_package_specs' ||
+                    backendStep === 'fulfillment_specs' || backendStep === 'launch_kit' || backendStep === 'draft_order') {
+                    // Backend has moved past product_details, so it's completed
+                    return true;
+                }
+                // Otherwise check if all required questions are answered
+                const hasDescription = flowState.productDetails?.product_description;
+                const hasBudget = flowState.productDetails?.budget;
+                return hasDescription && hasBudget;
+            }
+            if (stepId === 'package_selection') {
+                // Package selection is completed when package and variant are selected, and package specs are done
+                // OR if package specs exist (even if package is null during edit)
+                const hasPackage = !!flowState.package;
+                const hasVariant = !!(flowState.variant || flowState.variant === 'Default');
+                const hasSpecs = Object.keys(flowState.packageSpecs || {}).length > 0;
+                const completed = (hasPackage && hasVariant && hasSpecs) || hasSpecs; // Completed if full selection OR just specs exist
+                
+                console.log(`[isStepCompleted] package_selection:`, completed, {
+                    hasPackage: hasPackage,
+                    package: flowState.package,
+                    hasVariant: hasVariant,
+                    variant: flowState.variant,
+                    hasSpecs: hasSpecs,
+                    packageSpecs: flowState.packageSpecs,
+                    packageSpecsKeys: flowState.packageSpecs ? Object.keys(flowState.packageSpecs) : []
+                });
+                
+                return completed;
+            }
+            if (stepId === 'fulfillment_specs') {
+                return Object.keys(flowState.fulfillmentSpecs || {}).length > 0 && flowState.fulfillmentSpecs.quantity;
+            }
+            if (stepId === 'launch_kit') {
+                // Launch kit is optional, so it's completed if answered or if we moved to order
+                return flowState.draftOrder || Object.keys(flowState.launchKit || {}).length > 0;
+            }
+            if (stepId === 'order') return !!flowState.draftOrder;
+            return false;
+        }
+        
+        function isStepActive(stepId) {
+            const result = (() => {
+                if (flowState.draftOrder) return stepId === 'order';
+                
+                // CRITICAL: Use backend step to determine active step, not just completion status
+                // This ensures we wait for the backend to actually transition before showing the step
+                const backendStep = flowState.backendStep || '';
+                
+                // Map backend steps to frontend steps
+                const stepMapping = {
+                    'start': 'product_details', // 'start' step maps to product_details
+                    'product_details': 'product_details',
+                    'select_package': 'package_selection',
+                    'select_package_discovery': 'package_selection',
+                    'select_package_variant': 'package_selection',
+                    'select_package_specs': 'package_selection', // Package specs is part of package_selection
+                    'fulfillment_specs': 'fulfillment_specs',
+                    'launch_kit': 'launch_kit',
+                    'draft_order': 'order'
+                };
+                
+                // If we have a backend step, use it to determine active step
+                if (backendStep) {
+                    const mappedStep = stepMapping[backendStep];
+                    if (mappedStep) {
+                        return stepId === mappedStep;
+                    }
+                    // If backendStep exists but isn't in mapping, fall through to completion-based logic
+                }
+                
+                // Fallback: Determine which step should be active based on completion state
+                // This is used when backend step is not yet set (initial load) or doesn't map to a step
+                // On initial load, product_details should be active
+                if (!backendStep || backendStep === 'start') {
+                    return stepId === 'product_details';
+                }
+                if (!isStepCompleted('product_details')) return stepId === 'product_details';
+                if (!isStepCompleted('package_selection')) return stepId === 'package_selection';
+                if (!isStepCompleted('fulfillment_specs')) return stepId === 'fulfillment_specs';
+                if (!isStepCompleted('launch_kit')) return stepId === 'launch_kit';
+                
+                return stepId === 'order';
+            })();
+            
+            console.log(`[isStepActive] ${stepId}:`, result, 'backendStep:', flowState.backendStep);
+            return result;
+        }
+        
+        function getStepData(stepId) {
+            console.log(`[getStepData] Getting data for ${stepId}, backendStep:`, flowState.backendStep);
+            
+            if (stepId === 'product_details') {
+                console.log(`[getStepData] Returning productDetailsData:`, flowState.productDetailsData);
+                return flowState.productDetailsData;
+            }
+            
+            if (stepId === 'package_selection') {
+                // Package selection step can show either packageData (for product search/selection)
+                // or packageSpecsData (for package specs questions)
+                // Prefer packageSpecsData if it has a currentQuestion, otherwise use packageData
+                const backendStep = flowState.backendStep || '';
+                
+                // If backend is in package specs, use packageSpecsData
+                if (backendStep === 'select_package_specs') {
+                    console.log(`[getStepData] Backend in select_package_specs, returning packageSpecsData:`, flowState.packageSpecsData);
+                    return flowState.packageSpecsData;
+                }
+                
+                // Otherwise use packageData for search/selection
+                console.log(`[getStepData] Returning packageData:`, flowState.packageData);
+                return flowState.packageData;
+            }
+            
+            if (stepId === 'fulfillment_specs') {
+                console.log(`[getStepData] Returning fulfillmentSpecsData:`, flowState.fulfillmentSpecsData);
+                return flowState.fulfillmentSpecsData;
+            }
+            
+            if (stepId === 'launch_kit') {
+                console.log(`[getStepData] Returning launchKitData:`, flowState.launchKitData);
+                return flowState.launchKitData;
+            }
+            
+            console.log(`[getStepData] No data found for ${stepId}`);
+            return null;
+        }
+        
+        // Alias for backward compatibility
+        
+        function getStepDetail(stepId, stepData) {
+            if (stepId === 'product_details') {
+                const count = Object.keys(flowState.productDetails || {}).filter(k => flowState.productDetails[k] && flowState.productDetails[k] !== 'undefined').length;
+                return count > 0 ? `${count} question(s) answered` : 'Pending';
+            }
+            if (stepId === 'package_selection') {
+                if (flowState.package) {
+                    let detail = flowState.package;
+                    if (flowState.variant && flowState.variant !== 'Default') {
+                        detail += ' | Variant: ' + flowState.variant;
+                    } else if (flowState.variant === 'Default') {
+                        detail += ' | Default';
+                    }
+                    const specsCount = Object.keys(flowState.packageSpecs || {}).length;
+                    if (specsCount > 0) detail += ` | ${specsCount} spec(s)`;
+                    return detail;
+                }
+                return 'Pending';
+            }
+            if (stepId === 'fulfillment_specs') {
+                const count = Object.keys(flowState.fulfillmentSpecs || {}).filter(k => flowState.fulfillmentSpecs[k] && flowState.fulfillmentSpecs[k] !== 'undefined').length;
+                return count > 0 ? `${count} question(s) answered` : 'Pending';
+            }
+            if (stepId === 'launch_kit') {
+                const count = Object.keys(flowState.launchKit || {}).filter(k => flowState.launchKit[k] && flowState.launchKit[k] !== 'undefined').length;
+                return count > 0 ? `${count} question(s) answered` : 'Pending';
+            }
+            if (stepId === 'order' && flowState.draftOrder) return 'Order created successfully';
+            return 'Pending';
+        }
+        
+        function toggleStep(stepId) {
+            const stepEl = document.querySelector(`[data-step="${stepId}"]`);
+            if (stepEl) {
+                stepEl.classList.toggle('active');
+            }
+        }
+        
+        function renderStepContent(stepId, stepData) {
+            const backendStep = flowState.backendStep || '';
+            console.log(`[renderStepContent] Rendering ${stepId}, backendStep: ${backendStep}, stepData:`, stepData);
+            
+            // Product Details step
+            if (stepId === 'product_details') {
+                // Only render if backend is in product_details or we're initializing
+                if (backendStep && backendStep !== 'product_details' && backendStep !== 'start') {
+                    console.warn(`[renderStepContent] Backend step (${backendStep}) doesn't match product_details, but step is active`);
+                }
+                return renderConsultationStep('product_details', flowState.productDetails, stepData);
+            }
+            
+            // Package Selection step
+            if (stepId === 'package_selection') {
+                console.log('[renderStepContent] Rendering package_selection');
+                console.log('[renderStepContent] flowState.package:', flowState.package);
+                console.log('[renderStepContent] flowState.packageSpecs:', flowState.packageSpecs);
+                console.log('[renderStepContent] flowState.packageSpecsData:', flowState.packageSpecsData);
+                console.log('[renderStepContent] stepData:', stepData);
+                console.log('[renderStepContent] backendStep:', backendStep);
+                
+                // CRITICAL: If backend is in discovery mode, show search UI AND matches if available
+                // This handles the case when editing package - show both search box and existing matches
+                if (backendStep === 'select_package_discovery' || backendStep === 'select_package') {
+                    let html = '<div class="step-body">';
+                    // Always show search box when in discovery mode (empty initially)
+                    html += renderProductSearch();
+                    
+                    // Show loading indicator if we're waiting for auto-search results
+                    // Check if we have product details but no product matches yet (search in progress)
+                    const hasProductDetails = flowState.productDetails && Object.keys(flowState.productDetails).length > 0;
+                    const hasNoMatches = (!flowState.productMatches || flowState.productMatches.length === 0) &&
+                                        (!flowState.queryMatches || flowState.queryMatches.length === 0);
+                    if (hasProductDetails && hasNoMatches && backendStep === 'select_package_discovery') {
+                        html += '<div style="margin-top: 20px; padding: 20px; text-align: center; color: #666;">';
+                        html += '<div class="loading-spinner" style="margin: 0 auto 10px; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>';
+                        html += '<div>Searching for packages that match your product...</div>';
+                        html += '</div>';
+                    }
+                    
+                    // Show query matches first (user searches) if they exist
+                    if (flowState.queryMatches && flowState.queryMatches.length > 0) {
+                        const queryTitle = flowState.queryMatchesQuery 
+                            ? `Query Matches: "${flowState.queryMatchesQuery}"` 
+                            : 'Query Matches';
+                        html += renderCollapsibleMatchSection(queryTitle, flowState.queryMatches, 'queryMatchesSection', false, 'queryMatches');
+                    }
+                    
+                    // Show product matches (auto-generated) below query matches
+                    if (flowState.productMatches && flowState.productMatches.length > 0) {
+                        html += renderCollapsibleMatchSection('Product Matches', flowState.productMatches, 'productMatchesSection', false, 'productMatches');
+                    }
+                    
+                    html += '</div>';
+                    return html;
+                }
+                
+                // If we have package specs question, render that with package/variant shown as completed
+                // BUT only if we're NOT in discovery mode
+                if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
+                    console.log('[renderStepContent] Rendering package_specs consultation step');
+                    // Create a combined answers object that includes package, variant, and package specs
+                    const combinedAnswers = { ...flowState.packageSpecs };
+                    if (flowState.package) {
+                        combinedAnswers['_package'] = flowState.package; // Use _package to distinguish from package specs
+                    }
+                    if (flowState.variant) {
+                        combinedAnswers['_variant'] = flowState.variant; // Use _variant to distinguish
+                    }
+                    return renderConsultationStep('package_specs', combinedAnswers, flowState.packageSpecsData, true);
+                }
+                // Otherwise show product search/selection
+                if (stepData && stepData.matches && stepData.matches.length > 0) {
+                    console.log('[renderStepContent] Rendering product selection with matches');
+                    return renderProductSelection(stepData.matches);
+                }
+                console.log('[renderStepContent] Rendering product search');
+                return renderProductSearch();
+            }
+            
+            // Fulfillment Specs step
+            if (stepId === 'fulfillment_specs') {
+                // CRITICAL: Only render if backend has actually transitioned to fulfillment_specs
+                if (backendStep && backendStep !== 'fulfillment_specs') {
+                    console.warn(`[renderStepContent] Backend step (${backendStep}) doesn't match fulfillment_specs!`);
+                    console.warn(`[renderStepContent] Waiting for backend to transition to fulfillment_specs...`);
+                    return '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                }
+                return renderConsultationStep('fulfillment_specs', flowState.fulfillmentSpecs, stepData);
+            }
+            
+            // Launch Kit step
+            if (stepId === 'launch_kit') {
+                // Only render if backend is in launch_kit
+                if (backendStep && backendStep !== 'launch_kit') {
+                    console.warn(`[renderStepContent] Backend step (${backendStep}) doesn't match launch_kit!`);
+                    return '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                }
+                return renderConsultationStep('launch_kit', flowState.launchKit, stepData);
+            }
+            
+            // Order step
+            if (stepId === 'order') {
+                if (flowState.draftOrder) {
+                    return renderDraftOrder(flowState.draftOrder);
+                }
+                return '<div class="step-body"><p>Generating draft order...</p></div>';
+            }
+            return '';
+        }
+        
+        // Helper function to get question order for a step (maintains original order from charter)
+        function getQuestionOrder(stepId) {
+            // Define question order based on SALES_CHARTER structure
+            const orderMap = {
+                'product_details': ['product_description', 'product_dimensions', 'product_weight', 'fragility', 'budget'],
+                'package_specs': ['material', 'print'],
+                'fulfillment_specs': ['quantity', 'timeline', 'shipping_address', 'special_instructions'],
+                'launch_kit': ['service_selection', 'service_timeline', 'service_notes']
+            };
+            return orderMap[stepId] || [];
+        }
+        
+        // Helper function to render consultation-style steps
+        function renderConsultationStep(stepId, answers, stepData, includePackageVariant = false) {
+            console.log(`[renderConsultationStep] ========== START Rendering ${stepId} ==========`);
+            console.log(`[renderConsultationStep] answers:`, answers);
+            console.log(`[renderConsultationStep] answers keys:`, answers ? Object.keys(answers) : 'null');
+            console.log(`[renderConsultationStep] stepData:`, stepData);
+            console.log(`[renderConsultationStep] hasAnswers:`, !!(answers && Object.keys(answers).length > 0));
+            console.log(`[renderConsultationStep] hasStepData:`, !!stepData);
+            console.log(`[renderConsultationStep] hasCurrentQuestion:`, !!(stepData && stepData.currentQuestion));
+            console.log(`[renderConsultationStep] currentQuestion:`, stepData?.currentQuestion);
+            console.log(`[renderConsultationStep] includePackageVariant:`, includePackageVariant);
+            
+            let html = '';
+            
+            // Show completed questions first - in the correct order
+            if (answers && Object.keys(answers).length > 0) {
+                html += '<div class="completed-questions-section">';
+                html += '<div style="font-weight: 600; margin-bottom: 12px; color: #28a745;">✓ Completed Questions:</div>';
+                
+                // For package_specs step, show package and variant first if they exist
+                if (includePackageVariant && stepId === 'package_specs') {
+                    if (answers['_package']) {
+                        const packageImageUrl = flowState.packageImageUrl || flowState.packageData?.selectedImageUrl;
+                        const imageHtml = packageImageUrl 
+                            ? `<img src="${packageImageUrl}" alt="${answers['_package']}" style="width: 100%; max-width: 200px; height: auto; border-radius: 6px; margin-top: 8px; margin-bottom: 8px; object-fit: cover;">`
+                            : '';
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
+                                <div style="color: #333;">${answers['_package']}</div>
+                                ${imageHtml}
+                            </div>
+                            <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
+                        </div>`;
+                    }
+                    if (answers['_variant']) {
+                        html += `<div class="completed-question-item" style="margin-top: 10px;">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Variant</div>
+                                <div style="color: #333;">${answers['_variant'] === 'Default' ? 'Default' : answers['_variant']}</div>
+                            </div>
+                        </div>`;
+                    }
+                }
+                
+                // Get the correct question order for this step
+                const questionOrder = getQuestionOrder(stepId);
+                
+                // Render questions in the correct order (excluding _package and _variant)
+                questionOrder.forEach(questionId => {
+                    const answer = answers[questionId];
+                    if (answer && answer !== 'undefined' && answer !== undefined) {
+                        html += `<div class="completed-question-item" ${includePackageVariant && stepId === 'package_specs' ? 'style="margin-top: 10px;"' : ''}>
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                                <div style="color: #333;">${answer}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('${stepId}', '${questionId}')" title="Edit this answer">✏️</span>
+                        </div>`;
+                    }
+                });
+                
+                // Also render any questions that aren't in the order map (fallback, excluding _package and _variant)
+                Object.entries(answers).forEach(([questionId, answer]) => {
+                    if (questionId !== '_package' && questionId !== '_variant' && 
+                        !questionOrder.includes(questionId) && answer && answer !== 'undefined' && answer !== undefined) {
+                        html += `<div class="completed-question-item" ${includePackageVariant && stepId === 'package_specs' ? 'style="margin-top: 10px;"' : ''}>
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                                <div style="color: #333;">${answer}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('${stepId}', '${questionId}')" title="Edit this answer">✏️</span>
+                        </div>`;
+                    }
+                });
+                
+                html += '</div>';
+            }
+            
+            // Show current question
+            if (stepData && stepData.currentQuestion) {
+                console.log(`[renderConsultationStep] Rendering question for ${stepId}:`, stepData.currentQuestion.id);
+                html += renderQuestion(stepData.currentQuestion);
+            } else {
+                // Check if this step is supposed to be active (backend step matches)
+                const backendStep = flowState.backendStep || '';
+                const expectedBackendSteps = {
+                    'product_details': 'product_details',
+                    'package_specs': 'select_package_specs',
+                    'fulfillment_specs': 'fulfillment_specs',
+                    'launch_kit': 'launch_kit'
+                };
+                const expectedBackendStep = expectedBackendSteps[stepId];
+                
+                // Only show loading if backend step matches (meaning we're waiting for question)
+                // Otherwise, it might be that the step isn't active yet
+                if (expectedBackendStep && backendStep === expectedBackendStep) {
+                    console.warn(`[renderConsultationStep] NO currentQuestion for ${stepId} but backend step matches!`);
+                    console.warn(`[renderConsultationStep] stepData:`, stepData);
+                    console.warn(`[renderConsultationStep] flowState.backendStep:`, flowState.backendStep);
+                    html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                } else {
+                    // Step might not be active yet, or we're in a transition
+                    console.log(`[renderConsultationStep] No currentQuestion for ${stepId}, backend step: ${backendStep}, expected: ${expectedBackendStep}`);
+                    // Don't show error if step isn't supposed to be active
+                    if (backendStep && expectedBackendStep && backendStep !== expectedBackendStep) {
+                        html += '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                    } else {
+                        html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                    }
+                }
+            }
+            
+            return html;
+        }
+        
+        function renderCompletedView(stepId, stepData) {
+            if (stepId === 'product_details' && flowState.productDetails) {
+                let html = '<div class="step-body completed-view">';
+                Object.entries(flowState.productDetails).forEach(([key, value]) => {
+                    if (value && value !== 'undefined') {
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                <div style="color: #333;">${value}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('product_details', '${key}')" title="Edit this answer">✏️</span>
+                        </div>`;
+                    }
+                });
+                html += '</div>';
+                return html;
+            }
+            // Package selection completed view - show even if package is null (during edit) if we have package specs
+            if (stepId === 'package_selection') {
+                console.log('[renderCompletedView] Rendering package_selection completed view');
+                console.log('[renderCompletedView] flowState.package:', flowState.package);
+                console.log('[renderCompletedView] flowState.variant:', flowState.variant);
+                console.log('[renderCompletedView] flowState.packageSpecs:', flowState.packageSpecs);
+                console.log('[renderCompletedView] flowState.packageSpecs keys:', flowState.packageSpecs ? Object.keys(flowState.packageSpecs) : 'null');
+                console.log('[renderCompletedView] Should render?', flowState.package || (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0));
+                
+                if (flowState.package || (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0)) {
+                    let html = `<div class="step-body completed-view">`;
+                    
+                    // Show package if it exists (with image if available)
+                    if (flowState.package) {
+                        console.log('[renderCompletedView] Rendering package:', flowState.package);
+                        const packageImageUrl = flowState.packageImageUrl || flowState.packageData?.selectedImageUrl;
+                        const imageHtml = packageImageUrl 
+                            ? `<img src="${packageImageUrl}" alt="${flowState.package}" style="width: 100%; max-width: 200px; height: auto; border-radius: 6px; margin-top: 8px; margin-bottom: 8px; object-fit: cover;">`
+                            : '';
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
+                                <div style="color: #333;">${flowState.package}</div>
+                                ${imageHtml}
+                            </div>
+                            <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
+                        </div>`;
+                    } else {
+                        console.log('[renderCompletedView] Package is null, skipping package display');
+                    }
+                    
+                    // Show variant if it exists
+                    if (flowState.variant) {
+                        console.log('[renderCompletedView] Rendering variant:', flowState.variant);
+                        html += `<div class="completed-question-item" style="margin-top: 10px;">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Variant</div>
+                                <div style="color: #333;">${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>
+                            </div>
+                        </div>`;
+                    }
+                    
+                    // CRITICAL: Always show package specs if they exist, even if package is null (during edit)
+                    if (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0) {
+                        console.log('[renderCompletedView] Rendering packageSpecs:', Object.keys(flowState.packageSpecs).length, 'items');
+                        Object.entries(flowState.packageSpecs).forEach(([key, value]) => {
+                            console.log('[renderCompletedView] Rendering packageSpec:', key, '=', value);
+                            if (value && value !== 'undefined') {
+                                html += `<div class="completed-question-item" style="margin-top: 10px;">
+                                    <div class="answer-content">
+                                        <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                        <div style="color: #333;">${value}</div>
+                                    </div>
+                                    <span class="edit-icon" onclick="editQuestion('package_specs', '${key}')" title="Edit this answer">✏️</span>
+                                </div>`;
+                            }
+                        });
+                    } else {
+                        console.log('[renderCompletedView] No packageSpecs to render');
+                    }
+                    html += '</div>';
+                    console.log('[renderCompletedView] Returning completed view HTML');
+                    return html;
+                } else {
+                    console.log('[renderCompletedView] Not rendering - no package and no packageSpecs');
+                    return '';
+                }
+            }
+            if (stepId === 'fulfillment_specs' && flowState.fulfillmentSpecs) {
+                let html = '<div class="step-body completed-view">';
+                Object.entries(flowState.fulfillmentSpecs).forEach(([key, value]) => {
+                    if (value && value !== 'undefined') {
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                <div style="color: #333;">${value}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('fulfillment_specs', '${key}')" title="Edit this answer">✏️</span>
+                        </div>`;
+                    }
+                });
+                html += '</div>';
+                return html;
+            }
+            if (stepId === 'launch_kit' && flowState.launchKit) {
+                let html = '<div class="step-body completed-view">';
+                Object.entries(flowState.launchKit).forEach(([key, value]) => {
+                    if (value && value !== 'undefined') {
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                <div style="color: #333;">${value}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('launch_kit', '${key}')" title="Edit this answer">✏️</span>
+                        </div>`;
+                    }
+                });
+                html += '</div>';
+                return html;
+            }
+            return '';
+        }
+        
+        // Function to handle editing a question
+        function editQuestion(stepId, questionId) {
+            console.log(`[editQuestion] Editing ${stepId}.${questionId}`);
+            
+            // Determine which consultation state to use
+            let consultationKey = 'fulfillmentSpecs';
+            let dataKey = 'fulfillmentSpecsData';
+            let backendStepName = 'fulfillment_specs';
+            
+            if (stepId === 'product_details') {
+                consultationKey = 'productDetails';
+                dataKey = 'productDetailsData';
+                backendStepName = 'product_details';
+            } else if (stepId === 'package_specs') {
+                consultationKey = 'packageSpecs';
+                dataKey = 'packageSpecsData';
+                backendStepName = 'select_package_specs';
+            } else if (stepId === 'launch_kit') {
+                consultationKey = 'launchKit';
+                dataKey = 'launchKitData';
+                backendStepName = 'launch_kit';
+            }
+            
+            // CRITICAL: Initialize step data structure if it doesn't exist
+            if (!flowState[dataKey]) {
+                flowState[dataKey] = {};
+            }
+            
+            // CRITICAL: Set backend step BEFORE sending edit request
+            // This ensures the step is activated immediately
+            flowState.backendStep = backendStepName;
+            
+            // CRITICAL: DO NOT delete the answer yet - wait for backend confirmation
+            // The backend will handle clearing the answer from memory
+            // We only clear currentQuestion to trigger re-fetch
+            flowState[dataKey].currentQuestion = null;
+            
+            // Ensure the consultation answers object exists (for displaying other completed questions)
+            if (!flowState[consultationKey]) {
+                flowState[consultationKey] = {};
+            }
+            
+            console.log(`[editQuestion] Prepared edit for ${stepId}.${questionId}, backendStep set to: ${backendStepName}`);
+            
+            // Send a message to re-ask this question
+            sendSelection(`edit:${questionId}`, { 
+                type: 'edit', 
+                stepId: stepId,
+                questionId: questionId 
+            });
+        }
+        
+        function editPackageSelection() {
+            console.log('[editPackageSelection] ========== START ==========');
+            console.log('[editPackageSelection] Current flowState:', JSON.parse(JSON.stringify({
+                package: flowState.package,
+                variant: flowState.variant,
+                packageSpecs: flowState.packageSpecs,
+                packageSpecsData: flowState.packageSpecsData,
+                packageData: flowState.packageData,
+                backendStep: flowState.backendStep
+            })));
+            
+            // Clear only package and variant selection (not package specs)
+            // Package specs should be preserved unless the new package requires different specs
+            const preservedPackageSpecs = flowState.packageSpecs ? JSON.parse(JSON.stringify(flowState.packageSpecs)) : null;
+            const preservedPackageSpecsData = flowState.packageSpecsData ? JSON.parse(JSON.stringify(flowState.packageSpecsData)) : null;
+            
+            console.log('[editPackageSelection] Preserving packageSpecs:', preservedPackageSpecs);
+            console.log('[editPackageSelection] Preserving packageSpecsData:', preservedPackageSpecsData);
+            
+            flowState.package = null;
+            flowState.variant = null;
+            // DO NOT clear flowState.packageSpecs - preserve existing answers
+            // DO NOT clear productMatches and queryMatches - preserve both lists when editing
+            // Clear packageSpecsData so it doesn't interfere with showing search UI during edit
+            flowState.packageSpecsData = null;
+            flowState.packageData = null; // Clear package search/selection data
+            // Preserve both match lists - don't clear them
+            console.log('[editPackageSelection] Preserving productMatches:', flowState.productMatches?.length || 0);
+            console.log('[editPackageSelection] Preserving queryMatches:', flowState.queryMatches?.length || 0);
+            
+            console.log('[editPackageSelection] After clearing - flowState:', JSON.parse(JSON.stringify({
+                package: flowState.package,
+                variant: flowState.variant,
+                packageSpecs: flowState.packageSpecs,
+                packageSpecsData: flowState.packageSpecsData,
+                packageData: flowState.packageData
+            })));
+            
+            // Set backend step to package selection/discovery to trigger edit mode
+            flowState.backendStep = 'select_package_discovery';
+            
+            // Send a special edit message that backend can recognize
+            // Just send "edit package:" without any query - backend should handle edit mode without triggering a new search
+            const editMessage = 'edit package:';
+            
+            console.log('[editPackageSelection] Sending edit message:', editMessage);
+            console.log('[editPackageSelection] Backend step set to: select_package_discovery');
+            console.log('[editPackageSelection] ========== END ==========');
+            
+            sendSelection(editMessage, { 
+                type: 'product_search', 
+                stepId: 'package_selection',
+                isEdit: true // Mark as edit request
+            });
+            
+            // Ensure search input is empty when editing
+            setTimeout(() => {
+                const searchInput = document.getElementById('productSearchInput');
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+            }, 100);
+        }
+        
+        function renderProductSearch() {
+            // Search box should be empty initially to allow user to enter their own query
+            return `
+                <div class="question-text">What package are you looking for?</div>
+                <div class="input-group">
+                    <input type="text" id="productSearchInput" placeholder="e.g., Custom Boxes, Bags, Printing Services..." 
+                           value=""
+                           onkeydown="if(event.key==='Enter') searchProducts()">
+                </div>
+                <button class="submit-btn" onclick="searchProducts()">Search Packages</button>
+                <div id="searchFallbackMessage" style="display: none; margin-top: 12px; padding: 12px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+                    No packages found. Try a simpler search like "box" or "packaging", or use the "Custom Package" option in the search results.
+                </div>
+            `;
+        }
+        
+        function renderCollapsibleMatchSection(title, matches, sectionId, isExpanded = false, matchSource = 'unknown') {
+            if (!matches || matches.length === 0) return '';
+            
+            const expandedClass = isExpanded ? 'expanded' : '';
+            const displayStyle = isExpanded ? 'block' : 'none';
+            const icon = isExpanded ? '▼' : '▶';
+            
+            return `
+                <div class="match-section" style="margin-top: 20px; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
+                    <div class="match-section-header" onclick="toggleMatchSection('${sectionId}')" style="padding: 12px 16px; background: #f8f9fa; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                        <div style="font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12px; color: #666;">${icon}</span>
+                            <span>${title}</span>
+                            <span style="font-size: 12px; font-weight: normal; color: #666;">(${matches.length})</span>
+                        </div>
+                    </div>
+                    <div id="${sectionId}" class="match-section-content" style="display: ${displayStyle}; padding: 16px;">
+                        ${renderProductSelection(matches, matchSource)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function toggleMatchSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const header = content.previousElementSibling;
+            const icon = header.querySelector('span');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+        
+        function showCustomPackageForm() {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('customPackageModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'customPackageModal';
+                modal.className = 'modal-overlay';
+                modal.style.display = 'none';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h2 style="margin-bottom: 20px; color: #333;">Custom Package - Enter Dimensions</h2>
+                        <div class="dimensions-row" style="margin-bottom: 20px;">
+                            <div class="input-group">
+                                <label>Length (cm)</label>
+                                <input type="number" id="customLength" placeholder="e.g., 20" min="1" step="0.1" oninput="calculateCustomPrice()">
+                            </div>
+                            <div class="input-group">
+                                <label>Width (cm)</label>
+                                <input type="number" id="customWidth" placeholder="e.g., 15" min="1" step="0.1" oninput="calculateCustomPrice()">
+                            </div>
+                            <div class="input-group">
+                                <label>Height (cm)</label>
+                                <input type="number" id="customHeight" placeholder="e.g., 10" min="1" step="0.1" oninput="calculateCustomPrice()">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 20px; padding: 15px; background: #f8f9ff; border-radius: 6px;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #666;">Calculated Price:</div>
+                            <div id="customPriceDisplay" style="font-size: 24px; font-weight: 700; color: #667eea;">0.00 SAR</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">Formula: (L × W × H) ÷ 10</div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="submit-btn" onclick="confirmCustomPackage()" style="flex: 1;">Confirm Custom Package</button>
+                            <button class="submit-btn" onclick="closeCustomPackageModal()" style="flex: 1; background: #6c757d;">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            modal.style.display = 'flex';
+            // Reset inputs
+            document.getElementById('customLength').value = '';
+            document.getElementById('customWidth').value = '';
+            document.getElementById('customHeight').value = '';
+            document.getElementById('customPriceDisplay').textContent = '0.00 SAR';
+        }
+        
+        function closeCustomPackageModal() {
+            const modal = document.getElementById('customPackageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function calculateCustomPrice() {
+            const length = parseFloat(document.getElementById('customLength').value) || 0;
+            const width = parseFloat(document.getElementById('customWidth').value) || 0;
+            const height = parseFloat(document.getElementById('customHeight').value) || 0;
+            
+            // Price = L × W × H / 10
+            const price = (length * width * height) / 10;
+            document.getElementById('customPriceDisplay').textContent = price.toFixed(2) + ' SAR';
+        }
+        
+        function confirmCustomPackage() {
+            const length = parseFloat(document.getElementById('customLength').value) || 0;
+            const width = parseFloat(document.getElementById('customWidth').value) || 0;
+            const height = parseFloat(document.getElementById('customHeight').value) || 0;
+            
+            if (!length || !width || !height) {
+                alert('Please enter all dimensions (Length, Width, and Height)');
+                return;
+            }
+            
+            const dimensions = `${length} x ${width} x ${height} cm`;
+            const price = ((length * width * height) / 10).toFixed(2);
+            
+            console.log('[confirmCustomPackage] Custom package confirmed:', { dimensions, price });
+            
+            // Store custom package info
+            flowState.package = 'Custom Package';
+            flowState.variant = 'Custom';
+            flowState.packageSpecs = flowState.packageSpecs || {};
+            flowState.packageSpecs.dimensions = dimensions;
+            flowState.packageSpecs.custom_price = price;
+            
+            // Close modal
+            closeCustomPackageModal();
+            
+            // Move to fulfillment specs (skip package specs for custom)
+            sendSelection(`custom package: ${dimensions}`, { 
+                type: 'custom_package', 
+                questionId: 'package_selection',
+                answer: 'custom',
+                dimensions: dimensions,
+                price: price
+            });
+        }
+        
+        function renderProductSelection(matches, matchSource = 'unknown') {
+            // Note: This function is called from within collapsible sections, so don't add step-body wrapper
+            // matchSource indicates which list these matches come from ('productMatches' or 'queryMatches')
+            let html = '<div class="options-grid">';
+            matches.forEach((match, index) => {
+                const imageHtml = match.imageUrl 
+                    ? `<img src="${match.imageUrl}" alt="${match.name}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 6px; margin-bottom: 10px;">`
+                    : '<div style="width: 100%; height: 150px; background: #f0f0f0; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>';
+                
+                const priceHtml = match.price 
+                    ? `<div style="font-size: 16px; font-weight: 700; color: #667eea; margin-top: 8px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
+                    : '';
+                
+                // Use the matchSource passed in, or try to detect it
+                let actualMatchSource = matchSource;
+                if (matchSource === 'unknown') {
+                    // Fallback detection: check which array contains this match by comparing IDs
+                    if (flowState.productMatches && flowState.productMatches.some(m => m.id === match.id && m.packageId === match.packageId)) {
+                        actualMatchSource = 'productMatches';
+                    } else if (flowState.queryMatches && flowState.queryMatches.some(m => m.id === match.id && m.packageId === match.packageId)) {
+                        actualMatchSource = 'queryMatches';
+                    }
+                }
+                
+                html += `
+                    <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}', '${actualMatchSource}')">
+                        ${imageHtml}
+                        <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">${match.name}</div>
+                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${match.reason}</div>
+                        ${priceHtml}
+                    </div>
+                `;
+            });
+            html += `
+                <div class="option-card" onclick="showCustomPackageForm()" style="border: 2px dashed #667eea;">
+                    <div style="width: 100%; height: 150px; background: #f8f9ff; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
+                        <div style="font-size: 12px; color: #667eea; font-weight: 600;">Custom Package</div>
+                    </div>
+                    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Custom Package</div>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Enter dimensions to calculate price</div>
+                    <div id="customPackagePrice" style="font-size: 16px; color: #667eea; font-weight: 700; margin-top: 8px; display: none;">Price: <span id="calculatedPrice">0</span> SAR</div>
+                </div>
+            `;
+            
+            // Custom package modal will be added to body, not here
+            html += '</div>';
+            return html;
+        }
+        
+        // renderVariantSelection() removed - variants are handled via backend response
+        // Variant selection is now integrated into package selection step
+        
+        function getQuestionLabel(questionId) {
+            const labels = {
+                // Product Details
+                'product_description': 'Product Description',
+                'product_dimensions': 'Product Dimensions',
+                'product_weight': 'Product Weight',
+                'fragility': 'Fragility',
+                'budget': 'Budget',
+                // Package Specs
+                'material': 'Material',
+                'dimensions': 'Package Dimensions',
+                'print': 'Printing/Finish',
+                // Fulfillment Specs
+                'quantity': 'Quantity',
+                'timeline': 'Timeline',
+                'shipping_address': 'Shipping Address',
+                'special_instructions': 'Special Instructions',
+                // Launch Kit
+                'service_selection': 'Services',
+                'service_timeline': 'Service Timeline',
+                'service_notes': 'Service Notes',
+                // Custom Package
+                'custom_package': 'Custom Package'
+            };
+            return labels[questionId] || questionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+        
+        function renderQuestion(question) {
+            let html = '<div class="step-body"><div class="question-text">' + question.question + '</div>';
+            
+            if (question.options && question.options.length > 0) {
+                const isMultiple = question.multiple !== false; // Default to true (checkboxes) unless explicitly false
+                const isGrouped = question.multiple === "grouped";
+                
+                if (isGrouped && Array.isArray(question.options) && question.options.length > 0 && Array.isArray(question.options[0])) {
+                    // Grouped mode: first group is radio buttons, rest are checkboxes
+                    html += '<div id="option-group-' + question.id + '">';
+                    
+                    // First group: mutually exclusive (radio buttons)
+                    if (question.options[0] && question.options[0].length > 0) {
+                        html += '<div style="margin-bottom: 20px;"><div style="font-weight: 600; margin-bottom: 12px; color: #666;">Printing Type (choose one):</div>';
+                        html += '<div class="radio-group" id="radio-group-' + question.id + '">';
+                        question.options[0].forEach((option, index) => {
+                            html += `
+                                <label class="radio-label">
+                                    <input type="radio" name="radio-${question.id}" value="${String(option).replace(/"/g, '&quot;')}" 
+                                           id="radio-${question.id}-${index}">
+                                    <span>${option}</span>
+                                </label>
+                            `;
+                        });
+                        html += '</div></div>';
+                    }
+                    
+                    // Second group: combinable options (checkboxes)
+                    if (question.options[1] && question.options[1].length > 0) {
+                        // Further split: lamination is mutually exclusive, others can combine
+                        const laminationOptions = [];
+                        const otherOptions = [];
+                        question.options[1].forEach(opt => {
+                            if (opt.includes('lamination')) {
+                                laminationOptions.push(opt);
+                            } else {
+                                otherOptions.push(opt);
+                            }
+                        });
+                        
+                        // Lamination options as radio (mutually exclusive)
+                        if (laminationOptions.length > 0) {
+                            html += '<div style="margin-bottom: 20px;"><div style="font-weight: 600; margin-bottom: 12px; color: #666;">Lamination (choose one):</div>';
+                            html += '<div class="radio-group" id="lamination-radio-' + question.id + '">';
+                            laminationOptions.forEach((option, index) => {
+                                html += `
+                                    <label class="radio-label">
+                                        <input type="radio" name="lamination-radio-${question.id}" value="${String(option).replace(/"/g, '&quot;')}" 
+                                               id="lamination-${question.id}-${index}">
+                                        <span>${option}</span>
+                                    </label>
+                                `;
+                            });
+                            html += '</div></div>';
+                        }
+                        
+                        // Other options as checkboxes (can combine)
+                        if (otherOptions.length > 0) {
+                            html += '<div style="margin-bottom: 20px;"><div style="font-weight: 600; margin-bottom: 12px; color: #666;">Additional Finishing (select all that apply):</div>';
+                            html += '<div class="checkbox-group" id="checkbox-group-' + question.id + '">';
+                            otherOptions.forEach((option, index) => {
+                                html += `
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="${String(option).replace(/"/g, '&quot;')}" 
+                                               id="checkbox-${question.id}-${index}">
+                                        <span>${option}</span>
+                                    </label>
+                                `;
+                            });
+                            html += '</div></div>';
+                        }
+                    }
+                    
+                    html += '</div>';
+                    
+                    // Additional notes field
+                    html += `
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                            <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                        </div>
+                        <button class="submit-btn" onclick="submitGroupedAnswer('${question.id}')">Submit</button>
+                    `;
+                } else if (isMultiple) {
+                    // Render as checkboxes with notes field (for multiple selections)
+                    html += '<div class="checkbox-group" id="option-group-' + question.id + '">';
+                    question.options.forEach((option, index) => {
+                        html += `
+                            <label class="checkbox-label">
+                                <input type="checkbox" value="${String(option).replace(/"/g, '&quot;')}" 
+                                       id="option-${question.id}-${index}">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    // Additional notes field
+                    html += `
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                            <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                        </div>
+                        <button class="submit-btn" onclick="submitCheckboxAnswer('${question.id}')">Submit</button>
+                    `;
+                } else {
+                    // Render as radio buttons (single selection)
+                    html += '<div class="radio-group" id="option-group-' + question.id + '">';
+                    question.options.forEach((option, index) => {
+                        html += `
+                            <label class="radio-label">
+                                <input type="radio" name="radio-${question.id}" value="${String(option).replace(/"/g, '&quot;')}" 
+                                       id="option-${question.id}-${index}">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    // Additional notes field
+                    html += `
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #666;">Additional notes (optional):</label>
+                            <input type="text" id="notes-${question.id}" placeholder="Any additional details or custom requirements...">
+                        </div>
+                        <button class="submit-btn" onclick="submitRadioAnswer('${question.id}')">Submit</button>
+                    `;
+                }
+            } else {
+                // Render as input field(s)
+                if (question.id === 'dimensions' || question.id === 'product_dimensions') {
+                    // Special handling for dimensions - 3 separate inputs
+                    html += `
+                        <div class="dimensions-row">
+                            <div class="input-group">
+                                <label>Length</label>
+                                <input type="text" id="dim_length" placeholder="e.g., 20 cm">
+                            </div>
+                            <div class="input-group">
+                                <label>Width</label>
+                                <input type="text" id="dim_width" placeholder="e.g., 15 cm">
+                            </div>
+                            <div class="input-group">
+                                <label>Height</label>
+                                <input type="text" id="dim_height" placeholder="e.g., 10 cm">
+                            </div>
+                        </div>
+                        <button class="submit-btn" onclick="submitDimensions('${question.id}')">Submit</button>
+                    `;
+                } else if (question.id === 'quantity') {
+                    // Number input for quantity
+                    html += `
+                        <div class="input-group">
+                            <input type="number" id="questionInput" value="${question.defaultValue || '1'}" min="1" placeholder="Enter quantity">
+                        </div>
+                        <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
+                    `;
+                } else if (question.id === 'shipping_address') {
+                    // Special handling for shipping address with Google Maps autocomplete
+                    html += `
+                        <div class="input-group">
+                            <input type="text" id="questionInput" data-question-id="shipping_address" value="${question.defaultValue || ''}" placeholder="Start typing your address in Saudi Arabia..." autocomplete="off">
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">📍 Address autocomplete enabled for Saudi Arabia</small>
+                        </div>
+                        <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
+                    `;
+                } else {
+                    // Regular text input
+                    html += `
+                        <div class="input-group">
+                            <input type="text" id="questionInput" value="${question.defaultValue || ''}" placeholder="Enter your answer...">
+                        </div>
+                        <button class="submit-btn" onclick="submitAnswer('${question.id}')">Submit</button>
+                    `;
+                }
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function renderDraftOrder(draftOrder) {
+            return `
+                <div class="draft-order-success">
+                    <h2>✅ Draft Order Created!</h2>
+                    <div class="draft-order-links">
+                        ${draftOrder.adminUrl ? `<a href="${draftOrder.adminUrl}" target="_blank">📋 View Draft Order</a>` : ''}
+                        ${draftOrder.invoiceUrl ? `<a href="${draftOrder.invoiceUrl}" target="_blank">💳 View Invoice & Pay</a>` : ''}
+                    </div>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                        <p style="color: #666; margin-bottom: 12px; font-size: 14px;">
+                            Made changes to your answers? Regenerate the draft order with your updated information.
+                        </p>
+                        <button class="submit-btn" onclick="regenerateDraftOrder()" style="background: #667eea;">
+                            🔄 Regenerate Draft Order
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function regenerateDraftOrder() {
+            if (!confirm('Are you sure you want to regenerate the draft order? This will create a new draft order with your current answers.')) {
+                return;
+            }
+            
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            try {
+                showLoadingIndicator('order');
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: 'regenerate_order',
+                        regenerateOrder: true,
+                        flow: currentFlow 
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[regenerateDraftOrder] Response error:', errorText);
+                    alert('Error regenerating draft order. Please try again.');
+                    hideLoadingIndicator();
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('[regenerateDraftOrder] Response:', data);
+                
+                // Update draft order in state
+                if (data.draftOrder) {
+                    flowState.draftOrder = data.draftOrder;
+                }
+                
+                // Process the response
+                handleResponse(data, { type: 'regenerate_order' });
+            } catch (error) {
+                console.error('[regenerateDraftOrder] Error:', error);
+                alert('Error regenerating draft order. Please try again.');
+                hideLoadingIndicator();
+            }
+        }
+        
+        function searchProducts() {
+            const input = document.getElementById('productSearchInput');
+            if (input && input.value.trim()) {
+                const query = input.value.trim();
+                console.log('[searchProducts] User search query:', query);
+                // Mark as user search (not auto-search) - explicitly set isAutoSearch to false
+                sendSelection(query, { type: 'product_search', originalQuery: query, message: query, isAutoSearch: false });
+            } else {
+                // If empty, don't search - just show existing matches
+                console.log('[searchProducts] Empty query - not searching');
+            }
+        }
+        
+        function selectProduct(index, name, matchSource = 'unknown') {
+            // Determine which match list this came from
+            let selectedMatch = null;
+            if (matchSource === 'productMatches' && flowState.productMatches && flowState.productMatches[index]) {
+                selectedMatch = flowState.productMatches[index];
+            } else if (matchSource === 'queryMatches' && flowState.queryMatches && flowState.queryMatches[index]) {
+                selectedMatch = flowState.queryMatches[index];
+            } else {
+                // Fallback: try to find in either list
+                if (flowState.productMatches && flowState.productMatches[index]) {
+                    selectedMatch = flowState.productMatches[index];
+                } else if (flowState.queryMatches && flowState.queryMatches[index]) {
+                    selectedMatch = flowState.queryMatches[index];
+                }
+            }
+            
+            if (!selectedMatch) {
+                console.error('[selectProduct] Could not find selected match!', { index, matchSource, productMatches: flowState.productMatches?.length, queryMatches: flowState.queryMatches?.length });
+                return;
+            }
+            
+            // Store package image URL from the match before sending
+            if (selectedMatch.imageUrl) {
+                flowState.packageImageUrl = selectedMatch.imageUrl;
+                console.log('[selectProduct] Stored package image URL:', flowState.packageImageUrl);
+            }
+            
+            // Send the actual packageId instead of index to avoid confusion with multiple match lists
+            // Backend will use packageId to find the product directly
+            const packageId = selectedMatch.packageId || selectedMatch.id;
+            console.log('[selectProduct] Selecting product:', { name, packageId, matchSource, index });
+            
+            // Send packageId as the selection (backend will handle it)
+            sendSelection(String(packageId), { 
+                type: 'product', 
+                name, 
+                matchSource,
+                packageId: packageId,
+                selectedIndex: index
+            });
+        }
+        
+        function selectVariant(index, title, id) {
+            sendSelection(title, { type: 'variant', title, id });
+        }
+        
+        // selectOption() removed - not used, options are handled via submit functions
+        
+        function submitCheckboxAnswer(questionId) {
+            const checkboxes = document.querySelectorAll(`#option-group-${questionId} input[type="checkbox"]:checked`);
+            const notesInput = document.getElementById(`notes-${questionId}`);
+            const notes = notesInput ? notesInput.value.trim() : '';
+            
+            const selectedOptions = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedOptions.length === 0 && !notes) {
+                alert('Please select at least one option or add notes.');
+                return;
+            }
+            
+            let answer = selectedOptions.join(', ');
+            if (notes) {
+                answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
+            }
+            
+            sendSelection(answer, { type: 'answer', questionId, answer: answer });
+        }
+        
+        function submitRadioAnswer(questionId) {
+            const radio = document.querySelector(`#option-group-${questionId} input[type="radio"]:checked`);
+            const notesInput = document.getElementById(`notes-${questionId}`);
+            const notes = notesInput ? notesInput.value.trim() : '';
+            
+            if (!radio && !notes) {
+                alert('Please select an option or add notes.');
+                return;
+            }
+            
+            let answer = radio ? radio.value : '';
+            if (notes) {
+                answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
+            }
+            
+            sendSelection(answer, { type: 'answer', questionId, answer: answer });
+        }
+        
+        function submitGroupedAnswer(questionId) {
+            // Get printing type (radio)
+            const printingRadio = document.querySelector(`#radio-group-${questionId} input[type="radio"]:checked`);
+            // Get lamination (radio)
+            const laminationRadio = document.querySelector(`#lamination-radio-${questionId} input[type="radio"]:checked`);
+            // Get additional finishing (checkboxes)
+            const checkboxes = document.querySelectorAll(`#checkbox-group-${questionId} input[type="checkbox"]:checked`);
+            const notesInput = document.getElementById(`notes-${questionId}`);
+            const notes = notesInput ? notesInput.value.trim() : '';
+            
+            const selectedOptions = [];
+            if (printingRadio) selectedOptions.push(printingRadio.value);
+            if (laminationRadio) selectedOptions.push(laminationRadio.value);
+            Array.from(checkboxes).forEach(cb => selectedOptions.push(cb.value));
+            
+            if (selectedOptions.length === 0 && !notes) {
+                alert('Please select at least one option or add notes.');
+                return;
+            }
+            
+            let answer = selectedOptions.join(', ');
+            if (notes) {
+                answer += (answer ? ' | Notes: ' : 'Notes: ') + notes;
+            }
+            
+            sendSelection(answer, { type: 'answer', questionId, answer: answer });
+        }
+        
+        function submitAnswer(questionId) {
+            const input = document.getElementById('questionInput');
+            if (input && input.value.trim()) {
+                const answer = input.value.trim();
+                sendSelection(answer, { type: 'answer', questionId, answer: answer });
+            }
+        }
+        
+        function submitDimensions(questionId) {
+            const length = document.getElementById('dim_length')?.value.trim() || '';
+            const width = document.getElementById('dim_width')?.value.trim() || '';
+            const height = document.getElementById('dim_height')?.value.trim() || '';
+            
+            if (!length || !width || !height) {
+                alert('Please fill in all dimension fields (Length, Width, and Height)');
+                return;
+            }
+            
+            const dimensions = `${length} x ${width} x ${height}`;
+            sendSelection(dimensions, { type: 'answer', questionId, answer: dimensions });
+        }
+        
+        // Auto-focus input when step becomes active
+        function autoFocusInput(stepId) {
+            setTimeout(() => {
+                if (stepId === 'package_selection') {
+                    const input = document.getElementById('productSearchInput');
+                    if (input) input.focus();
+                } else {
+                    const input = document.getElementById('questionInput');
+                    if (input) {
+                        input.focus();
+                        
+                        // Initialize Google Maps autocomplete for shipping address
+                        if (input.getAttribute('data-question-id') === 'shipping_address') {
+                            // Delay to ensure input is fully rendered
+                            setTimeout(() => {
+                                initializeAddressAutocomplete(input);
+                            }, 200);
+                        }
+                    }
+                }
+            }, 100);
+        }
+        
+        // Initialize Google Maps autocomplete for address input
+        // Handles API errors gracefully and allows manual input as fallback
+        function initializeAddressAutocomplete(input) {
+            if (!input) {
+                console.warn('[initializeAddressAutocomplete] Input element not found');
+                return;
+            }
+            
+            // Check if already initialized (avoid duplicate initialization)
+            if (input.dataset.autocompleteInitialized === 'true') {
+                console.log('[initializeAddressAutocomplete] Already initialized, skipping');
+                return;
+            }
+            
+            let retryCount = 0;
+            const maxRetries = 10; // Try for 5 seconds (10 * 500ms)
+            
+            // Wait for Google Maps API to load
+            const initAutocomplete = () => {
+                retryCount++;
+                
+                // Check if Google Maps is loaded
+                if (typeof google === 'undefined' || !google.maps) {
+                    if (retryCount < maxRetries) {
+                        setTimeout(initAutocomplete, 500);
+                        return;
+                    } else {
+                        console.warn('[initializeAddressAutocomplete] Google Maps API failed to load after retries');
+                        showAutocompleteError(input, 'Google Maps API failed to load. Please enter your address manually.');
+                        return;
+                    }
+                }
+                
+                // Check if Places API is available
+                if (!google.maps.places) {
+                    console.error('[initializeAddressAutocomplete] Places API library not loaded');
+                    showAutocompleteError(input, 'Places API not available. Please enter your address manually.');
+                    return;
+                }
+                
+                try {
+                    // Try to use the legacy Autocomplete API
+                    // Note: This requires "Places API" (not "Places API (New)") to be enabled in Google Cloud Console
+                    const autocomplete = new google.maps.places.Autocomplete(input, {
+                        componentRestrictions: { country: ['sa'] }, // Restrict to Saudi Arabia
+                        fields: ['formatted_address', 'geometry', 'address_components'],
+                        types: ['address']
+                    });
+                    
+                    autocomplete.addListener('place_changed', function() {
+                        const place = autocomplete.getPlace();
+                        if (place && place.formatted_address) {
+                            input.value = place.formatted_address;
+                            console.log('[initializeAddressAutocomplete] Address selected:', place.formatted_address);
+                            
+                            // Remove any error messages
+                            const errorMsg = input.parentNode.querySelector('.autocomplete-error');
+                            if (errorMsg) errorMsg.remove();
+                        }
+                    });
+                    
+                    // Mark as initialized
+                    input.dataset.autocompleteInitialized = 'true';
+                    console.log('[initializeAddressAutocomplete] Autocomplete initialized successfully');
+                    
+                    // Update the help text to indicate it's working
+                    const helpText = input.parentNode.querySelector('small');
+                    if (helpText) {
+                        helpText.textContent = '📍 Address autocomplete is active. Start typing your address in Saudi Arabia...';
+                        helpText.style.color = '#28a745';
+                    }
+                    
+                } catch (error) {
+                    console.error('[initializeAddressAutocomplete] Error initializing autocomplete:', error);
+                    
+                    // Check if it's an API not enabled error
+                    if (error.message && error.message.includes('not enabled')) {
+                        showAutocompleteError(input, '⚠️ Places API is not enabled for this API key. Please enable "Places API" in Google Cloud Console, or enter your address manually.');
+                    } else {
+                        showAutocompleteError(input, '⚠️ Address autocomplete unavailable. Please enter your address manually.');
+                    }
+                }
+            };
+            
+            // Start initialization
+            initAutocomplete();
+        }
+        
+        // Helper function to show autocomplete error message
+        function showAutocompleteError(input, message) {
+            // Remove any existing error messages
+            const existingError = input.parentNode.querySelector('.autocomplete-error');
+            if (existingError) existingError.remove();
+            
+            // Create error message
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'autocomplete-error';
+            errorMsg.style.cssText = 'margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404; font-size: 12px;';
+            errorMsg.textContent = message;
+            input.parentNode.appendChild(errorMsg);
+            
+            // Update help text
+            const helpText = input.parentNode.querySelector('small');
+            if (helpText) {
+                helpText.textContent = '📍 Please enter your address manually';
+                helpText.style.color = '#856404';
+            }
+        }
+        
+        async function sendSelection(message, metadata) {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                console.error('[sendSelection] No API URL provided');
+                return;
+            }
+            
+            // Prevent multiple simultaneous requests
+            if (isLoading) {
+                console.log('[sendSelection] Already loading, ignoring request');
+                return;
+            }
+            
+            isLoading = true;
+            updateLoadingState(true, metadata);
+            
+            // Ensure metadata includes the message for answer extraction
+            if (metadata && !metadata.message) {
+                metadata.message = message;
+            }
+            
+            console.log('[sendSelection] Sending request:', { message, metadata, flow: currentFlow });
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, flow: currentFlow })
+                });
+                
+                console.log('[sendSelection] Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[sendSelection] Response error:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                console.log('[sendSelection] Response data:', data);
+                console.log('[sendSelection] Backend step:', data.flowState?.step);
+                console.log('[sendSelection] Has currentQuestion:', !!data.currentQuestion);
+                console.log('[sendSelection] CurrentQuestion ID:', data.currentQuestion?.id);
+                
+                handleResponse(data, metadata);
+            } catch (error) {
+                console.error('[sendSelection] Error:', error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                isLoading = false;
+                updateLoadingState(false);
+            }
+        }
+        
+        function updateLoadingState(loading, metadata) {
+            isLoading = loading;
+            
+            // Disable/enable all submit buttons
+            document.querySelectorAll('.submit-btn').forEach(btn => {
+                btn.disabled = loading;
+                if (loading) {
+                    btn.style.opacity = '0.6';
+                    btn.style.cursor = 'not-allowed';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                }
+            });
+            
+            // Show/hide loading indicator in the active step
+            if (loading) {
+                showLoadingIndicator(metadata);
+            } else {
+                hideLoadingIndicator();
+            }
+        }
+        
+        function showLoadingIndicator(metadata) {
+            // Determine which step is loading based on metadata
+            let stepId = 'fulfillment_specs'; // default
+            if (metadata) {
+                if (metadata.type === 'product_search' || metadata.type === 'product') {
+                    stepId = 'package_selection';
+                } else if (metadata.type === 'variant') {
+                    stepId = 'package_selection'; // variant is part of package selection step now
+                } else if (metadata.type === 'answer' || metadata.type === 'option') {
+                    // Default to fulfillment_specs, but this will be determined by backend step in handleResponse
+                    stepId = 'fulfillment_specs';
+                }
+            }
+            
+            const stepEl = document.querySelector(`[data-step="${stepId}"]`);
+            if (stepEl) {
+                // Check if step content area exists
+                const contentEl = stepEl.querySelector('.step-content');
+                if (contentEl) {
+                    // Add loading overlay
+                    let loader = contentEl.querySelector('.loading-overlay');
+                    if (!loader) {
+                        loader = document.createElement('div');
+                        loader.className = 'loading-overlay';
+                        loader.innerHTML = `
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">Processing...</div>
+                        `;
+                        contentEl.appendChild(loader);
+                    }
+                    loader.style.display = 'flex';
+                }
+            }
+        }
+        
+        function hideLoadingIndicator() {
+            document.querySelectorAll('.loading-overlay').forEach(overlay => {
+                overlay.style.display = 'none';
+            });
+        }
+        
+        // Helper function to get the current consultation state property based on backend step
+        function getCurrentConsultationState(backendStep) {
+            const mapping = {
+                'start': 'productDetails', // 'start' step should show product details questions
+                'product_details': 'productDetails',
+                'select_package_specs': 'packageSpecs',
+                'fulfillment_specs': 'fulfillmentSpecs',
+                'launch_kit': 'launchKit'
+            };
+            const result = mapping[backendStep] || 'productDetails'; // Default to productDetails for initial state
+            console.log(`[getCurrentConsultationState] Backend step: ${backendStep} -> Consultation key: ${result}`);
+            return result;
+        }
+        
+        function handleResponse(data, metadata) {
+            console.log('[handleResponse] ========== START ==========');
+            console.log('[handleResponse] Metadata:', metadata);
+            console.log('[handleResponse] Response data:', data);
+            console.log('[handleResponse] Backend step:', data.flowState?.step);
+            console.log('[handleResponse] Has package:', data.flowState?.hasPackage);
+            console.log('[handleResponse] Has variant:', data.flowState?.hasVariant);
+            console.log('[handleResponse] Current question:', data.currentQuestion);
+            console.log('[handleResponse] Product matches:', data.productMatches?.length || 0);
+            console.log('[handleResponse] Variants:', data.variants?.length || 0);
+            console.log('[handleResponse] Draft order:', data.draftOrder);
+            
+            const backendStep = data.flowState?.step || '';
+            // Store the message from metadata for answer extraction (fallback)
+            const messageFromMetadata = metadata && metadata.message ? metadata.message : null;
+            
+            // Store backend step in flowState early so other logic can use it
+            flowState.backendStep = backendStep;
+            console.log('[handleResponse] Set backendStep to:', backendStep);
+            
+            // Note: Auto-search now happens synchronously in getNextStepPrompt
+            // No need to trigger a second request
+            
+            // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
+            // If backend is in package specs (currentQuestion present) but no variant is selected,
+            // it means variant step was auto-skipped (single variant or no variants)
+            if (data.currentQuestion && !flowState.variant && flowState.package && backendStep === 'select_package_specs') {
+                if (data.flowState && data.flowState.hasVariant && data.flowState.variantName) {
+                    flowState.variant = data.flowState.variantName;
+                } else {
+                    flowState.variant = 'Default';
+                }
+                flowState.packageData = null; // Clear package data since we're auto-completing
+            }
+            
+            // Handle package search - show matches
+            // IMPORTANT: Don't return early - continue processing to update backend step
+            // Check for product matches in response OR if this is a product_search request
+            if (data.productMatches || (metadata && metadata.type === 'product_search')) {
+                // Ensure search box is empty when rendering
+                setTimeout(() => {
+                    const searchInput = document.getElementById('productSearchInput');
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                }, 0);
+                console.log('[handleResponse] Processing product_search response');
+                console.log('[handleResponse] data.productMatches:', data.productMatches?.length || 0);
+                console.log('[handleResponse] data.isAutoSearch:', data.isAutoSearch);
+                console.log('[handleResponse] metadata.type:', metadata?.type);
+                console.log('[handleResponse] metadata.originalQuery:', metadata?.originalQuery);
+                console.log('[handleResponse] data.flowState.hasPackage:', data.flowState?.hasPackage);
+                console.log('[handleResponse] backendStep:', backendStep);
+                console.log('[handleResponse] data.currentQuestion:', data.currentQuestion);
+                console.log('[handleResponse] flowState.packageSpecs BEFORE:', flowState.packageSpecs);
+                
+                // If this is an edit request, ensure we show the search UI even if no matches
+                const isEditRequest = metadata && metadata.isEdit === true;
+                // Determine if this is an auto-search or user search
+                // Priority: backend's data.isAutoSearch > metadata.isAutoSearch
+                // If backend says isAutoSearch === true, it's auto-search
+                // If backend says isAutoSearch === false, it's user search
+                // If backend doesn't set it, check metadata
+                let isAutoSearch = false;
+                if (data.isAutoSearch === true) {
+                    isAutoSearch = true;
+                } else if (data.isAutoSearch === false) {
+                    isAutoSearch = false;
+                } else if (metadata && metadata.isAutoSearch === true) {
+                    isAutoSearch = true;
+                } else if (metadata && metadata.isAutoSearch === false) {
+                    isAutoSearch = false;
+                }
+                const userQuery = metadata && (metadata.originalQuery || metadata.message) || '';
+                
+                if (data.productMatches && data.productMatches.length > 0) {
+                    console.log('[handleResponse] Showing product matches');
+                    console.log('[handleResponse] data.isAutoSearch:', data.isAutoSearch, 'metadata.isAutoSearch:', metadata?.isAutoSearch);
+                    console.log('[handleResponse] Determined isAutoSearch:', isAutoSearch, 'userQuery:', userQuery);
+                    if (isAutoSearch) {
+                        // Store as product matches (auto-generated from product details)
+                        // Always update product matches when auto-search completes
+                        flowState.productMatches = data.productMatches;
+                        console.log('[handleResponse] Stored as productMatches (auto-search):', data.productMatches.length, 'matches');
+                    } else {
+                        // Store as query matches (user search) - always create/update query matches separately
+                        // Use the actual user query from the input, not from metadata
+                        const actualQuery = userQuery || (metadata && metadata.message) || '';
+                        flowState.queryMatches = data.productMatches;
+                        flowState.queryMatchesQuery = actualQuery;
+                        console.log('[handleResponse] Stored as queryMatches (user search):', actualQuery, '-', data.productMatches.length, 'matches');
+                        console.log('[handleResponse] Product matches still exist:', flowState.productMatches?.length || 0);
+                    }
+                    // Hide fallback message if matches found
+                    const fallbackMsg = document.getElementById('searchFallbackMessage');
+                    if (fallbackMsg) fallbackMsg.style.display = 'none';
+                } else if (isEditRequest && backendStep === 'select_package_discovery') {
+                    // For edit requests, ensure we show the search UI even if no matches yet
+                    console.log('[handleResponse] Edit request - ensuring search UI is shown');
+                    flowState.packageData = flowState.packageData || {};
+                    flowState.packageData.matches = []; // Empty matches to trigger search UI
+                } else if (data.flowState && data.flowState.hasPackage) {
+                    console.log('[handleResponse] Package found directly, updating flowState');
+                    // If no matches but we have a reply, the package was found directly
+                    flowState.package = data.flowState.packageName;
+                    flowState.packageData = null;
+                    // Hide fallback message
+                    const fallbackMsg = document.getElementById('searchFallbackMessage');
+                    if (fallbackMsg) fallbackMsg.style.display = 'none';
+                    
+                    // Check if variant was auto-skipped immediately after package selection
+                    if (data.currentQuestion && backendStep === 'select_package_specs') {
+                        console.log('[handleResponse] Backend moved to select_package_specs, preserving packageSpecs');
+                        flowState.variant = data.flowState?.variantName || 'Default';
+                        flowState.packageData = null;
+                        
+                        // CRITICAL: Preserve existing packageSpecs - don't clear them
+                        if (!flowState.packageSpecs) {
+                            flowState.packageSpecs = {};
+                        }
+                        
+                        // CRITICAL: Set packageSpecsData
+                        if (!flowState.packageSpecsData) {
+                            flowState.packageSpecsData = {};
+                        }
+                        flowState.packageSpecsData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] flowState.packageSpecs AFTER:', flowState.packageSpecs);
+                        console.log('[handleResponse] flowState.packageSpecsData AFTER:', flowState.packageSpecsData);
+                    }
+                } else {
+                    console.log('[handleResponse] No matches found, showing fallback');
+                    // No matches found - show fallback message
+                    const fallbackMsg = document.getElementById('searchFallbackMessage');
+                    if (fallbackMsg) {
+                        fallbackMsg.style.display = 'block';
+                    }
+                }
+            }
+            
+            // Handle edit requests - backend returns the question to edit
+            if (metadata && metadata.type === 'edit') {
+                console.log('[handleResponse] Handling edit response for question:', metadata.questionId);
+                
+                // Determine which consultation state this question belongs to
+                let consultationKey = 'fulfillmentSpecs';
+                let dataKey = 'fulfillmentSpecsData';
+                let backendStepName = 'fulfillment_specs';
+                
+                if (metadata.stepId === 'product_details') {
+                    consultationKey = 'productDetails';
+                    dataKey = 'productDetailsData';
+                    backendStepName = 'product_details';
+                } else if (metadata.stepId === 'package_specs') {
+                    consultationKey = 'packageSpecs';
+                    dataKey = 'packageSpecsData';
+                    backendStepName = 'select_package_specs';
+                } else if (metadata.stepId === 'launch_kit') {
+                    consultationKey = 'launchKit';
+                    dataKey = 'launchKitData';
+                    backendStepName = 'launch_kit';
+                }
+                
+                // CRITICAL: Initialize all data structures if they don't exist
+                if (!flowState[consultationKey]) {
+                    flowState[consultationKey] = {};
+                }
+                if (!flowState[dataKey]) {
+                    flowState[dataKey] = {};
+                }
+                
+                // CRITICAL: Update backend step FIRST to ensure step activation
+                flowState.backendStep = backendStepName;
+                
+                // CRITICAL: Only remove the specific answer being edited AFTER backend confirms
+                // The backend has already deleted it from memory, so we should remove it from frontend state
+                // BUT: Only if we have a currentQuestion (meaning backend successfully processed the edit)
+                if (data.currentQuestion) {
+                    // Backend successfully processed edit - remove the answer from frontend state
+                    if (flowState[consultationKey][metadata.questionId]) {
+                        delete flowState[consultationKey][metadata.questionId];
+                        console.log(`[handleResponse] Removed answer for ${metadata.questionId} from frontend state`);
+                    }
+                    
+                    // Set the current question data
+                    flowState[dataKey].currentQuestion = data.currentQuestion;
+                    console.log(`[handleResponse] Set currentQuestion for edit: ${data.currentQuestion.id}`);
+                } else {
+                    // Backend didn't return currentQuestion - this is an error
+                    console.error('[handleResponse] Edit request failed - no currentQuestion in response');
+                    console.error('[handleResponse] Backend step:', backendStep);
+                    console.error('[handleResponse] Reply:', data.reply);
+                    
+                    // Try to restore the step data structure
+                    if (!flowState[dataKey].currentQuestion) {
+                        // If we don't have a currentQuestion, show error but keep the step active
+                        flowState[dataKey].currentQuestion = null;
+                    }
+                }
+                
+                console.log('[handleResponse] Edit response processed, step activated:', backendStepName);
+            }
+            
+            // Handle custom package selection
+            if (metadata && metadata.type === 'custom_package') {
+                console.log('[handleResponse] Custom package selected');
+                flowState.package = 'Custom Package';
+                flowState.variant = 'Custom';
+                flowState.packageData = null;
+                
+                // Store custom package dimensions and price
+                if (metadata.dimensions) {
+                    flowState.packageSpecs = flowState.packageSpecs || {};
+                    flowState.packageSpecs.dimensions = metadata.dimensions;
+                }
+                if (metadata.price) {
+                    flowState.packageSpecs = flowState.packageSpecs || {};
+                    flowState.packageSpecs.custom_price = metadata.price;
+                }
+                
+                // Custom package skips to fulfillment_specs
+                if (backendStep === 'fulfillment_specs' && data.currentQuestion) {
+                    if (!flowState.fulfillmentSpecsData) {
+                        flowState.fulfillmentSpecsData = {};
+                    }
+                    flowState.fulfillmentSpecsData.currentQuestion = data.currentQuestion;
+                }
+            }
+            
+            // Update flow state based on metadata and response
+            if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasPackage) {
+                console.log('[handleResponse] Processing product selection');
+                console.log('[handleResponse] Before update - flowState.packageSpecs:', flowState.packageSpecs);
+                console.log('[handleResponse] Before update - flowState.packageSpecsData:', flowState.packageSpecsData);
+                console.log('[handleResponse] Backend step:', backendStep);
+                console.log('[handleResponse] Has package:', data.flowState.hasPackage);
+                console.log('[handleResponse] Package name:', data.flowState.packageName);
+                
+                flowState.package = data.flowState.packageName || metadata.name;
+                // Store package image URL if available from productMatches
+                if (data.productMatches && data.productMatches.length > 0) {
+                    const selectedMatch = data.productMatches.find(m => m.name === flowState.package) || data.productMatches[0];
+                    if (selectedMatch && selectedMatch.imageUrl) {
+                        flowState.packageImageUrl = selectedMatch.imageUrl;
+                        console.log('[handleResponse] Stored package image URL:', flowState.packageImageUrl);
+                    }
+                } else if (flowState.packageData && flowState.packageData.matches) {
+                    // Try to find image from existing matches
+                    const selectedMatch = flowState.packageData.matches.find(m => m.name === flowState.package);
+                    if (selectedMatch && selectedMatch.imageUrl) {
+                        flowState.packageImageUrl = selectedMatch.imageUrl;
+                        console.log('[handleResponse] Stored package image URL from existing matches:', flowState.packageImageUrl);
+                    }
+                }
+                flowState.packageData = null;
+                
+                // CRITICAL: When product is selected and backend moved to select_package_specs, 
+                // we need to clear package selection and set packageSpecsData
+                // IMPORTANT: Preserve existing packageSpecs when selecting a new package
+                if (backendStep === 'select_package_specs') {
+                    console.log('[handleResponse] Backend moved to select_package_specs - preserving packageSpecs');
+                    flowState.variant = data.flowState?.variantName || 'Default';
+                    flowState.packageData = null;
+                    
+                    // CRITICAL: Preserve existing packageSpecs - don't clear them when selecting new package
+                    // Only initialize if it doesn't exist
+                    if (!flowState.packageSpecs) {
+                        console.log('[handleResponse] Initializing new packageSpecs object');
+                        flowState.packageSpecs = {};
+                    } else {
+                        console.log('[handleResponse] Preserving existing packageSpecs:', flowState.packageSpecs);
+                    }
+                    
+                    // Set packageSpecsData with currentQuestion
+                    if (!flowState.packageSpecsData) {
+                        console.log('[handleResponse] Initializing new packageSpecsData object');
+                        flowState.packageSpecsData = {};
+                    } else {
+                        console.log('[handleResponse] Preserving existing packageSpecsData:', flowState.packageSpecsData);
+                    }
+                    if (data.currentQuestion) {
+                        flowState.packageSpecsData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] Set currentQuestion:', data.currentQuestion.id);
+                    }
+                    
+                    console.log('[handleResponse] After update - flowState.packageSpecs:', flowState.packageSpecs);
+                    console.log('[handleResponse] After update - flowState.packageSpecsData:', flowState.packageSpecsData);
+                } else if (data.flowState.hasVariant && data.flowState.variantName) {
+                    flowState.variant = data.flowState.variantName;
+                    flowState.packageData = null;
+                }
+            }
+            
+            if (metadata && metadata.type === 'variant' && data.flowState && data.flowState.hasVariant) {
+                flowState.variant = data.flowState.variantName || metadata.title;
+                flowState.packageData = null;
+            }
+            
+            // Check if this response indicates an edit was completed (backend returns success message)
+            const isEditComplete = data.reply && (
+                data.reply.includes('Answer updated') || 
+                data.reply.includes('✓ Answer updated')
+            );
+            
+            if (isEditComplete && metadata && metadata.questionId) {
+                console.log('[handleResponse] Edit answer completed for question:', metadata.questionId);
+                
+                // Update the answer in frontend state (backend already updated it in memory)
+                let consultationKey = 'fulfillmentSpecs';
+                let dataKey = 'fulfillmentSpecsData';
+                
+                if (metadata.questionId && (
+                    metadata.questionId === 'product_description' ||
+                    metadata.questionId === 'product_dimensions' ||
+                    metadata.questionId === 'product_weight' ||
+                    metadata.questionId === 'fragility' ||
+                    metadata.questionId === 'budget'
+                )) {
+                    consultationKey = 'productDetails';
+                    dataKey = 'productDetailsData';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'material' ||
+                    metadata.questionId === 'dimensions' ||
+                    metadata.questionId === 'print'
+                )) {
+                    consultationKey = 'packageSpecs';
+                    dataKey = 'packageSpecsData';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'service_selection' ||
+                    metadata.questionId === 'service_timeline' ||
+                    metadata.questionId === 'service_notes'
+                )) {
+                    consultationKey = 'launchKit';
+                    dataKey = 'launchKitData';
+                }
+                
+                // Update answer in frontend state
+                if (!flowState[consultationKey]) {
+                    flowState[consultationKey] = {};
+                }
+                const answerValue = metadata.answer || metadata.message || messageFromMetadata;
+                if (answerValue && answerValue !== 'undefined' && answerValue !== 'null' && answerValue.trim() !== '') {
+                    flowState[consultationKey][metadata.questionId] = answerValue;
+                    console.log(`[handleResponse] Updated answer in frontend: ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
+                }
+                
+                // Clear currentQuestion for the edited step (so edit form disappears)
+                if (flowState[dataKey]) {
+                    flowState[dataKey].currentQuestion = null;
+                }
+                
+                // Restore backend step from response
+                if (data.flowState && data.flowState.step) {
+                    flowState.backendStep = data.flowState.step;
+                    console.log('[handleResponse] Restored backendStep to:', data.flowState.step);
+                }
+                
+                // Mark that we've processed this as an edit, so we don't process it again as a regular answer
+                // Continue processing to handle currentQuestion if present
+                console.log('[handleResponse] Edit completed, continuing to process currentQuestion if present');
+            }
+            
+            // Store answers in the appropriate consultation state based on questionId
+            // We can't rely on backendStep because it may have changed after processing the answer
+            // Skip if this was already processed as an edit
+            if (metadata && (metadata.type === 'answer' || metadata.type === 'option') && !isEditComplete) {
+                console.log('[handleResponse] Processing answer/option:', metadata.questionId);
+                // Determine which consultation phase this question belongs to based on questionId
+                let consultationKey = 'fulfillmentSpecs'; // default
+                if (metadata.questionId && (
+                    metadata.questionId === 'product_description' ||
+                    metadata.questionId === 'product_dimensions' ||
+                    metadata.questionId === 'product_weight' ||
+                    metadata.questionId === 'fragility' ||
+                    metadata.questionId === 'budget'
+                )) {
+                    consultationKey = 'productDetails';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'material' ||
+                    metadata.questionId === 'dimensions' ||
+                    metadata.questionId === 'print'
+                )) {
+                    consultationKey = 'packageSpecs';
+                } else if (metadata.questionId && (
+                    metadata.questionId === 'service_selection' ||
+                    metadata.questionId === 'service_timeline' ||
+                    metadata.questionId === 'service_notes'
+                )) {
+                    consultationKey = 'launchKit';
+                }
+                
+                console.log('[handleResponse] Determined consultation key:', consultationKey, 'for question:', metadata.questionId);
+                
+                if (!flowState[consultationKey]) flowState[consultationKey] = {};
+                // Get answer value - prioritize metadata.answer, then metadata.option, then metadata.message
+                const answerValue = metadata.answer || metadata.option || metadata.message || messageFromMetadata;
+                if (answerValue && answerValue !== 'undefined' && answerValue !== 'null' && answerValue.trim() !== '') {
+                    flowState[consultationKey][metadata.questionId] = answerValue;
+                    console.log(`[handleResponse] Stored answer: ${consultationKey}[${metadata.questionId}] = ${answerValue}`);
+                } else {
+                    console.warn(`[handleResponse] Could not extract answer value for ${metadata.questionId}`);
+                }
+            }
+            
+            // Update step data - handle productMatches and variants
+            // NOTE: This should happen AFTER product_search handler, but we check here too for safety
+            if (data.productMatches) {
+                flowState.packageData = flowState.packageData || {};
+                flowState.packageData.matches = data.productMatches;
+            }
+            if (data.variants) {
+                flowState.packageData = flowState.packageData || {};
+                flowState.packageData.variants = data.variants;
+            }
+            // Handle step transitions - clear old consultation currentQuestion when moving to a new step
+            // BUT DO NOT clear the answers - they should persist for display in completed view
+            if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
+                // Moving to package selection - clear product details currentQuestion only
+                if (flowState.productDetailsData) {
+                    flowState.productDetailsData.currentQuestion = null;
+                }
+                // DO NOT clear flowState.productDetails - answers should persist
+            } else if (backendStep === 'select_package_specs') {
+                // Moving to package specs - clear package selection data if needed
+                // (package selection doesn't have consultation data, so nothing to clear)
+            } else if (backendStep === 'fulfillment_specs') {
+                // Moving to fulfillment specs - clear package specs question only
+                if (flowState.packageSpecsData) {
+                    flowState.packageSpecsData.currentQuestion = null;
+                }
+                // DO NOT clear flowState.packageSpecs - answers should persist
+            } else if (backendStep === 'launch_kit') {
+                // Moving to launch kit - clear fulfillment specs question only
+                if (flowState.fulfillmentSpecsData) {
+                    flowState.fulfillmentSpecsData.currentQuestion = null;
+                }
+                // DO NOT clear flowState.fulfillmentSpecs - answers should persist
+            }
+            
+            if (data.currentQuestion) {
+                console.log('[handleResponse] Processing currentQuestion:', data.currentQuestion.id);
+                const consultationKey = getCurrentConsultationState(backendStep);
+                const dataKey = consultationKey + 'Data';
+                console.log('[handleResponse] Consultation key:', consultationKey, 'Data key:', dataKey);
+                
+                if (!flowState[dataKey]) {
+                    flowState[dataKey] = {};
+                    console.log('[handleResponse] Created new', dataKey);
+                }
+                flowState[dataKey].currentQuestion = data.currentQuestion;
+                console.log('[handleResponse] Set currentQuestion in', dataKey, ':', data.currentQuestion.id);
+                
+                // CRITICAL: If we just moved to select_package_specs after product selection,
+                // ensure packageData is cleared so we don't show product selection UI
+                if (backendStep === 'select_package_specs' && metadata && metadata.type === 'product') {
+                    flowState.packageData = null;
+                }
+            } else {
+                console.warn('[handleResponse] NO currentQuestion in response!');
+                console.warn('[handleResponse] Backend step:', backendStep);
+                console.warn('[handleResponse] Reply:', data.reply);
+                console.warn('[handleResponse] This might indicate an issue with the backend response');
+                
+                // Fallback: If we're in product_details or start step and have a reply but no currentQuestion,
+                // try to create a basic currentQuestion from the reply
+                // This handles the case where backend transitions from "start" to "product_details" 
+                // but doesn't include currentQuestion in the response
+                if ((backendStep === 'product_details' || backendStep === 'start') && data.reply) {
+                    console.log('[handleResponse] Creating fallback currentQuestion for product_details from reply');
+                    const consultationKey = getCurrentConsultationState(backendStep);
+                    const dataKey = consultationKey + 'Data';
+                    
+                    if (!flowState[dataKey]) {
+                        flowState[dataKey] = {};
+                    }
+                    
+                    // Create a basic currentQuestion from the reply
+                    // The first product details question is typically "product_description"
+                    flowState[dataKey].currentQuestion = {
+                        id: 'product_description',
+                        question: data.reply,
+                        options: null,
+                        multiple: false,
+                        defaultValue: null
+                    };
+                    console.log('[handleResponse] Created fallback currentQuestion:', flowState[dataKey].currentQuestion.id);
+                }
+                
+                // No currentQuestion means we're in a non-consultation step (like select_package)
+                // Make sure we clear any old consultation data
+                if (backendStep === 'select_package' || backendStep === 'select_package_discovery') {
+                    if (flowState.productDetailsData) {
+                        flowState.productDetailsData.currentQuestion = null;
+                    }
+                }
+            }
+            
+            if (data.draftOrder) {
+                console.log('[handleResponse] Draft order created:', data.draftOrder.id);
+                flowState.draftOrder = data.draftOrder;
+            }
+            
+            console.log('[handleResponse] Final flowState:', JSON.parse(JSON.stringify(flowState)));
+            console.log('[handleResponse] ========== END ==========');
+            
+            // Re-render steps
+            renderSteps();
+        }
+        
+        // Salla Integration Functions
+        function connectSalla() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            // Get Salla OAuth URL - in production, this should come from your backend
+            // For now, we'll use a placeholder - you'll need to configure this
+            const clientId = '0154f184-9ad8-4d2f-97c2-6beaf2334ed6'; // From your Salla app
+            const redirectUri = encodeURIComponent(`${apiUrl}/api/salla/callback`);
+            const state = Math.random().toString(36).substring(7);
+            
+            const authUrl = `https://accounts.salla.sa/oauth2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=offline_access&state=${state}`;
+            
+            // Store state in sessionStorage
+            sessionStorage.setItem('salla_oauth_state', state);
+            
+            // Open OAuth in new window or redirect
+            window.location.href = authUrl;
+        }
+        
+        // Check for OAuth callback
+        function checkSallaCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const accessToken = urlParams.get('access_token');
+            const state = urlParams.get('state');
+            
+            if (accessToken) {
+                sallaAccessToken = accessToken;
+                document.getElementById('sallaStatus').innerHTML = '<span style="color: #28a745;">✓ Connected to Salla</span>';
+                document.getElementById('productInputSection').style.display = 'block';
+                document.getElementById('sallaAuthSection').style.display = 'none';
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+        
+        async function showProductSelector() {
+            if (!sallaAccessToken) {
+                alert('Please connect to Salla first');
+                return;
+            }
+            
+            const modal = document.getElementById('productSelectorModal');
+            const productList = document.getElementById('productList');
+            modal.style.display = 'flex';
+            productList.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Loading products...</div>';
+            
+            try {
+                const apiUrl = document.getElementById('apiUrl').value.trim();
+                const response = await fetch(`${apiUrl}/api/salla/products?access_token=${sallaAccessToken}`);
+                const data = await response.json();
+                
+                if (data.products && data.products.length > 0) {
+                    productList.innerHTML = data.products.map(product => `
+                        <div onclick="selectSallaProduct(${product.id})" 
+                             style="padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                             onmouseover="this.style.borderColor='#00d4aa'; this.style.transform='translateY(-2px)'"
+                             onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'">
+                            ${product.images && product.images.length > 0 ? 
+                                `<img src="${product.images[0].url}" alt="${product.name}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 6px; margin-bottom: 10px;">` : 
+                                '<div style="width: 100%; height: 150px; background: #f0f0f0; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>'
+                            }
+                            <div style="font-weight: 600; margin-bottom: 5px;">${product.name}</div>
+                            ${product.description ? `<div style="font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${product.description}</div>` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    productList.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">No products found in your store</div>';
+                }
+            } catch (error) {
+                console.error('[showProductSelector] Error:', error);
+                productList.innerHTML = '<div style="text-align: center; padding: 40px; color: #dc3545;">Error loading products. Please try again.</div>';
+            }
+        }
+        
+        function closeProductSelector() {
+            document.getElementById('productSelectorModal').style.display = 'none';
+        }
+        
+        async function selectSallaProduct(productId) {
+            closeProductSelector();
+            
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            // Start the flow with Salla product
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flow: 'direct_sales',
+                        sallaAccessToken: sallaAccessToken,
+                        sallaProductId: productId,
+                        message: 'Start package design'
+                    })
+                });
+                
+                const data = await response.json();
+                handleResponse(data, { type: 'salla_product_selection' });
+                
+                // Hide Salla section and show steps
+                document.getElementById('sallaIntegration').style.display = 'none';
+            } catch (error) {
+                console.error('[selectSallaProduct] Error:', error);
+                alert('Error starting package design. Please try again.');
+            }
+        }
+        
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageData = e.target.result;
+                // imageData is base64 string
+                startWithImage(imageData);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async function startWithImage(imageBase64) {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flow: 'direct_sales',
+                        productImageBase64: imageBase64.split(',')[1], // Remove data:image/... prefix
+                        message: 'Start package design with image'
+                    })
+                });
+                
+                const data = await response.json();
+                handleResponse(data, { type: 'image_upload' });
+                
+                // Hide Salla section and show steps
+                document.getElementById('sallaIntegration').style.display = 'none';
+            } catch (error) {
+                console.error('[startWithImage] Error:', error);
+                alert('Error starting package design. Please try again.');
+            }
+        }
+        
+        function showTextInput() {
+            document.getElementById('textInputModal').style.display = 'flex';
+        }
+        
+        function closeTextInput() {
+            document.getElementById('textInputModal').style.display = 'none';
+            document.getElementById('productDescriptionText').value = '';
+        }
+        
+        async function submitTextDescription() {
+            const description = document.getElementById('productDescriptionText').value.trim();
+            if (!description) {
+                alert('Please enter a product description');
+                return;
+            }
+            
+            closeTextInput();
+            
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flow: 'direct_sales',
+                        message: description
+                    })
+                });
+                
+                const data = await response.json();
+                handleResponse(data, { type: 'text_description' });
+                
+                // Hide Salla section and show steps
+                document.getElementById('sallaIntegration').style.display = 'none';
+            } catch (error) {
+                console.error('[submitTextDescription] Error:', error);
+                alert('Error starting package design. Please try again.');
+            }
+        }
+        
+        async function loadAvailableModels() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${apiUrl}?list=models`);
+                const data = await response.json();
+                if (data.selected) {
+                    alert(`Selected Model: ${data.selected}\n\nAvailable: ${data.models.length} models`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function resetSession() {
+            if (!confirm('Are you sure you want to reset the session? This will clear all progress and start fresh.')) {
+                return;
+            }
+            
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (apiUrl) {
+                try {
+                    // Send reset request to backend to clear Durable Object memory
+                    await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reset: true, flow: currentFlow })
+                    });
+                } catch (error) {
+                    console.error('[resetSession] Error resetting backend:', error);
+                }
+            }
+            
+            // Reset frontend state
+            flowState = {
+                productDetails: {},
+                package: null,
+                variant: null,
+                packageImageUrl: null,
+                packageSpecs: {},
+                fulfillmentSpecs: {},
+                launchKit: {},
+                draftOrder: null,
+                backendStep: null,
+                previousBackendStep: null,
+                productDetailsData: null,
+                packageData: null,
+                packageSpecsData: null,
+                fulfillmentSpecsData: null,
+                launchKitData: null,
+                productMatches: [],
+                queryMatches: [],
+                queryMatchesQuery: ''
+            };
+            
+            // Re-initialize the flow
+            await initializeFlow();
+        }
+        
+        // Initialize - make initial API call to get first question
+        async function initializeFlow() {
+            console.log('[initializeFlow] Initializing flow...');
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                console.log('[initializeFlow] No API URL, skipping initialization');
+                renderSteps();
+                return;
+            }
+            
+            try {
+                // Check if we should reset (e.g., if there's a URL parameter)
+                const urlParams = new URLSearchParams(window.location.search);
+                const shouldReset = urlParams.get('reset') === 'true';
+                
+                // Send empty message to trigger start step
+                // If reset is needed, send reset parameter to clear stale Durable Object data
+                console.log('[initializeFlow] Sending initial request to:', apiUrl, shouldReset ? '(with reset)' : '');
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: shouldReset ? 'reset' : '', 
+                        flow: currentFlow,
+                        reset: shouldReset
+                    })
+                });
+                
+                console.log('[initializeFlow] Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[initializeFlow] Response error:', errorText);
+                    renderSteps();
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('[initializeFlow] Initial response:', data);
+                console.log('[initializeFlow] Backend step:', data.flowState?.step);
+                console.log('[initializeFlow] Current question:', data.currentQuestion);
+                
+                // Use handleResponse to process the initial response properly
+                handleResponse(data, { type: 'init' });
+            } catch (error) {
+                console.error('[initializeFlow] Error:', error);
+                renderSteps();
+            }
+        }
+        
+        // Initialize
+        initializeFlow();
+        // Check for Salla callback on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            checkSallaCallback();
+        });
+    </script>
+</body>
+</html>

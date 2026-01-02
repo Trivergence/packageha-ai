@@ -14,6 +14,10 @@ export interface Env {
   OPENAI_API_KEY?: string;
   // For Google Gemini
   GEMINI_API_KEY?: string;
+  // For Salla integration
+  SALLA_CLIENT_ID?: string;
+  SALLA_CLIENT_SECRET?: string;
+  SALLA_REDIRECT_URI?: string;
 }
 
 // Use global type for DurableObjectNamespace
@@ -60,6 +64,12 @@ export interface Memory {
   };
   // For package selection from multiple matches
   pendingMatches?: Array<{ id: number; packageId: number; name: string; reason: string }>; // Updated productId to packageId
+  // For Salla integration
+  sallaAccessToken?: string;
+  sallaStoreId?: number;
+  sallaProductId?: number;
+  sallaProductImageUrl?: string;
+  uploadedProductImageUrl?: string; // For uploaded images
 }
 
 // Represents a Packageha package (what we sell) - NOT a client's product
@@ -104,6 +114,11 @@ export interface RequestBody {
   flow?: AgentFlow; // Optional: explicit flow selection (for MVP)
   regenerateOrder?: boolean; // Optional: regenerate draft order without resetting memory
   edit?: string; // Optional: edit a specific question (format: "questionId")
+  // For Salla integration
+  sallaAccessToken?: string;
+  sallaProductId?: number;
+  productImageUrl?: string; // Base64 or URL of uploaded image
+  productImageBase64?: string; // Base64 encoded image data
 }
 
 export interface LaunchKitService {

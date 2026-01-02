@@ -40,7 +40,10 @@ SOVEREIGN_MODE = "COMMERCIAL_GEMINI" # Recommended: Gemini Flash 1.5 (fast, cost
 # SOVEREIGN_MODE = "AIR_GAPPED"
 # LOCAL_LLAMA_ENDPOINT = "http://localhost:8080/v1/chat/completions"
 
-
+# Salla Integration (set via secrets: wrangler secret put SALLA_CLIENT_ID)
+# SALLA_CLIENT_ID = "your-client-id" # Get from Salla Partners portal
+# SALLA_CLIENT_SECRET = "your-client-secret" # Get from Salla Partners portal
+# SALLA_REDIRECT_URI = "https://your-worker.workers.dev/api/salla/callback"
 
 # 1. NEW: Enable Cloudflare AI
 [ai]
