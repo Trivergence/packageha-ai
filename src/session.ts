@@ -57,6 +57,25 @@ export class PackagehaSession {
                 return await this.handleReset();
             }
 
+            // Handle regenerate draft order request
+            if (userMessage === "regenerate_order" || body.regenerateOrder === true) {
+                const memory = await this.loadMemory();
+                // Regenerate draft order without resetting memory
+                const result = await this.createProjectQuote(memory, false); // false = don't reset memory
+                return this.jsonResponse({
+                    reply: result.reply,
+                    flowState: {
+                        step: memory.step,
+                        packageName: memory.packageName,
+                        variantName: memory.selectedVariantName,
+                        hasPackage: !!memory.packageId,
+                        hasVariant: !!memory.selectedVariantId,
+                        questionIndex: memory.questionIndex
+                    },
+                    draftOrder: result.draftOrder
+                });
+            }
+
             // Handle edit requests (format: "edit:questionId")
             if (userMessage.startsWith("edit:")) {
                 const questionId = userMessage.replace("edit:", "").trim();
@@ -949,16 +968,17 @@ export class PackagehaSession {
                 memory.clipboard['custom_package_dimensions'] = dimMatch[1];
             }
             
-            // Handle custom package - skip to fulfillment specs
+            // Handle custom package - continue with package specs (material, print, etc.)
             memory.packageName = "Custom Package";
             memory.selectedVariantName = "Custom";
             memory.clipboard['custom_package'] = 'true';
-            memory.step = "fulfillment_specs";
+            // Go to package specs instead of skipping to fulfillment_specs
+            memory.step = "select_package_specs";
             memory.questionIndex = 0;
-            if (!SALES_CHARTER.fulfillmentSpecs) {
-                return { reply: "Error: Fulfillment specs configuration missing." };
+            if (!SALES_CHARTER.packageSpecs) {
+                return { reply: "Error: Package specs configuration missing." };
             }
-            return { reply: `Great! I've noted your custom package dimensions. Let's continue with your order details.\n\n${SALES_CHARTER.fulfillmentSpecs.steps[0].question}` };
+            return { reply: `Great! I've noted your custom package dimensions. Now let's specify the package details.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
         }
         
         // If we haven't selected a package yet, do discovery
@@ -1047,7 +1067,8 @@ export class PackagehaSession {
     // ==================== HELPER METHODS ====================
 
     private async createProjectQuote(
-        memory: Memory
+        memory: Memory,
+        resetMemory: boolean = true
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any }> {
         // Package selection is optional (might be services only)
         // But typically we need at least package or services
@@ -1191,13 +1212,23 @@ Timestamp: ${new Date().toISOString()}
             );
 
             // createDraftOrder throws on error, so if we reach here, draftOrder is valid
-            // Reset memory for new project
-            await this.state.storage.delete("memory");
+            // Reset memory for new project only if resetMemory is true
+            if (resetMemory) {
+                await this.state.storage.delete("memory");
+            } else {
+                // Update last activity timestamp
+                memory.lastActivity = Date.now();
+                await this.state.storage.put("memory", memory);
+            }
             
             // Return structured response with draft order info
+            const replyMessage = resetMemory 
+                ? `✅ **Project Brief Created!**\n\nI've attached all your specifications to the order. Please review and complete your purchase.\n\nType 'reset' to start a new project.`
+                : `✅ **Draft Order Regenerated!**\n\nI've updated the order with your latest specifications. Please review and complete your purchase.`;
+            
             return { 
-                reply: `✅ **Project Brief Created!**\n\nI've attached all your specifications to the order. Please review and complete your purchase.\n\nType 'reset' to start a new project.`,
-                memoryReset: true,
+                reply: replyMessage,
+                memoryReset: resetMemory,
                 draftOrder: {
                     id: draftOrder.draftOrderId,
                     adminUrl: draftOrder.adminUrl,

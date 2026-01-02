@@ -104,6 +104,8 @@ export interface RequestBody {
   message?: string;
   reset?: boolean;
   flow?: AgentFlow; // Optional: explicit flow selection (for MVP)
+  regenerateOrder?: boolean; // Optional: regenerate draft order without resetting memory
+  edit?: string; // Optional: edit a specific question (format: "questionId")
 }
 
 export interface LaunchKitService {

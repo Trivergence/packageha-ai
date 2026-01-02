@@ -1436,8 +1436,64 @@
                         ${draftOrder.adminUrl ? `<a href="${draftOrder.adminUrl}" target="_blank">📋 View Draft Order</a>` : ''}
                         ${draftOrder.invoiceUrl ? `<a href="${draftOrder.invoiceUrl}" target="_blank">💳 View Invoice & Pay</a>` : ''}
                     </div>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                        <p style="color: #666; margin-bottom: 12px; font-size: 14px;">
+                            Made changes to your answers? Regenerate the draft order with your updated information.
+                        </p>
+                        <button class="submit-btn" onclick="regenerateDraftOrder()" style="background: #667eea;">
+                            🔄 Regenerate Draft Order
+                        </button>
+                    </div>
                 </div>
             `;
+        }
+        
+        async function regenerateDraftOrder() {
+            if (!confirm('Are you sure you want to regenerate the draft order? This will create a new draft order with your current answers.')) {
+                return;
+            }
+            
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                alert('Please enter a Worker URL');
+                return;
+            }
+            
+            try {
+                showLoadingIndicator('order');
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: 'regenerate_order',
+                        regenerateOrder: true,
+                        flow: currentFlow 
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[regenerateDraftOrder] Response error:', errorText);
+                    alert('Error regenerating draft order. Please try again.');
+                    hideLoadingIndicator();
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('[regenerateDraftOrder] Response:', data);
+                
+                // Update draft order in state
+                if (data.draftOrder) {
+                    flowState.draftOrder = data.draftOrder;
+                }
+                
+                // Process the response
+                handleResponse(data, { type: 'regenerate_order' });
+            } catch (error) {
+                console.error('[regenerateDraftOrder] Error:', error);
+                alert('Error regenerating draft order. Please try again.');
+                hideLoadingIndicator();
+            }
         }
         
         function searchProducts() {
