@@ -1038,6 +1038,45 @@ export class PackagehaSession {
             return { reply: `Great! I've noted your custom package dimensions. Now let's specify the package details.\n\n${SALES_CHARTER.packageSpecs.steps[0].question}` };
         }
         
+        // Check if this is an edit request (user wants to change package)
+        // Detect edit by checking if we're in package selection/discovery step but packageId exists
+        // This means user is trying to search/select a new package while one is already selected
+        const isEditRequest = memory.packageId && (
+            memory.step === "select_package" || 
+            memory.step === "select_package_discovery"
+        );
+        
+        if (isEditRequest) {
+            console.log("[handlePackageSelection] Edit request detected - clearing existing package selection");
+            console.log("[handlePackageSelection] Current packageId:", memory.packageId);
+            console.log("[handlePackageSelection] Current step:", memory.step);
+            
+            // Clear package selection but preserve package specs
+            const preservedPackageSpecs: { [key: string]: string } = {};
+            if (memory.clipboard) {
+                if (memory.clipboard['material']) preservedPackageSpecs['material'] = memory.clipboard['material'];
+                if (memory.clipboard['print']) preservedPackageSpecs['print'] = memory.clipboard['print'];
+                if (memory.clipboard['dimensions']) preservedPackageSpecs['dimensions'] = memory.clipboard['dimensions'];
+                console.log("[handlePackageSelection] Preserving package specs:", preservedPackageSpecs);
+            }
+            
+            // Clear package selection
+            memory.packageId = undefined;
+            memory.selectedVariantId = undefined;
+            memory.packageName = undefined;
+            memory.selectedVariantName = undefined;
+            memory.variants = undefined;
+            
+            // Restore preserved package specs
+            Object.assign(memory.clipboard, preservedPackageSpecs);
+            
+            // Reset step to discovery
+            memory.step = "select_package_discovery";
+            memory.questionIndex = 0;
+            
+            console.log("[handlePackageSelection] After edit - packageId cleared, step reset to discovery");
+        }
+        
         // If we haven't selected a package yet, do discovery
         if (!memory.packageId) {
             // If message is empty or just whitespace, return a prompt (don't call handleDiscovery)

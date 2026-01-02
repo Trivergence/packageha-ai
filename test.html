@@ -684,9 +684,23 @@
             }
             if (stepId === 'package_selection') {
                 // Package selection is completed when package and variant are selected, and package specs are done
-                return !!flowState.package && 
-                       (!!flowState.variant || flowState.variant === 'Default') &&
-                       Object.keys(flowState.packageSpecs || {}).length > 0;
+                // OR if package specs exist (even if package is null during edit)
+                const hasPackage = !!flowState.package;
+                const hasVariant = !!(flowState.variant || flowState.variant === 'Default');
+                const hasSpecs = Object.keys(flowState.packageSpecs || {}).length > 0;
+                const completed = (hasPackage && hasVariant && hasSpecs) || hasSpecs; // Completed if full selection OR just specs exist
+                
+                console.log(`[isStepCompleted] package_selection:`, completed, {
+                    hasPackage: hasPackage,
+                    package: flowState.package,
+                    hasVariant: hasVariant,
+                    variant: flowState.variant,
+                    hasSpecs: hasSpecs,
+                    packageSpecs: flowState.packageSpecs,
+                    packageSpecsKeys: flowState.packageSpecs ? Object.keys(flowState.packageSpecs) : []
+                });
+                
+                return completed;
             }
             if (stepId === 'fulfillment_specs') {
                 return Object.keys(flowState.fulfillmentSpecs || {}).length > 0 && flowState.fulfillmentSpecs.quantity;
@@ -841,14 +855,24 @@
             
             // Package Selection step
             if (stepId === 'package_selection') {
+                console.log('[renderStepContent] Rendering package_selection');
+                console.log('[renderStepContent] flowState.package:', flowState.package);
+                console.log('[renderStepContent] flowState.packageSpecs:', flowState.packageSpecs);
+                console.log('[renderStepContent] flowState.packageSpecsData:', flowState.packageSpecsData);
+                console.log('[renderStepContent] stepData:', stepData);
+                console.log('[renderStepContent] backendStep:', backendStep);
+                
                 // If we have package specs question, render that instead
                 if (flowState.packageSpecsData && flowState.packageSpecsData.currentQuestion) {
+                    console.log('[renderStepContent] Rendering package_specs consultation step');
                     return renderConsultationStep('package_specs', flowState.packageSpecs, flowState.packageSpecsData);
                 }
                 // Otherwise show product search/selection
                 if (stepData && stepData.matches) {
+                    console.log('[renderStepContent] Rendering product selection with matches');
                     return renderProductSelection(stepData.matches);
                 }
+                console.log('[renderStepContent] Rendering product search');
                 return renderProductSearch();
             }
             
@@ -897,12 +921,14 @@
         
         // Helper function to render consultation-style steps
         function renderConsultationStep(stepId, answers, stepData) {
-            console.log(`[renderConsultationStep] Rendering ${stepId}:`, {
-                hasAnswers: !!(answers && Object.keys(answers).length > 0),
-                hasStepData: !!stepData,
-                hasCurrentQuestion: !!(stepData && stepData.currentQuestion),
-                stepData: stepData
-            });
+            console.log(`[renderConsultationStep] ========== START Rendering ${stepId} ==========`);
+            console.log(`[renderConsultationStep] answers:`, answers);
+            console.log(`[renderConsultationStep] answers keys:`, answers ? Object.keys(answers) : 'null');
+            console.log(`[renderConsultationStep] stepData:`, stepData);
+            console.log(`[renderConsultationStep] hasAnswers:`, !!(answers && Object.keys(answers).length > 0));
+            console.log(`[renderConsultationStep] hasStepData:`, !!stepData);
+            console.log(`[renderConsultationStep] hasCurrentQuestion:`, !!(stepData && stepData.currentQuestion));
+            console.log(`[renderConsultationStep] currentQuestion:`, stepData?.currentQuestion);
             
             let html = '';
             
@@ -998,38 +1024,68 @@
                 html += '</div>';
                 return html;
             }
-            if (stepId === 'package_selection' && flowState.package) {
-                let html = `<div class="step-body completed-view">
-                    <div class="completed-question-item">
-                        <div class="answer-content">
-                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
-                            <div style="color: #333;">${flowState.package}</div>
-                        </div>
-                        <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
-                    </div>`;
-                if (flowState.variant) {
-                    html += `<div class="completed-question-item" style="margin-top: 10px;">
-                        <div class="answer-content">
-                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Variant</div>
-                            <div style="color: #333;">${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>
-                        </div>
-                    </div>`;
+            // Package selection completed view - show even if package is null (during edit) if we have package specs
+            if (stepId === 'package_selection') {
+                console.log('[renderCompletedView] Rendering package_selection completed view');
+                console.log('[renderCompletedView] flowState.package:', flowState.package);
+                console.log('[renderCompletedView] flowState.variant:', flowState.variant);
+                console.log('[renderCompletedView] flowState.packageSpecs:', flowState.packageSpecs);
+                console.log('[renderCompletedView] flowState.packageSpecs keys:', flowState.packageSpecs ? Object.keys(flowState.packageSpecs) : 'null');
+                console.log('[renderCompletedView] Should render?', flowState.package || (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0));
+                
+                if (flowState.package || (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0)) {
+                    let html = `<div class="step-body completed-view">`;
+                    
+                    // Show package if it exists
+                    if (flowState.package) {
+                        console.log('[renderCompletedView] Rendering package:', flowState.package);
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
+                                <div style="color: #333;">${flowState.package}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
+                        </div>`;
+                    } else {
+                        console.log('[renderCompletedView] Package is null, skipping package display');
+                    }
+                    
+                    // Show variant if it exists
+                    if (flowState.variant) {
+                        console.log('[renderCompletedView] Rendering variant:', flowState.variant);
+                        html += `<div class="completed-question-item" style="margin-top: 10px;">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Variant</div>
+                                <div style="color: #333;">${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>
+                            </div>
+                        </div>`;
+                    }
+                    
+                    // CRITICAL: Always show package specs if they exist, even if package is null (during edit)
+                    if (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0) {
+                        console.log('[renderCompletedView] Rendering packageSpecs:', Object.keys(flowState.packageSpecs).length, 'items');
+                        Object.entries(flowState.packageSpecs).forEach(([key, value]) => {
+                            console.log('[renderCompletedView] Rendering packageSpec:', key, '=', value);
+                            if (value && value !== 'undefined') {
+                                html += `<div class="completed-question-item" style="margin-top: 10px;">
+                                    <div class="answer-content">
+                                        <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                        <div style="color: #333;">${value}</div>
+                                    </div>
+                                    <span class="edit-icon" onclick="editQuestion('package_specs', '${key}')" title="Edit this answer">✏️</span>
+                                </div>`;
+                            }
+                        });
+                    } else {
+                        console.log('[renderCompletedView] No packageSpecs to render');
+                    }
+                    html += '</div>';
+                    console.log('[renderCompletedView] Returning completed view HTML');
+                    return html;
+                } else {
+                    console.log('[renderCompletedView] Not rendering - no package and no packageSpecs');
+                    return '';
                 }
-                if (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0) {
-                    Object.entries(flowState.packageSpecs).forEach(([key, value]) => {
-                        if (value && value !== 'undefined') {
-                            html += `<div class="completed-question-item" style="margin-top: 10px;">
-                                <div class="answer-content">
-                                    <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
-                                    <div style="color: #333;">${value}</div>
-                                </div>
-                                <span class="edit-icon" onclick="editQuestion('package_specs', '${key}')" title="Edit this answer">✏️</span>
-                            </div>`;
-                        }
-                    });
-                }
-                html += '</div>';
-                return html;
             }
             if (stepId === 'fulfillment_specs' && flowState.fulfillmentSpecs) {
                 let html = '<div class="step-body completed-view">';
@@ -1119,22 +1175,48 @@
         }
         
         function editPackageSelection() {
-            console.log('[editPackageSelection] Resetting package selection');
+            console.log('[editPackageSelection] ========== START ==========');
+            console.log('[editPackageSelection] Current flowState:', JSON.parse(JSON.stringify({
+                package: flowState.package,
+                variant: flowState.variant,
+                packageSpecs: flowState.packageSpecs,
+                packageSpecsData: flowState.packageSpecsData,
+                packageData: flowState.packageData,
+                backendStep: flowState.backendStep
+            })));
             
             // Clear only package and variant selection (not package specs)
             // Package specs should be preserved unless the new package requires different specs
+            const preservedPackageSpecs = flowState.packageSpecs ? JSON.parse(JSON.stringify(flowState.packageSpecs)) : null;
+            const preservedPackageSpecsData = flowState.packageSpecsData ? JSON.parse(JSON.stringify(flowState.packageSpecsData)) : null;
+            
+            console.log('[editPackageSelection] Preserving packageSpecs:', preservedPackageSpecs);
+            console.log('[editPackageSelection] Preserving packageSpecsData:', preservedPackageSpecsData);
+            
             flowState.package = null;
             flowState.variant = null;
             // DO NOT clear flowState.packageSpecs - preserve existing answers
             // DO NOT clear flowState.packageSpecsData - preserve the data structure
             flowState.packageData = null; // Clear package search/selection data
             
-            // Set backend step to package selection
-            flowState.backendStep = 'select_package';
+            console.log('[editPackageSelection] After clearing - flowState:', JSON.parse(JSON.stringify({
+                package: flowState.package,
+                variant: flowState.variant,
+                packageSpecs: flowState.packageSpecs,
+                packageSpecsData: flowState.packageSpecsData,
+                packageData: flowState.packageData
+            })));
+            
+            // Set backend step to package selection/discovery to trigger edit mode
+            flowState.backendStep = 'select_package_discovery';
             
             // Send a message that will trigger package discovery/search
-            // Use a clear message that the backend will recognize as package search
+            // The backend will detect this as an edit request because packageId exists
             const productDescription = flowState.productDetails?.product_description || 'packaging';
+            console.log('[editPackageSelection] Sending product search to trigger edit:', productDescription);
+            console.log('[editPackageSelection] Backend step set to: select_package_discovery');
+            console.log('[editPackageSelection] ========== END ==========');
+            
             sendSelection(productDescription, { 
                 type: 'product_search', 
                 stepId: 'package_selection',
@@ -1990,13 +2072,22 @@
             // Handle package search - show matches
             // IMPORTANT: Don't return early - continue processing to update backend step
             if (metadata && metadata.type === 'product_search') {
+                console.log('[handleResponse] Processing product_search response');
+                console.log('[handleResponse] data.productMatches:', data.productMatches?.length || 0);
+                console.log('[handleResponse] data.flowState.hasPackage:', data.flowState?.hasPackage);
+                console.log('[handleResponse] backendStep:', backendStep);
+                console.log('[handleResponse] data.currentQuestion:', data.currentQuestion);
+                console.log('[handleResponse] flowState.packageSpecs BEFORE:', flowState.packageSpecs);
+                
                 if (data.productMatches && data.productMatches.length > 0) {
+                    console.log('[handleResponse] Showing product matches');
                     flowState.packageData = flowState.packageData || {};
                     flowState.packageData.matches = data.productMatches;
                     // Hide fallback message if matches found
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) fallbackMsg.style.display = 'none';
                 } else if (data.flowState && data.flowState.hasPackage) {
+                    console.log('[handleResponse] Package found directly, updating flowState');
                     // If no matches but we have a reply, the package was found directly
                     flowState.package = data.flowState.packageName;
                     flowState.packageData = null;
@@ -2006,16 +2097,25 @@
                     
                     // Check if variant was auto-skipped immediately after package selection
                     if (data.currentQuestion && backendStep === 'select_package_specs') {
+                        console.log('[handleResponse] Backend moved to select_package_specs, preserving packageSpecs');
                         flowState.variant = data.flowState?.variantName || 'Default';
                         flowState.packageData = null;
+                        
+                        // CRITICAL: Preserve existing packageSpecs - don't clear them
+                        if (!flowState.packageSpecs) {
+                            flowState.packageSpecs = {};
+                        }
                         
                         // CRITICAL: Set packageSpecsData
                         if (!flowState.packageSpecsData) {
                             flowState.packageSpecsData = {};
                         }
                         flowState.packageSpecsData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] flowState.packageSpecs AFTER:', flowState.packageSpecs);
+                        console.log('[handleResponse] flowState.packageSpecsData AFTER:', flowState.packageSpecsData);
                     }
                 } else {
+                    console.log('[handleResponse] No matches found, showing fallback');
                     // No matches found - show fallback message
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) {
@@ -2115,22 +2215,47 @@
             
             // Update flow state based on metadata and response
             if (metadata && metadata.type === 'product' && data.flowState && data.flowState.hasPackage) {
+                console.log('[handleResponse] Processing product selection');
+                console.log('[handleResponse] Before update - flowState.packageSpecs:', flowState.packageSpecs);
+                console.log('[handleResponse] Before update - flowState.packageSpecsData:', flowState.packageSpecsData);
+                console.log('[handleResponse] Backend step:', backendStep);
+                console.log('[handleResponse] Has package:', data.flowState.hasPackage);
+                console.log('[handleResponse] Package name:', data.flowState.packageName);
+                
                 flowState.package = data.flowState.packageName || metadata.name;
                 flowState.packageData = null;
                 
                 // CRITICAL: When product is selected and backend moved to select_package_specs, 
                 // we need to clear package selection and set packageSpecsData
+                // IMPORTANT: Preserve existing packageSpecs when selecting a new package
                 if (backendStep === 'select_package_specs') {
+                    console.log('[handleResponse] Backend moved to select_package_specs - preserving packageSpecs');
                     flowState.variant = data.flowState?.variantName || 'Default';
                     flowState.packageData = null;
                     
+                    // CRITICAL: Preserve existing packageSpecs - don't clear them when selecting new package
+                    // Only initialize if it doesn't exist
+                    if (!flowState.packageSpecs) {
+                        console.log('[handleResponse] Initializing new packageSpecs object');
+                        flowState.packageSpecs = {};
+                    } else {
+                        console.log('[handleResponse] Preserving existing packageSpecs:', flowState.packageSpecs);
+                    }
+                    
                     // Set packageSpecsData with currentQuestion
                     if (!flowState.packageSpecsData) {
+                        console.log('[handleResponse] Initializing new packageSpecsData object');
                         flowState.packageSpecsData = {};
+                    } else {
+                        console.log('[handleResponse] Preserving existing packageSpecsData:', flowState.packageSpecsData);
                     }
                     if (data.currentQuestion) {
                         flowState.packageSpecsData.currentQuestion = data.currentQuestion;
+                        console.log('[handleResponse] Set currentQuestion:', data.currentQuestion.id);
                     }
+                    
+                    console.log('[handleResponse] After update - flowState.packageSpecs:', flowState.packageSpecs);
+                    console.log('[handleResponse] After update - flowState.packageSpecsData:', flowState.packageSpecsData);
                 } else if (data.flowState.hasVariant && data.flowState.variantName) {
                     flowState.variant = data.flowState.variantName;
                     flowState.packageData = null;
