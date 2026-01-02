@@ -563,27 +563,45 @@ export class PackagehaSession {
     }
 
     private async handleDiscovery(userMessage: string, memory: Memory, charter: any, isAutoSearch: boolean = false): Promise<{ reply: string; productMatches?: any[] }> {
-        // If we're in select_product or select_package_discovery step, check if user is selecting a number first
-        if ((memory.step === "select_product" || memory.step === "select_package_discovery") && memory.pendingMatches) {
+        // Fetch packages from Shopify first (needed for both selection and search)
+        let products;
+        try {
+            products = await this.getCachedProducts();
+        } catch (error: any) {
+            return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
+        }
+        
+        // Check if user is selecting a package by number OR by packageId
+        if (memory.step === "select_product" || memory.step === "select_package_discovery") {
             const numMatch = userMessage.trim().match(/^(\d+)$/);
             if (numMatch) {
-                const selectedNum = parseInt(numMatch[1]) - 1;
-                if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
-                    // User selected a package - get the package index from the match
-                    const selectedPackageIndex = memory.pendingMatches[selectedNum].id;
-                    
-                    // Fetch packages from Shopify (they call them "products" in their API)
-                    let products;
-                    try {
-                        products = await this.getCachedProducts();
-                    } catch (error: any) {
-                        return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
+                const selectionValue = parseInt(numMatch[1]);
+                
+                // First, try to find by packageId (if it's a large number, likely a Shopify ID)
+                // Shopify IDs are typically large numbers (6+ digits), while indices are small (0-20)
+                let packageProduct = null;
+                if (selectionValue > 1000) {
+                    // Likely a packageId - search for it directly
+                    packageProduct = products.find((p: any) => p.id === selectionValue);
+                    if (packageProduct) {
+                        console.log("[handleDiscovery] Found package by ID:", selectionValue, packageProduct.title);
                     }
-                    
-                    const packageProduct = products[selectedPackageIndex];
-                    if (!packageProduct) {
-                        return { reply: "I found a match but couldn't load the package details. Please try again." };
+                }
+                
+                // If not found by ID, try by index (for backward compatibility)
+                if (!packageProduct && memory.pendingMatches) {
+                    const selectedNum = selectionValue - 1;
+                    if (selectedNum >= 0 && selectedNum < memory.pendingMatches.length) {
+                        // User selected a package - get the package index from the match
+                        const selectedPackageIndex = memory.pendingMatches[selectedNum].id;
+                        packageProduct = products[selectedPackageIndex];
+                        if (packageProduct) {
+                            console.log("[handleDiscovery] Found package by index:", selectedNum, packageProduct.title);
+                        }
                     }
+                }
+                
+                if (packageProduct) {
 
                     // Store package info (Packageha's package, not client's product)
                     memory.packageName = packageProduct.title;
@@ -622,22 +640,24 @@ export class PackagehaSession {
                     const options = memory.variants.map(v => v.title).join(", ");
                     return { reply: `Found **${packageProduct.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
                 } else {
-                    // Invalid number
-                    const matchesList = memory.pendingMatches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
-                    return {
-                        reply: `Please select a number between 1 and ${memory.pendingMatches.length}:\n\n${matchesList}`,
-                        productMatches: memory.pendingMatches
-                    };
-                }
-            } else {
-                // User didn't provide a valid number - could be searching again or invalid input
-                // Continue to search logic below
-                memory.pendingMatches = undefined;
-                // Don't reset step to "start" if we're in select_package_discovery - keep the current step
-                if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
-                    memory.step = "start";
+                    // Invalid selection - return error
+                    if (memory.pendingMatches && memory.pendingMatches.length > 0) {
+                        const matchesList = memory.pendingMatches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
+                        return {
+                            reply: `Please select a number between 1 and ${memory.pendingMatches.length}:\n\n${matchesList}`,
+                            productMatches: memory.pendingMatches
+                        };
+                    } else {
+                        return { reply: "Invalid selection. Please search for packages again." };
+                    }
                 }
             }
+        }
+        
+        // If we reach here, user is searching (not selecting)
+        // Clear pending matches if they exist
+        if (memory.pendingMatches) {
+            memory.pendingMatches = undefined;
         }
         
         // Handle greetings locally (save AI cost)

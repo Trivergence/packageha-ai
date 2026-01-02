@@ -1831,15 +1831,30 @@
                 }
             }
             
+            if (!selectedMatch) {
+                console.error('[selectProduct] Could not find selected match!', { index, matchSource, productMatches: flowState.productMatches?.length, queryMatches: flowState.queryMatches?.length });
+                return;
+            }
+            
             // Store package image URL from the match before sending
-            if (selectedMatch && selectedMatch.imageUrl) {
+            if (selectedMatch.imageUrl) {
                 flowState.packageImageUrl = selectedMatch.imageUrl;
                 console.log('[selectProduct] Stored package image URL:', flowState.packageImageUrl);
             }
             
-            // Find the actual index in the combined list or use the provided index
-            // For now, we'll use a different approach: store the match info and let backend handle it
-            sendSelection(String(index + 1), { type: 'product', name, matchSource });
+            // Send the actual packageId instead of index to avoid confusion with multiple match lists
+            // Backend will use packageId to find the product directly
+            const packageId = selectedMatch.packageId || selectedMatch.id;
+            console.log('[selectProduct] Selecting product:', { name, packageId, matchSource, index });
+            
+            // Send packageId as the selection (backend will handle it)
+            sendSelection(String(packageId), { 
+                type: 'product', 
+                name, 
+                matchSource,
+                packageId: packageId,
+                selectedIndex: index
+            });
         }
         
         function selectVariant(index, title, id) {
