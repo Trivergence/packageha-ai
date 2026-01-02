@@ -2208,8 +2208,16 @@
             flowState.backendStep = backendStep;
             console.log('[handleResponse] Set backendStep to:', backendStep);
             
-            // Note: Auto-search is now handled directly by backend in getNextStepPrompt
-            // No need to trigger it from frontend anymore
+            // CRITICAL: If backend indicates auto-search should happen, trigger it immediately
+            if (data.isAutoSearch === true && backendStep === 'select_package_discovery' && 
+                (!data.productMatches || data.productMatches.length === 0)) {
+                console.log('[handleResponse] Auto-search flag detected, triggering search');
+                // Send empty message to trigger auto-search (backend will detect _autoSearch flag)
+                // Use a small delay to ensure UI has updated first
+                setTimeout(() => {
+                    sendSelection('', { type: 'product_search', isAutoSearch: true });
+                }, 200);
+            }
             
             // CRITICAL: Check for variant auto-skip FIRST (before any other logic)
             // If backend is in package specs (currentQuestion present) but no variant is selected,
