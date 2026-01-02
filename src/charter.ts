@@ -218,40 +218,6 @@ export const SALES_CHARTER: Charter = {
 };
 
 /**
- * Package Ordering Charter - Simplified flow for ordering packages
- * @deprecated - Keeping for reference but not actively used
- */
-export const PACKAGE_ORDER_CHARTER: Charter = {
-    meta: {
-        name: "Packageha Package Ordering Assistant",
-        tone: "Professional, efficient, and helpful. Guide users to order packages quickly.",
-        version: "1.0",
-    },
-    discovery: {
-        mission: "Help user select a package from the available catalog.",
-        rules: SALES_CHARTER.discovery.rules, // Reuse discovery rules
-    },
-    variant: {
-        mission: "Help user select package variant.",
-        rules: SALES_CHARTER.variant.rules, // Reuse variant rules
-    },
-    consultation: {
-        mission: "Collect package order details efficiently.",
-        steps: [
-            {
-                id: "quantity",
-                question: "What quantity would you like to order?",
-                validation: SALES_CHARTER.consultation.steps[0]?.validation,
-            },
-            {
-                id: "notes",
-                question: "Any special requirements or notes for this order? (optional - type 'none' to skip)",
-            },
-        ],
-    },
-};
-
-/**
  * Launch Kit Charter - Studio services ordering
  * @deprecated - Integrated into SALES_CHARTER.launchKit
  */
@@ -292,70 +258,6 @@ export const LAUNCH_KIT_CHARTER: Charter = {
             {
                 id: "notes",
                 question: "Any additional requirements or special requests?",
-            },
-        ],
-    },
-};
-
-/**
- * Packaging Assistant Charter - Help users find the right package
- * @deprecated - Keeping for reference but not actively used
- */
-export const PACKAGING_ASSISTANT_CHARTER: Charter = {
-    meta: {
-        name: "Packageha Packaging Consultant",
-        tone: "Consultative and expert. Help users understand their packaging needs and recommend the best solutions.",
-        version: "1.0",
-    },
-    discovery: {
-        mission: "Understand the user's product and packaging needs.",
-        rules: [
-            "Ask clarifying questions to understand the product.",
-            "Be thorough but conversational.",
-            "Collect all necessary information before recommending.",
-        ],
-    },
-    variant: SALES_CHARTER.variant, // Not used but required
-    consultation: {
-        mission: "Collect product information to recommend the best packaging solution.",
-        steps: [
-            {
-                id: "product_description",
-                question: "First, tell me about your product. What is it? What does it do?",
-            },
-            {
-                id: "dimensions",
-                question: "What are the product dimensions? (Length x Width x Height in cm or inches)",
-                validation: (answer: string) => {
-                    const hasNumbers = /\d/.test(answer);
-                    if (!hasNumbers) return "Please include dimensions with numbers (e.g., 20x15x10 cm).";
-                    return true;
-                },
-            },
-            {
-                id: "weight",
-                question: "Approximately how much does it weigh? (grams or ounces)",
-            },
-            {
-                id: "fragility",
-                question: "Is the product fragile? Does it need special protection?",
-            },
-            {
-                id: "brand_requirements",
-                question: "Any specific branding or design requirements? (logo, colors, finish)",
-            },
-            {
-                id: "budget",
-                question: "What's your budget range for packaging? (per unit or total)",
-            },
-            {
-                id: "quantity",
-                question: "What quantity are you planning to order?",
-                validation: (answer: string) => {
-                    const match = answer.match(/(\d+(?:\.\d+)?)/);
-                    if (!match) return "Please provide a quantity (e.g., 100, 500, 1000).";
-                    return true;
-                },
             },
         ],
     },

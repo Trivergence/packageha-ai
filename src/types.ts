@@ -98,7 +98,7 @@ export interface ConsultationAnswer {
   timestamp: number;
 }
 
-export type AgentFlow = "direct_sales" | "package_order" | "launch_kit" | "packaging_assistant";
+export type AgentFlow = "direct_sales" | "launch_kit";
 
 export interface RequestBody {
   message?: string;

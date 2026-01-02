@@ -6,9 +6,7 @@
 import { getActiveProducts, createDraftOrder, CustomLineItem } from "./shopify";
 import { 
     SALES_CHARTER, 
-    PACKAGE_ORDER_CHARTER, 
     LAUNCH_KIT_CHARTER, 
-    PACKAGING_ASSISTANT_CHARTER,
     buildCharterPrompt 
 } from "./charter";
 import { SovereignSwitch } from "./sovereign-switch";
@@ -238,23 +236,11 @@ export class PackagehaSession {
                     draftOrder = directSalesResult.draftOrder;
                     productMatches = directSalesResult.productMatches;
                     break;
-                case "package_order":
-                    const packageOrderResult = await this.handlePackageOrderFlow(userMessage, memory);
-                    reply = packageOrderResult.reply;
-                    memoryWasReset = packageOrderResult.memoryReset || false;
-                    draftOrder = packageOrderResult.draftOrder;
-                    productMatches = packageOrderResult.productMatches;
-                    break;
                 case "launch_kit":
                     const launchKitResult = await this.handleLaunchKitFlow(userMessage, memory);
                     reply = launchKitResult.reply;
                     memoryWasReset = launchKitResult.memoryReset || false;
                     draftOrder = launchKitResult.draftOrder;
-                    break;
-                case "packaging_assistant":
-                    const assistantResult = await this.handlePackagingAssistantFlow(userMessage, memory);
-                    reply = assistantResult.reply;
-                    memoryWasReset = assistantResult.memoryReset || false;
                     break;
                 default:
                     reply = "I'm not sure what to do. Type 'reset' to start over.";
@@ -321,14 +307,8 @@ export class PackagehaSession {
                 consultationPhase = SALES_CHARTER.launchKit;
             } else if (memory.step === "consultation") {
                 // Legacy consultation step (for old flows)
-                let charter;
-                if (memory.flow === "direct_sales") {
-                    charter = SALES_CHARTER;
-                } else if (memory.flow === "package_order") {
-                    charter = PACKAGE_ORDER_CHARTER;
-                }
-                if (charter && charter.consultation) {
-                    consultationPhase = charter.consultation;
+                if (memory.flow === "direct_sales" && SALES_CHARTER.consultation) {
+                    consultationPhase = SALES_CHARTER.consultation;
                 }
             }
             
@@ -493,27 +473,6 @@ export class PackagehaSession {
     }
 
     /**
-     * Package Ordering Flow (simplified MVP)
-     */
-    private async handlePackageOrderFlow(
-        userMessage: string,
-        memory: Memory
-    ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[] }> {
-        switch (memory.step) {
-            case "start":
-            case "select_product":
-                return await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER);
-            case "ask_variant":
-                return await this.handleVariantSelection(userMessage, memory, PACKAGE_ORDER_CHARTER);
-            case "consultation":
-                return await this.handleConsultation(userMessage, memory, PACKAGE_ORDER_CHARTER);
-            default:
-                memory.step = "start";
-                return await this.handleDiscovery(userMessage, memory, PACKAGE_ORDER_CHARTER);
-        }
-    }
-
-    /**
      * Launch Kit Flow
      */
     private async handleLaunchKitFlow(
@@ -530,26 +489,6 @@ export class PackagehaSession {
             default:
                 memory.step = "start";
                 return { reply: await this.handleLaunchKitStart(userMessage, memory) };
-        }
-    }
-
-    /**
-     * Packaging Assistant Flow
-     */
-    private async handlePackagingAssistantFlow(
-        userMessage: string,
-        memory: Memory
-    ): Promise<{ reply: string; memoryReset?: boolean }> {
-        switch (memory.step) {
-            case "start":
-                return { reply: await this.handlePackagingAssistantStart(userMessage, memory) };
-            case "consultation":
-                return await this.handlePackagingAssistantConsultation(userMessage, memory);
-            case "show_recommendations":
-                return await this.handlePackagingAssistantRecommendations(userMessage, memory);
-            default:
-                memory.step = "start";
-                return { reply: await this.handlePackagingAssistantStart(userMessage, memory) };
         }
     }
 
