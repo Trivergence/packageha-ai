@@ -568,6 +568,11 @@ export class PackagehaSession {
         try {
             products = await this.getCachedProducts();
         } catch (error: any) {
+            console.error("[handleDiscovery] Error fetching packages:", error);
+            return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
+        }
+
+        if (products.length === 0) {
             return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
         }
         
@@ -663,15 +668,6 @@ export class PackagehaSession {
         // Handle greetings locally (save AI cost)
         if (this.isGreeting(userMessage)) {
             return { reply: "Hello! I'm your packaging consultant. What are you looking for? (e.g., 'Custom Boxes', 'Bags', 'Printing Services')" };
-        }
-
-        // Fetch packages from Shopify (they call them "products" in their API, but these are Packageha packages)
-        let products;
-        try {
-            products = await this.getCachedProducts();
-        } catch (error: any) {
-            console.error("[handleDiscovery] Error fetching packages:", error);
-            return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
         }
 
         if (products.length === 0) {
