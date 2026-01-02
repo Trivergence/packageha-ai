@@ -396,8 +396,8 @@ export class PackagehaSession {
         // Extract actual search query if it's an edit message
         let searchQuery = userMessage;
         if (isEditMessage) {
-            searchQuery = userMessage.replace(/^edit package:\s*/i, "").trim() || "packaging";
-            console.log("[handleDirectSalesFlow] Extracted search query from edit message:", searchQuery);
+            searchQuery = userMessage.replace(/^edit package:\s*/i, "").trim();
+            console.log("[handleDirectSalesFlow] Extracted search query from edit message:", searchQuery || "(empty - edit mode only)");
         }
         
         if (isPackageEditRequest) {
@@ -431,6 +431,13 @@ export class PackagehaSession {
             memory.questionIndex = 0;
             
             console.log("[handleDirectSalesFlow] After reset - step:", memory.step, "packageId:", memory.packageId);
+            
+            // If searchQuery is empty (just "edit package:"), return without triggering a search
+            // This allows the frontend to show existing matches without triggering a new search
+            if (!searchQuery || searchQuery.trim() === '') {
+                console.log("[handleDirectSalesFlow] Empty edit query - returning prompt without search");
+                return { reply: "What package are you looking for?" };
+            }
             
             // Now handle as package selection with the search query
             return await this.handlePackageSelection(searchQuery, memory);

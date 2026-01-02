@@ -891,12 +891,12 @@
                         const queryTitle = flowState.queryMatchesQuery 
                             ? `Query Matches: "${flowState.queryMatchesQuery}"` 
                             : 'Query Matches';
-                        html += renderCollapsibleMatchSection(queryTitle, flowState.queryMatches, 'queryMatchesSection', false);
+                        html += renderCollapsibleMatchSection(queryTitle, flowState.queryMatches, 'queryMatchesSection', false, 'queryMatches');
                     }
                     
                     // Show product matches (auto-generated) below query matches
                     if (flowState.productMatches && flowState.productMatches.length > 0) {
-                        html += renderCollapsibleMatchSection('Product Matches', flowState.productMatches, 'productMatchesSection', false);
+                        html += renderCollapsibleMatchSection('Product Matches', flowState.productMatches, 'productMatchesSection', false, 'productMatches');
                     }
                     
                     html += '</div>';
@@ -1299,9 +1299,8 @@
             flowState.backendStep = 'select_package_discovery';
             
             // Send a special edit message that backend can recognize
-            // Use product description prefixed with "edit package:" so backend knows it's an edit
-            const productDescription = flowState.productDetails?.product_description || 'packaging';
-            const editMessage = `edit package: ${productDescription}`;
+            // Just send "edit package:" without any query - backend should handle edit mode without triggering a new search
+            const editMessage = 'edit package:';
             
             console.log('[editPackageSelection] Sending edit message:', editMessage);
             console.log('[editPackageSelection] Backend step set to: select_package_discovery');
@@ -1310,9 +1309,16 @@
             sendSelection(editMessage, { 
                 type: 'product_search', 
                 stepId: 'package_selection',
-                originalQuery: productDescription,
                 isEdit: true // Mark as edit request
             });
+            
+            // Ensure search input is empty when editing
+            setTimeout(() => {
+                const searchInput = document.getElementById('productSearchInput');
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+            }, 100);
         }
         
         function renderProductSearch() {
@@ -1331,7 +1337,7 @@
             `;
         }
         
-        function renderCollapsibleMatchSection(title, matches, sectionId, isExpanded = false) {
+        function renderCollapsibleMatchSection(title, matches, sectionId, isExpanded = false, matchSource = 'unknown') {
             if (!matches || matches.length === 0) return '';
             
             const expandedClass = isExpanded ? 'expanded' : '';
@@ -1348,7 +1354,7 @@
                         </div>
                     </div>
                     <div id="${sectionId}" class="match-section-content" style="display: ${displayStyle}; padding: 16px;">
-                        ${renderProductSelection(matches)}
+                        ${renderProductSelection(matches, matchSource)}
                     </div>
                 </div>
             `;
@@ -1467,8 +1473,9 @@
             });
         }
         
-        function renderProductSelection(matches) {
+        function renderProductSelection(matches, matchSource = 'unknown') {
             // Note: This function is called from within collapsible sections, so don't add step-body wrapper
+            // matchSource indicates which list these matches come from ('productMatches' or 'queryMatches')
             let html = '<div class="options-grid">';
             matches.forEach((match, index) => {
                 const imageHtml = match.imageUrl 
@@ -1479,15 +1486,19 @@
                     ? `<div style="font-size: 16px; font-weight: 700; color: #667eea; margin-top: 8px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
                     : '';
                 
-                // Determine match source for selection - need to check which array this match belongs to
-                let matchSource = 'unknown';
-                if (flowState.productMatches && flowState.productMatches.includes(match)) {
-                    matchSource = 'productMatches';
-                } else if (flowState.queryMatches && flowState.queryMatches.includes(match)) {
-                    matchSource = 'queryMatches';
+                // Use the matchSource passed in, or try to detect it
+                let actualMatchSource = matchSource;
+                if (matchSource === 'unknown') {
+                    // Fallback detection: check which array contains this match by comparing IDs
+                    if (flowState.productMatches && flowState.productMatches.some(m => m.id === match.id && m.packageId === match.packageId)) {
+                        actualMatchSource = 'productMatches';
+                    } else if (flowState.queryMatches && flowState.queryMatches.some(m => m.id === match.id && m.packageId === match.packageId)) {
+                        actualMatchSource = 'queryMatches';
+                    }
                 }
+                
                 html += `
-                    <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}', '${matchSource}')">
+                    <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}', '${actualMatchSource}')">
                         ${imageHtml}
                         <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">${match.name}</div>
                         <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${match.reason}</div>
