@@ -90,6 +90,7 @@ export class PackagehaSession {
                         memory.step = "product_details";
                         memory.questionIndex = stepIndex;
                         const question = SALES_CHARTER.productDetails.steps[stepIndex];
+                        await this.state.storage.put("memory", memory);
                         return this.jsonResponse({ 
                             reply: question.question,
                             flowState: {
@@ -117,6 +118,7 @@ export class PackagehaSession {
                         memory.step = "select_package_specs";
                         memory.questionIndex = stepIndex;
                         const question = SALES_CHARTER.packageSpecs.steps[stepIndex];
+                        await this.state.storage.put("memory", memory);
                         return this.jsonResponse({ 
                             reply: question.question,
                             flowState: {

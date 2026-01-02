@@ -917,10 +917,33 @@
                 console.log(`[renderConsultationStep] Rendering question for ${stepId}:`, stepData.currentQuestion.id);
                 html += renderQuestion(stepData.currentQuestion);
             } else {
-                console.warn(`[renderConsultationStep] NO currentQuestion for ${stepId}!`);
-                console.warn(`[renderConsultationStep] stepData:`, stepData);
-                console.warn(`[renderConsultationStep] flowState.backendStep:`, flowState.backendStep);
-                html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                // Check if this step is supposed to be active (backend step matches)
+                const backendStep = flowState.backendStep || '';
+                const expectedBackendSteps = {
+                    'product_details': 'product_details',
+                    'package_specs': 'select_package_specs',
+                    'fulfillment_specs': 'fulfillment_specs',
+                    'launch_kit': 'launch_kit'
+                };
+                const expectedBackendStep = expectedBackendSteps[stepId];
+                
+                // Only show loading if backend step matches (meaning we're waiting for question)
+                // Otherwise, it might be that the step isn't active yet
+                if (expectedBackendStep && backendStep === expectedBackendStep) {
+                    console.warn(`[renderConsultationStep] NO currentQuestion for ${stepId} but backend step matches!`);
+                    console.warn(`[renderConsultationStep] stepData:`, stepData);
+                    console.warn(`[renderConsultationStep] flowState.backendStep:`, flowState.backendStep);
+                    html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                } else {
+                    // Step might not be active yet, or we're in a transition
+                    console.log(`[renderConsultationStep] No currentQuestion for ${stepId}, backend step: ${backendStep}, expected: ${expectedBackendStep}`);
+                    // Don't show error if step isn't supposed to be active
+                    if (backendStep && expectedBackendStep && backendStep !== expectedBackendStep) {
+                        html += '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                    } else {
+                        html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                    }
+                }
             }
             
             return html;
@@ -1018,26 +1041,42 @@
             // Determine which consultation state to use
             let consultationKey = 'fulfillmentSpecs';
             let dataKey = 'fulfillmentSpecsData';
+            let backendStepName = 'fulfillment_specs';
+            
             if (stepId === 'product_details') {
                 consultationKey = 'productDetails';
                 dataKey = 'productDetailsData';
+                backendStepName = 'product_details';
             } else if (stepId === 'package_specs') {
                 consultationKey = 'packageSpecs';
                 dataKey = 'packageSpecsData';
+                backendStepName = 'select_package_specs';
             } else if (stepId === 'launch_kit') {
                 consultationKey = 'launchKit';
                 dataKey = 'launchKitData';
+                backendStepName = 'launch_kit';
             }
             
-            // Remove the answer from the state
-            if (flowState[consultationKey] && flowState[consultationKey][questionId]) {
-                delete flowState[consultationKey][questionId];
+            // CRITICAL: Initialize step data structure if it doesn't exist
+            if (!flowState[dataKey]) {
+                flowState[dataKey] = {};
             }
             
-            // Clear the current question data so it will be re-fetched
-            if (flowState[dataKey]) {
-                flowState[dataKey].currentQuestion = null;
+            // CRITICAL: Set backend step BEFORE sending edit request
+            // This ensures the step is activated immediately
+            flowState.backendStep = backendStepName;
+            
+            // CRITICAL: DO NOT delete the answer yet - wait for backend confirmation
+            // The backend will handle clearing the answer from memory
+            // We only clear currentQuestion to trigger re-fetch
+            flowState[dataKey].currentQuestion = null;
+            
+            // Ensure the consultation answers object exists (for displaying other completed questions)
+            if (!flowState[consultationKey]) {
+                flowState[consultationKey] = {};
             }
+            
+            console.log(`[editQuestion] Prepared edit for ${stepId}.${questionId}, backendStep set to: ${backendStepName}`);
             
             // Send a message to re-ask this question
             sendSelection(`edit:${questionId}`, { 
@@ -1942,41 +1981,66 @@
             }
             
             // Handle edit requests - backend returns the question to edit
-            if (metadata && metadata.type === 'edit' && data.currentQuestion) {
+            if (metadata && metadata.type === 'edit') {
                 console.log('[handleResponse] Handling edit response for question:', metadata.questionId);
                 
                 // Determine which consultation state this question belongs to
                 let consultationKey = 'fulfillmentSpecs';
                 let dataKey = 'fulfillmentSpecsData';
+                let backendStepName = 'fulfillment_specs';
+                
                 if (metadata.stepId === 'product_details') {
                     consultationKey = 'productDetails';
                     dataKey = 'productDetailsData';
+                    backendStepName = 'product_details';
                 } else if (metadata.stepId === 'package_specs') {
                     consultationKey = 'packageSpecs';
                     dataKey = 'packageSpecsData';
+                    backendStepName = 'select_package_specs';
                 } else if (metadata.stepId === 'launch_kit') {
                     consultationKey = 'launchKit';
                     dataKey = 'launchKitData';
+                    backendStepName = 'launch_kit';
                 }
                 
-                // Set the current question data
+                // CRITICAL: Initialize all data structures if they don't exist
+                if (!flowState[consultationKey]) {
+                    flowState[consultationKey] = {};
+                }
                 if (!flowState[dataKey]) {
                     flowState[dataKey] = {};
                 }
-                flowState[dataKey].currentQuestion = data.currentQuestion;
                 
-                // Update backend step to match the step being edited
-                if (metadata.stepId === 'product_details') {
-                    flowState.backendStep = 'product_details';
-                } else if (metadata.stepId === 'package_specs') {
-                    flowState.backendStep = 'select_package_specs';
-                } else if (metadata.stepId === 'fulfillment_specs') {
-                    flowState.backendStep = 'fulfillment_specs';
-                } else if (metadata.stepId === 'launch_kit') {
-                    flowState.backendStep = 'launch_kit';
+                // CRITICAL: Update backend step FIRST to ensure step activation
+                flowState.backendStep = backendStepName;
+                
+                // CRITICAL: Only remove the specific answer being edited AFTER backend confirms
+                // The backend has already deleted it from memory, so we should remove it from frontend state
+                // BUT: Only if we have a currentQuestion (meaning backend successfully processed the edit)
+                if (data.currentQuestion) {
+                    // Backend successfully processed edit - remove the answer from frontend state
+                    if (flowState[consultationKey][metadata.questionId]) {
+                        delete flowState[consultationKey][metadata.questionId];
+                        console.log(`[handleResponse] Removed answer for ${metadata.questionId} from frontend state`);
+                    }
+                    
+                    // Set the current question data
+                    flowState[dataKey].currentQuestion = data.currentQuestion;
+                    console.log(`[handleResponse] Set currentQuestion for edit: ${data.currentQuestion.id}`);
+                } else {
+                    // Backend didn't return currentQuestion - this is an error
+                    console.error('[handleResponse] Edit request failed - no currentQuestion in response');
+                    console.error('[handleResponse] Backend step:', backendStep);
+                    console.error('[handleResponse] Reply:', data.reply);
+                    
+                    // Try to restore the step data structure
+                    if (!flowState[dataKey].currentQuestion) {
+                        // If we don't have a currentQuestion, show error but keep the step active
+                        flowState[dataKey].currentQuestion = null;
+                    }
                 }
                 
-                console.log('[handleResponse] Edit response processed, step should become active');
+                console.log('[handleResponse] Edit response processed, step activated:', backendStepName);
             }
             
             // Handle custom package selection
