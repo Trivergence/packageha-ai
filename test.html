@@ -30,7 +30,7 @@
     <title>Packageha AI - Direct Sales Flow Tester</title>
     <!-- Google Maps Places API for address autocomplete -->
     <!-- NOTE: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual Google Maps API key -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&language=ar"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAYiLzZ_7ccJatguVNSOq4YTwOrcKhgY&libraries=places&language=ar"></script>
     <style>
         * {
             margin: 0;
@@ -247,10 +247,33 @@
             border-radius: 6px;
             margin-bottom: 10px;
             border-left: 3px solid #28a745;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
         }
         
         .completed-question-item:last-child {
             margin-bottom: 0;
+        }
+        
+        .edit-icon {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #667eea;
+            font-size: 16px;
+            transition: all 0.2s;
+            opacity: 0.7;
+        }
+        
+        .edit-icon:hover {
+            opacity: 1;
+            background: #f0f0f0;
+        }
+        
+        .answer-content {
+            flex: 1;
         }
         
         .checkbox-group {
@@ -494,6 +517,30 @@
         .draft-order-links a:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         
         @media (max-width: 768px) {
@@ -840,8 +887,11 @@
                 Object.entries(answers).forEach(([questionId, answer]) => {
                     if (answer && answer !== 'undefined' && answer !== undefined) {
                         html += `<div class="completed-question-item">
-                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
-                            <div style="color: #333;">${answer}</div>
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(questionId)}</div>
+                                <div style="color: #333;">${answer}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('${stepId}', '${questionId}')" title="Edit this answer">✏️</span>
                         </div>`;
                     }
                 });
@@ -867,7 +917,13 @@
                 let html = '<div class="step-body completed-view">';
                 Object.entries(flowState.productDetails).forEach(([key, value]) => {
                     if (value && value !== 'undefined') {
-                        html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                <div style="color: #333;">${value}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('product_details', '${key}')" title="Edit this answer">✏️</span>
+                        </div>`;
                     }
                 });
                 html += '</div>';
@@ -875,14 +931,31 @@
             }
             if (stepId === 'package_selection' && flowState.package) {
                 let html = `<div class="step-body completed-view">
-                    <div class="answer-display"><strong>Package:</strong> ${flowState.package}</div>`;
+                    <div class="completed-question-item">
+                        <div class="answer-content">
+                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Package</div>
+                            <div style="color: #333;">${flowState.package}</div>
+                        </div>
+                        <span class="edit-icon" onclick="editPackageSelection()" title="Change package">✏️</span>
+                    </div>`;
                 if (flowState.variant) {
-                    html += `<div class="answer-display" style="margin-top: 10px;"><strong>Variant:</strong> ${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>`;
+                    html += `<div class="completed-question-item" style="margin-top: 10px;">
+                        <div class="answer-content">
+                            <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">Variant</div>
+                            <div style="color: #333;">${flowState.variant === 'Default' ? 'Default' : flowState.variant}</div>
+                        </div>
+                    </div>`;
                 }
                 if (flowState.packageSpecs && Object.keys(flowState.packageSpecs).length > 0) {
                     Object.entries(flowState.packageSpecs).forEach(([key, value]) => {
                         if (value && value !== 'undefined') {
-                            html += `<div class="answer-display" style="margin-top: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                            html += `<div class="completed-question-item" style="margin-top: 10px;">
+                                <div class="answer-content">
+                                    <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                    <div style="color: #333;">${value}</div>
+                                </div>
+                                <span class="edit-icon" onclick="editQuestion('package_specs', '${key}')" title="Edit this answer">✏️</span>
+                            </div>`;
                         }
                     });
                 }
@@ -893,7 +966,13 @@
                 let html = '<div class="step-body completed-view">';
                 Object.entries(flowState.fulfillmentSpecs).forEach(([key, value]) => {
                     if (value && value !== 'undefined') {
-                        html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                <div style="color: #333;">${value}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('fulfillment_specs', '${key}')" title="Edit this answer">✏️</span>
+                        </div>`;
                     }
                 });
                 html += '</div>';
@@ -903,7 +982,13 @@
                 let html = '<div class="step-body completed-view">';
                 Object.entries(flowState.launchKit).forEach(([key, value]) => {
                     if (value && value !== 'undefined') {
-                        html += `<div class="answer-display" style="margin-bottom: 10px;"><strong>${getQuestionLabel(key)}:</strong> ${value}</div>`;
+                        html += `<div class="completed-question-item">
+                            <div class="answer-content">
+                                <div style="font-weight: 500; color: #666; font-size: 14px; margin-bottom: 4px;">${getQuestionLabel(key)}</div>
+                                <div style="color: #333;">${value}</div>
+                            </div>
+                            <span class="edit-icon" onclick="editQuestion('launch_kit', '${key}')" title="Edit this answer">✏️</span>
+                        </div>`;
                     }
                 });
                 html += '</div>';
@@ -912,86 +997,57 @@
             return '';
         }
         
+        // Function to handle editing a question
+        function editQuestion(stepId, questionId) {
+            console.log(`[editQuestion] Editing ${stepId}.${questionId}`);
+            
+            // Determine which consultation state to use
+            let consultationKey = 'fulfillmentSpecs';
+            if (stepId === 'product_details') {
+                consultationKey = 'productDetails';
+            } else if (stepId === 'package_specs') {
+                consultationKey = 'packageSpecs';
+            } else if (stepId === 'launch_kit') {
+                consultationKey = 'launchKit';
+            }
+            
+            // Remove the answer from the state
+            if (flowState[consultationKey] && flowState[consultationKey][questionId]) {
+                delete flowState[consultationKey][questionId];
+            }
+            
+            // Reset the question index to the question being edited
+            // We need to find which question index this is
+            // For now, send a message to the backend to re-ask this question
+            // The backend should handle going back to the specific question
+            
+            // Send a message to re-ask this question
+            sendSelection(`edit:${questionId}`, { 
+                type: 'edit', 
+                stepId: stepId,
+                questionId: questionId 
+            });
+        }
+        
+        function editPackageSelection() {
+            // Reset package selection
+            flowState.package = null;
+            flowState.variant = null;
+            flowState.packageSpecs = {};
+            flowState.packageSpecsData = null;
+            flowState.packageData = null;
+            
+            // Send message to go back to package selection
+            sendSelection('change package', { type: 'edit', stepId: 'package_selection' });
+        }
+        
         function renderProductSearch() {
-            // Generate intelligent suggested search query based on ALL product details
+            // Use product description as default search text
             let suggestedQuery = '';
-            if (flowState.productDetails) {
-                const parts = [];
-                const details = flowState.productDetails;
-                
-                // Extract packaging type from product description
-                if (details.product_description) {
-                    const desc = details.product_description.toLowerCase();
-                    
-                    // Fragility-based suggestions
-                    if (desc.includes('fragile') || (details.fragility && details.fragility.includes('fragile'))) {
-                        parts.push('protective packaging');
-                    }
-                    if (details.fragility && details.fragility.includes('cushioning')) {
-                        parts.push('cushioned box');
-                    }
-                    
-                    // Product type-based suggestions
-                    if (desc.includes('food') || desc.includes('edible') || desc.includes('طعام')) {
-                        parts.push('food-safe packaging');
-                    }
-                    if (desc.includes('electronic') || desc.includes('device') || desc.includes('جهاز')) {
-                        parts.push('electronics packaging box');
-                    }
-                    if (desc.includes('cosmetic') || desc.includes('beauty') || desc.includes('مستحضرات')) {
-                        parts.push('cosmetic packaging box');
-                    }
-                    if (desc.includes('gift') || desc.includes('هدية')) {
-                        parts.push('gift box');
-                    }
-                    if (desc.includes('clothing') || desc.includes('apparel') || desc.includes('ملابس')) {
-                        parts.push('garment bag');
-                    }
-                    if (desc.includes('book') || desc.includes('كتاب')) {
-                        parts.push('book packaging');
-                    }
-                }
-                
-                // Dimension-based suggestions
-                if (details.product_dimensions) {
-                    // Extract numbers from dimensions
-                    const dims = details.product_dimensions.match(/(\d+)/g);
-                    if (dims && dims.length >= 2) {
-                        const maxDim = Math.max(...dims.map(Number));
-                        if (maxDim > 50) {
-                            parts.push('large box');
-                        } else if (maxDim < 10) {
-                            parts.push('small box');
-                        }
-                    }
-                }
-                
-                // Weight-based suggestions
-                if (details.product_weight) {
-                    const weight = details.product_weight.match(/(\d+)/);
-                    if (weight) {
-                        const weightNum = parseInt(weight[1]);
-                        if (weightNum > 1000) {
-                            parts.push('heavy duty packaging');
-                        }
-                    }
-                }
-                
-                // Budget-based suggestions
-                if (details.budget) {
-                    if (details.budget.includes('20+') || details.budget.includes('flexible')) {
-                        parts.push('premium packaging');
-                    } else if (details.budget.includes('Under 1') || details.budget.includes('1-5')) {
-                        parts.push('economy packaging');
-                    }
-                }
-                
-                // Build final query
-                if (parts.length > 0) {
-                    suggestedQuery = parts.join(' ');
-                } else {
-                    suggestedQuery = 'custom packaging box';
-                }
+            if (flowState.productDetails && flowState.productDetails.product_description) {
+                suggestedQuery = flowState.productDetails.product_description;
+            } else {
+                suggestedQuery = 'custom packaging box';
             }
             
             return `
@@ -1015,17 +1071,102 @@
             `;
         }
         
-        function selectCustomPackage() {
-            console.log('[selectCustomPackage] Custom package selected');
-            // Store custom package selection
-            flowState.package = 'Custom Package (Quote Required)';
+        function showCustomPackageForm() {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('customPackageModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'customPackageModal';
+                modal.className = 'modal-overlay';
+                modal.style.display = 'none';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h2 style="margin-bottom: 20px; color: #333;">Custom Package - Enter Dimensions</h2>
+                        <div class="dimensions-row" style="margin-bottom: 20px;">
+                            <div class="input-group">
+                                <label>Length (cm)</label>
+                                <input type="number" id="customLength" placeholder="e.g., 20" min="1" step="0.1" oninput="calculateCustomPrice()">
+                            </div>
+                            <div class="input-group">
+                                <label>Width (cm)</label>
+                                <input type="number" id="customWidth" placeholder="e.g., 15" min="1" step="0.1" oninput="calculateCustomPrice()">
+                            </div>
+                            <div class="input-group">
+                                <label>Height (cm)</label>
+                                <input type="number" id="customHeight" placeholder="e.g., 10" min="1" step="0.1" oninput="calculateCustomPrice()">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 20px; padding: 15px; background: #f8f9ff; border-radius: 6px;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #666;">Calculated Price:</div>
+                            <div id="customPriceDisplay" style="font-size: 24px; font-weight: 700; color: #667eea;">0.00 SAR</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">Formula: (L × W × H) ÷ 10</div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="submit-btn" onclick="confirmCustomPackage()" style="flex: 1;">Confirm Custom Package</button>
+                            <button class="submit-btn" onclick="closeCustomPackageModal()" style="flex: 1; background: #6c757d;">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            modal.style.display = 'flex';
+            // Reset inputs
+            document.getElementById('customLength').value = '';
+            document.getElementById('customWidth').value = '';
+            document.getElementById('customHeight').value = '';
+            document.getElementById('customPriceDisplay').textContent = '0.00 SAR';
+        }
+        
+        function closeCustomPackageModal() {
+            const modal = document.getElementById('customPackageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function calculateCustomPrice() {
+            const length = parseFloat(document.getElementById('customLength').value) || 0;
+            const width = parseFloat(document.getElementById('customWidth').value) || 0;
+            const height = parseFloat(document.getElementById('customHeight').value) || 0;
+            
+            // Price = L × W × H / 10
+            const price = (length * width * height) / 10;
+            document.getElementById('customPriceDisplay').textContent = price.toFixed(2) + ' SAR';
+        }
+        
+        function confirmCustomPackage() {
+            const length = parseFloat(document.getElementById('customLength').value) || 0;
+            const width = parseFloat(document.getElementById('customWidth').value) || 0;
+            const height = parseFloat(document.getElementById('customHeight').value) || 0;
+            
+            if (!length || !width || !height) {
+                alert('Please enter all dimensions (Length, Width, and Height)');
+                return;
+            }
+            
+            const dimensions = `${length} x ${width} x ${height} cm`;
+            const price = ((length * width * height) / 10).toFixed(2);
+            
+            console.log('[confirmCustomPackage] Custom package confirmed:', { dimensions, price });
+            
+            // Store custom package info
+            flowState.package = 'Custom Package';
             flowState.variant = 'Custom';
+            flowState.packageSpecs = flowState.packageSpecs || {};
+            flowState.packageSpecs.dimensions = dimensions;
+            flowState.packageSpecs.custom_price = price;
+            
+            // Close modal
+            closeCustomPackageModal();
             
             // Move to fulfillment specs (skip package specs for custom)
-            sendSelection('custom package', { 
+            sendSelection(`custom package: ${dimensions}`, { 
                 type: 'custom_package', 
                 questionId: 'package_selection',
-                answer: 'custom'
+                answer: 'custom',
+                dimensions: dimensions,
+                price: price
             });
         }
         
@@ -1050,16 +1191,18 @@
                 `;
             });
             html += `
-                <div class="option-card" onclick="selectCustomPackage()" style="border: 2px dashed #667eea;">
+                <div class="option-card" onclick="showCustomPackageForm()" style="border: 2px dashed #667eea;">
                     <div style="width: 100%; height: 150px; background: #f8f9ff; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                         <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
                         <div style="font-size: 12px; color: #667eea; font-weight: 600;">Custom Package</div>
                     </div>
                     <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Custom Package</div>
-                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Quote required - we'll design a custom solution for you</div>
-                    <div style="font-size: 12px; color: #667eea; font-weight: 600; margin-top: 8px;">Contact for Pricing</div>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Enter dimensions to calculate price</div>
+                    <div id="customPackagePrice" style="font-size: 16px; color: #667eea; font-weight: 700; margin-top: 8px; display: none;">Price: <span id="calculatedPrice">0</span> SAR</div>
                 </div>
             `;
+            
+            // Custom package modal will be added to body, not here
             html += '</div></div>';
             return html;
         }
@@ -1647,9 +1790,20 @@
             // Handle custom package selection
             if (metadata && metadata.type === 'custom_package') {
                 console.log('[handleResponse] Custom package selected');
-                flowState.package = 'Custom Package (Quote Required)';
+                flowState.package = 'Custom Package';
                 flowState.variant = 'Custom';
                 flowState.packageData = null;
+                
+                // Store custom package dimensions and price
+                if (metadata.dimensions) {
+                    flowState.packageSpecs = flowState.packageSpecs || {};
+                    flowState.packageSpecs.dimensions = metadata.dimensions;
+                }
+                if (metadata.price) {
+                    flowState.packageSpecs = flowState.packageSpecs || {};
+                    flowState.packageSpecs.custom_price = metadata.price;
+                }
+                
                 // Custom package skips to fulfillment_specs
                 if (backendStep === 'fulfillment_specs' && data.currentQuestion) {
                     if (!flowState.fulfillmentSpecsData) {

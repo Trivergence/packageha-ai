@@ -57,6 +57,125 @@ export class PackagehaSession {
                 return await this.handleReset();
             }
 
+            // Handle edit requests (format: "edit:questionId")
+            if (userMessage.startsWith("edit:")) {
+                const questionId = userMessage.replace("edit:", "").trim();
+                const memory = await this.loadMemory();
+                
+                // Determine which step this question belongs to
+                if (SALES_CHARTER.productDetails && SALES_CHARTER.productDetails.steps.some(s => s.id === questionId)) {
+                    // Product details question
+                    const stepIndex = SALES_CHARTER.productDetails.steps.findIndex(s => s.id === questionId);
+                    if (stepIndex >= 0) {
+                        delete memory.clipboard[questionId];
+                        memory.step = "product_details";
+                        memory.questionIndex = stepIndex;
+                        const question = SALES_CHARTER.productDetails.steps[stepIndex];
+                        return this.jsonResponse({ 
+                            reply: question.question,
+                            flowState: {
+                                step: memory.step,
+                                packageName: memory.packageName,
+                                variantName: memory.selectedVariantName,
+                                hasPackage: !!memory.packageId,
+                                hasVariant: !!memory.selectedVariantId,
+                                questionIndex: memory.questionIndex
+                            },
+                            currentQuestion: {
+                                id: question.id,
+                                question: question.question,
+                                options: (question as any).options || null,
+                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
+                                defaultValue: memory.clipboard[questionId] || null
+                            }
+                        });
+                    }
+                } else if (SALES_CHARTER.packageSpecs && SALES_CHARTER.packageSpecs.steps.some(s => s.id === questionId)) {
+                    // Package specs question
+                    const stepIndex = SALES_CHARTER.packageSpecs.steps.findIndex(s => s.id === questionId);
+                    if (stepIndex >= 0) {
+                        delete memory.clipboard[questionId];
+                        memory.step = "select_package_specs";
+                        memory.questionIndex = stepIndex;
+                        const question = SALES_CHARTER.packageSpecs.steps[stepIndex];
+                        return this.jsonResponse({ 
+                            reply: question.question,
+                            flowState: {
+                                step: memory.step,
+                                packageName: memory.packageName,
+                                variantName: memory.selectedVariantName,
+                                hasPackage: !!memory.packageId,
+                                hasVariant: !!memory.selectedVariantId,
+                                questionIndex: memory.questionIndex
+                            },
+                            currentQuestion: {
+                                id: question.id,
+                                question: question.question,
+                                options: (question as any).options || null,
+                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
+                                defaultValue: memory.clipboard[questionId] || null
+                            }
+                        });
+                    }
+                } else if (SALES_CHARTER.fulfillmentSpecs && SALES_CHARTER.fulfillmentSpecs.steps.some(s => s.id === questionId)) {
+                    // Fulfillment specs question
+                    const stepIndex = SALES_CHARTER.fulfillmentSpecs.steps.findIndex(s => s.id === questionId);
+                    if (stepIndex >= 0) {
+                        delete memory.clipboard[questionId];
+                        memory.step = "fulfillment_specs";
+                        memory.questionIndex = stepIndex;
+                        const question = SALES_CHARTER.fulfillmentSpecs.steps[stepIndex];
+                        await this.state.storage.put("memory", memory);
+                        return this.jsonResponse({ 
+                            reply: question.question,
+                            flowState: {
+                                step: memory.step,
+                                packageName: memory.packageName,
+                                variantName: memory.selectedVariantName,
+                                hasPackage: !!memory.packageId,
+                                hasVariant: !!memory.selectedVariantId,
+                                questionIndex: memory.questionIndex
+                            },
+                            currentQuestion: {
+                                id: question.id,
+                                question: question.question,
+                                options: (question as any).options || null,
+                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
+                                defaultValue: memory.clipboard[questionId] || null
+                            }
+                        });
+                    }
+                } else if (SALES_CHARTER.launchKit && SALES_CHARTER.launchKit.steps.some(s => s.id === questionId)) {
+                    // Launch kit question
+                    const stepIndex = SALES_CHARTER.launchKit.steps.findIndex(s => s.id === questionId);
+                    if (stepIndex >= 0) {
+                        delete memory.clipboard[questionId];
+                        memory.step = "launch_kit";
+                        memory.questionIndex = stepIndex;
+                        const question = SALES_CHARTER.launchKit.steps[stepIndex];
+                        await this.state.storage.put("memory", memory);
+                        return this.jsonResponse({ 
+                            reply: question.question,
+                            flowState: {
+                                step: memory.step,
+                                packageName: memory.packageName,
+                                variantName: memory.selectedVariantName,
+                                hasPackage: !!memory.packageId,
+                                hasVariant: !!memory.selectedVariantId,
+                                questionIndex: memory.questionIndex
+                            },
+                            currentQuestion: {
+                                id: question.id,
+                                question: question.question,
+                                options: (question as any).options || null,
+                                multiple: (question as any).multiple !== undefined ? (question as any).multiple : true,
+                                defaultValue: memory.clipboard[questionId] || null
+                            }
+                        });
+                    }
+                }
+            }
+
             // Load or initialize memory
             let memory = await this.loadMemory();
             
@@ -810,10 +929,16 @@ export class PackagehaSession {
     ): Promise<{ reply: string; productMatches?: any[] }> {
         // Check for custom package selection
         const lowerMessage = userMessage.toLowerCase().trim();
-        if (lowerMessage === "custom package" || lowerMessage.includes("custom") || 
+        if (lowerMessage.startsWith("custom package:") || lowerMessage.includes("custom") || 
             memory.clipboard['package_selection'] === 'custom') {
+            // Extract dimensions if provided
+            const dimMatch = userMessage.match(/custom package:\s*(.+)/i);
+            if (dimMatch) {
+                memory.clipboard['custom_package_dimensions'] = dimMatch[1];
+            }
+            
             // Handle custom package - skip to fulfillment specs
-            memory.packageName = "Custom Package (Quote Required)";
+            memory.packageName = "Custom Package";
             memory.selectedVariantName = "Custom";
             memory.clipboard['custom_package'] = 'true';
             memory.step = "fulfillment_specs";
@@ -821,7 +946,7 @@ export class PackagehaSession {
             if (!SALES_CHARTER.fulfillmentSpecs) {
                 return { reply: "Error: Fulfillment specs configuration missing." };
             }
-            return { reply: `Great! I've noted that you need a custom package. We'll provide a quote after collecting your requirements.\n\n${SALES_CHARTER.fulfillmentSpecs.steps[0].question}` };
+            return { reply: `Great! I've noted your custom package dimensions. Let's continue with your order details.\n\n${SALES_CHARTER.fulfillmentSpecs.steps[0].question}` };
         }
         
         // If we haven't selected a package yet, do discovery
@@ -1019,10 +1144,25 @@ Timestamp: ${new Date().toISOString()}
         const customPackageSelected = memory.clipboard['custom_package'] === 'true' || 
                                      memory.clipboard['package_selection'] === 'custom';
         if (customPackageSelected) {
-            // Add custom package as a line item
-            const customPackagePrice = memory.clipboard['custom_package_price'] || "0.00";
+            // Get custom package dimensions and calculate price
+            const customDimensions = memory.clipboard['custom_package_dimensions'] || 
+                                   memory.clipboard['dimensions'] || 
+                                   'Not specified';
+            
+            // Extract dimensions and calculate price: L × W × H / 10
+            const dimMatch = customDimensions.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i);
+            let customPackagePrice = "0.00";
+            if (dimMatch) {
+                const length = parseFloat(dimMatch[1]);
+                const width = parseFloat(dimMatch[2]);
+                const height = parseFloat(dimMatch[3]);
+                customPackagePrice = ((length * width * height) / 10).toFixed(2);
+            } else if (memory.clipboard['custom_package_price']) {
+                customPackagePrice = memory.clipboard['custom_package_price'];
+            }
+            
             customLineItems.push({
-                title: "Custom Package (Quote Required)",
+                title: `Custom Package (${customDimensions})`,
                 price: customPackagePrice,
                 quantity: parseInt(memory.clipboard['quantity'] || "1")
             });

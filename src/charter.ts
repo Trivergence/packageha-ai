@@ -120,22 +120,13 @@ export const SALES_CHARTER: Charter = {
     // This uses discovery + variant for finding the Packageha package, then collects package specs
     // Note: "package" here refers to Packageha's packages (what we sell), NOT the client's product
     packageSpecs: {
-        mission: "Collect package specifications (material, dimensions, print) after Packageha package is selected.",
+        mission: "Collect package specifications (material, print) after Packageha package is selected. Note: Dimensions are only required for Custom Packages.",
         steps: [
             { 
                 id: "material", 
                 question: "Do you have a preference for Material?",
                 options: ["Corrugated", "Folding Carton", "Rigid Box", "Paperboard", "Kraft", "White Cardboard"],
                 multiple: false // Single selection (radio buttons)
-            },
-            { 
-                id: "dimensions", 
-                question: "What are the internal Dimensions for the package? (Length x Width x Height in cm or inches)",
-                validation: (answer: string) => {
-                    const hasNumbers = /\d/.test(answer);
-                    if (!hasNumbers) return "Please include dimensions with numbers (e.g., 20x15x10 cm).";
-                    return true;
-                }
             },
             { 
                 id: "print", 
