@@ -49,8 +49,6 @@ export interface Memory {
   questionIndex: number;
   createdAt?: number;
   lastActivity?: number;
-  // For packaging assistant
-  recommendations?: PackageRecommendation[];
   // For launch kit
   selectedServices?: string[];
   // Step tracking for new multi-step flow
@@ -113,19 +111,6 @@ export interface LaunchKitService {
   name: string;
   description: string;
   price: number;
-}
-
-export interface PackageRecommendation {
-  packageId: number;
-  packageName: string;
-  matchScore: number;
-  reasoning: string;
-  variants?: Variant[];
-}
-
-export interface PackagingAssistantDecision {
-  recommendations: PackageRecommendation[];
-  reasoning: string;
 }
 
 export interface CustomLineItem {
