@@ -269,7 +269,15 @@ export class PackagehaSession {
             // Build response with optional fields
             const response: any = { reply };
             if (draftOrder) response.draftOrder = draftOrder;
-            if (productMatches) response.productMatches = productMatches;
+            if (productMatches) {
+                response.productMatches = productMatches;
+                // Mark if this is an auto-search result
+                if (memory.clipboard && memory.clipboard['_autoSearch'] === 'true') {
+                    response.isAutoSearch = true;
+                    // Clear the flag after using it
+                    delete memory.clipboard['_autoSearch'];
+                }
+            }
             
             // Add flow state for UI tracking
             response.flowState = {
@@ -1020,7 +1028,7 @@ export class PackagehaSession {
                 if (nextStep === "draft_order" || memory.step === "draft_order") {
                     return await this.createProjectQuote(memory);
                 }
-                return this.getNextStepPrompt(memory.step);
+                return await this.getNextStepPrompt(memory.step, memory);
             }
             // Return current question - but first check if it's already answered
             // If it is, skip to the next unanswered question
@@ -1090,7 +1098,7 @@ export class PackagehaSession {
                 if (nextStep === "draft_order" || memory.step === "draft_order") {
                     return await this.createProjectQuote(memory);
                 }
-                return this.getNextStepPrompt(memory.step);
+                return await this.getNextStepPrompt(memory.step, memory);
             }
             
             const currentStep = steps[questionToAsk];
@@ -1189,7 +1197,7 @@ export class PackagehaSession {
             if (nextStep === "draft_order" || memory.step === "draft_order") {
                 return await this.createProjectQuote(memory);
             }
-            return this.getNextStepPrompt(memory.step);
+            return await this.getNextStepPrompt(memory.step, memory);
         }
 
         const currentStep = steps[currentIndex];
@@ -1222,15 +1230,42 @@ export class PackagehaSession {
         if (nextStep === "draft_order") {
             return await this.createProjectQuote(memory);
         }
-        return this.getNextStepPrompt(nextStep);
+        return await this.getNextStepPrompt(nextStep, memory);
     }
 
     /**
      * Helper to get the prompt for the next step after a consultation phase completes
      */
-    private getNextStepPrompt(nextStep: string): { reply: string } {
+    private async getNextStepPrompt(nextStep: string, memory: Memory): Promise<{ reply: string; productMatches?: any[] }> {
         if (nextStep === "select_package") {
-            return { reply: "Great! Now let's find the perfect package for your product. What type of packaging are you looking for?" };
+            // Automatically trigger search based on all product details
+            memory.step = "select_package_discovery";
+            // Build comprehensive search query from all product details
+            const productContext: string[] = [];
+            if (memory.clipboard) {
+                if (memory.clipboard.product_description) {
+                    productContext.push(memory.clipboard.product_description);
+                }
+                if (memory.clipboard.product_dimensions) {
+                    productContext.push(`dimensions: ${memory.clipboard.product_dimensions}`);
+                }
+                if (memory.clipboard.product_weight) {
+                    productContext.push(`weight: ${memory.clipboard.product_weight}`);
+                }
+                if (memory.clipboard.fragility) {
+                    productContext.push(`fragility: ${memory.clipboard.fragility}`);
+                }
+                if (memory.clipboard.budget) {
+                    productContext.push(`budget: ${memory.clipboard.budget}`);
+                }
+            }
+            const autoSearchQuery = productContext.length > 0 ? productContext.join(', ') : "packaging";
+            console.log("[getNextStepPrompt] Auto-triggering search with query:", autoSearchQuery);
+            // Trigger automatic search based on product details
+            // Mark this as an auto-search in memory so response can include the flag
+            memory.clipboard['_autoSearch'] = 'true';
+            const result = await this.handlePackageSelection(autoSearchQuery, memory);
+            return result;
         } else if (nextStep === "fulfillment_specs") {
             if (!SALES_CHARTER.fulfillmentSpecs) {
                 return { reply: "Error: Fulfillment specs configuration missing." };

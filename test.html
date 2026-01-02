@@ -595,7 +595,10 @@
             launchKit: {}, // Launch kit services
             draftOrder: null, // Draft order result
             backendStep: null, // Track backend step for step completion logic
-            previousBackendStep: null // Track previous backend step to detect transitions
+            previousBackendStep: null, // Track previous backend step to detect transitions
+            productMatches: [], // Auto-generated matches based on product details
+            queryMatches: [], // User search query matches
+            queryMatchesQuery: '' // The query string for query matches
         };
         let isLoading = false; // Track loading state
         
@@ -867,16 +870,24 @@
                 // CRITICAL: If backend is in discovery mode, show search UI AND matches if available
                 // This handles the case when editing package - show both search box and existing matches
                 if (backendStep === 'select_package_discovery' || backendStep === 'select_package') {
-                    let html = '';
-                    // Always show search box when in discovery mode
+                    let html = '<div class="step-body">';
+                    // Always show search box when in discovery mode (empty initially)
                     html += renderProductSearch();
-                    // Also show matches if they exist
-                    if (stepData && stepData.matches && stepData.matches.length > 0) {
-                        console.log('[renderStepContent] Rendering product selection with matches (discovery mode)');
-                        html += '<div style="margin-top: 20px;"><div class="question-text">Matching Packages:</div>';
-                        html += renderProductSelection(stepData.matches);
-                        html += '</div>';
+                    
+                    // Show query matches first (user searches) if they exist
+                    if (flowState.queryMatches && flowState.queryMatches.length > 0) {
+                        const queryTitle = flowState.queryMatchesQuery 
+                            ? `Query Matches: "${flowState.queryMatchesQuery}"` 
+                            : 'Query Matches';
+                        html += renderCollapsibleMatchSection(queryTitle, flowState.queryMatches, 'queryMatchesSection', false);
                     }
+                    
+                    // Show product matches (auto-generated) below query matches
+                    if (flowState.productMatches && flowState.productMatches.length > 0) {
+                        html += renderCollapsibleMatchSection('Product Matches', flowState.productMatches, 'productMatchesSection', false);
+                    }
+                    
+                    html += '</div>';
                     return html;
                 }
                 
@@ -1289,28 +1300,56 @@
         }
         
         function renderProductSearch() {
-            // Use product description as default search text
-            let suggestedQuery = '';
-            if (flowState.productDetails && flowState.productDetails.product_description) {
-                suggestedQuery = flowState.productDetails.product_description;
-            } else {
-                suggestedQuery = 'custom packaging box';
-            }
+            // Search box should be empty initially to allow user to enter their own query
+            return `
+                <div class="question-text">What package are you looking for?</div>
+                <div class="input-group">
+                    <input type="text" id="productSearchInput" placeholder="e.g., Custom Boxes, Bags, Printing Services..." 
+                           value=""
+                           onkeydown="if(event.key==='Enter') searchProducts()">
+                </div>
+                <button class="submit-btn" onclick="searchProducts()">Search Packages</button>
+                <div id="searchFallbackMessage" style="display: none; margin-top: 12px; padding: 12px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+                    No packages found. Try a simpler search like "box" or "packaging", or use the "Custom Package" option in the search results.
+                </div>
+            `;
+        }
+        
+        function renderCollapsibleMatchSection(title, matches, sectionId, isExpanded = false) {
+            if (!matches || matches.length === 0) return '';
+            
+            const expandedClass = isExpanded ? 'expanded' : '';
+            const displayStyle = isExpanded ? 'block' : 'none';
+            const icon = isExpanded ? '▼' : '▶';
             
             return `
-                <div class="step-body">
-                    <div class="question-text">What package are you looking for?</div>
-                    <div class="input-group">
-                        <input type="text" id="productSearchInput" placeholder="e.g., Custom Boxes, Bags, Printing Services..." 
-                               value="${suggestedQuery}"
-                               onkeydown="if(event.key==='Enter') searchProducts()">
+                <div class="match-section" style="margin-top: 20px; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
+                    <div class="match-section-header" onclick="toggleMatchSection('${sectionId}')" style="padding: 12px 16px; background: #f8f9fa; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                        <div style="font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12px; color: #666;">${icon}</span>
+                            <span>${title}</span>
+                            <span style="font-size: 12px; font-weight: normal; color: #666;">(${matches.length})</span>
+                        </div>
                     </div>
-                    <button class="submit-btn" onclick="searchProducts()">Search Packages</button>
-                    <div id="searchFallbackMessage" style="display: none; margin-top: 12px; padding: 12px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
-                        No packages found. Try a simpler search like "box" or "packaging", or use the "Custom Package" option in the search results.
+                    <div id="${sectionId}" class="match-section-content" style="display: ${displayStyle}; padding: 16px;">
+                        ${renderProductSelection(matches)}
                     </div>
                 </div>
             `;
+        }
+        
+        function toggleMatchSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const header = content.previousElementSibling;
+            const icon = header.querySelector('span');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
         }
         
         function showCustomPackageForm() {
@@ -1413,7 +1452,8 @@
         }
         
         function renderProductSelection(matches) {
-            let html = '<div class="step-body"><div class="question-text">Select a package:</div><div class="options-grid">';
+            // Note: This function is called from within collapsible sections, so don't add step-body wrapper
+            let html = '<div class="options-grid">';
             matches.forEach((match, index) => {
                 const imageHtml = match.imageUrl 
                     ? `<img src="${match.imageUrl}" alt="${match.name}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 6px; margin-bottom: 10px;">`
@@ -1423,8 +1463,15 @@
                     ? `<div style="font-size: 16px; font-weight: 700; color: #667eea; margin-top: 8px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
                     : '';
                 
+                // Determine match source for selection - need to check which array this match belongs to
+                let matchSource = 'unknown';
+                if (flowState.productMatches && flowState.productMatches.includes(match)) {
+                    matchSource = 'productMatches';
+                } else if (flowState.queryMatches && flowState.queryMatches.includes(match)) {
+                    matchSource = 'queryMatches';
+                }
                 html += `
-                    <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}')">
+                    <div class="option-card" onclick="selectProduct(${index}, '${match.name.replace(/'/g, "\\'")}', '${matchSource}')">
                         ${imageHtml}
                         <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">${match.name}</div>
                         <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${match.reason}</div>
@@ -1445,7 +1492,7 @@
             `;
             
             // Custom package modal will be added to body, not here
-            html += '</div></div>';
+            html += '</div>';
             return html;
         }
         
@@ -1732,23 +1779,39 @@
             const input = document.getElementById('productSearchInput');
             if (input && input.value.trim()) {
                 const query = input.value.trim();
-                sendSelection(query, { type: 'product_search', originalQuery: query });
+                // Mark as user search (not auto-search)
+                sendSelection(query, { type: 'product_search', originalQuery: query, isAutoSearch: false });
             } else {
-                // If empty, send a generic search
-                sendSelection('show me products', { type: 'product_search' });
+                // If empty, don't search - just show existing matches
+                console.log('[searchProducts] Empty query - not searching');
             }
         }
         
-        function selectProduct(index, name) {
-            // Store package image URL from the match before sending
-            if (flowState.packageData && flowState.packageData.matches && flowState.packageData.matches[index]) {
-                const selectedMatch = flowState.packageData.matches[index];
-                if (selectedMatch && selectedMatch.imageUrl) {
-                    flowState.packageImageUrl = selectedMatch.imageUrl;
-                    console.log('[selectProduct] Stored package image URL:', flowState.packageImageUrl);
+        function selectProduct(index, name, matchSource = 'unknown') {
+            // Determine which match list this came from
+            let selectedMatch = null;
+            if (matchSource === 'productMatches' && flowState.productMatches && flowState.productMatches[index]) {
+                selectedMatch = flowState.productMatches[index];
+            } else if (matchSource === 'queryMatches' && flowState.queryMatches && flowState.queryMatches[index]) {
+                selectedMatch = flowState.queryMatches[index];
+            } else {
+                // Fallback: try to find in either list
+                if (flowState.productMatches && flowState.productMatches[index]) {
+                    selectedMatch = flowState.productMatches[index];
+                } else if (flowState.queryMatches && flowState.queryMatches[index]) {
+                    selectedMatch = flowState.queryMatches[index];
                 }
             }
-            sendSelection(String(index + 1), { type: 'product', name });
+            
+            // Store package image URL from the match before sending
+            if (selectedMatch && selectedMatch.imageUrl) {
+                flowState.packageImageUrl = selectedMatch.imageUrl;
+                console.log('[selectProduct] Stored package image URL:', flowState.packageImageUrl);
+            }
+            
+            // Find the actual index in the combined list or use the provided index
+            // For now, we'll use a different approach: store the match info and let backend handle it
+            sendSelection(String(index + 1), { type: 'product', name, matchSource });
         }
         
         function selectVariant(index, title, id) {
@@ -2143,21 +2206,32 @@
             
             // Handle package search - show matches
             // IMPORTANT: Don't return early - continue processing to update backend step
-            if (metadata && metadata.type === 'product_search') {
+            if (metadata && metadata.type === 'product_search' || data.productMatches) {
                 console.log('[handleResponse] Processing product_search response');
                 console.log('[handleResponse] data.productMatches:', data.productMatches?.length || 0);
+                console.log('[handleResponse] data.isAutoSearch:', data.isAutoSearch);
                 console.log('[handleResponse] data.flowState.hasPackage:', data.flowState?.hasPackage);
                 console.log('[handleResponse] backendStep:', backendStep);
                 console.log('[handleResponse] data.currentQuestion:', data.currentQuestion);
                 console.log('[handleResponse] flowState.packageSpecs BEFORE:', flowState.packageSpecs);
                 
                 // If this is an edit request, ensure we show the search UI even if no matches
-                const isEditRequest = metadata.isEdit === true;
+                const isEditRequest = metadata && metadata.isEdit === true;
+                const isAutoSearch = data.isAutoSearch === true; // Auto-search from product details
+                const userQuery = metadata && (metadata.originalQuery || metadata.message) || '';
                 
                 if (data.productMatches && data.productMatches.length > 0) {
                     console.log('[handleResponse] Showing product matches');
-                    flowState.packageData = flowState.packageData || {};
-                    flowState.packageData.matches = data.productMatches;
+                    if (isAutoSearch) {
+                        // Store as product matches (auto-generated from product details)
+                        flowState.productMatches = data.productMatches;
+                        console.log('[handleResponse] Stored as productMatches (auto-search)');
+                    } else {
+                        // Store as query matches (user search)
+                        flowState.queryMatches = data.productMatches;
+                        flowState.queryMatchesQuery = userQuery;
+                        console.log('[handleResponse] Stored as queryMatches (user search):', userQuery);
+                    }
                     // Hide fallback message if matches found
                     const fallbackMsg = document.getElementById('searchFallbackMessage');
                     if (fallbackMsg) fallbackMsg.style.display = 'none';
