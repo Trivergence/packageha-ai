@@ -804,12 +804,27 @@ export class SovereignSwitch {
     for (let i = 0; i < candidate.content.parts.length; i++) {
       const part = candidate.content.parts[i];
       console.log(`[SovereignSwitch] Part ${i} keys:`, Object.keys(part));
+      console.log(`[SovereignSwitch] Part ${i} type:`, part.text ? 'text' : part.inlineData ? 'inlineData' : part.url ? 'url' : 'unknown');
       
       // Check for inline data (base64 image) - this is how Gemini returns generated images
       if (part.inlineData) {
         const imageData = part.inlineData.data;
         const mimeType = part.inlineData.mimeType || 'image/png';
-        console.log("[SovereignSwitch] Found generated image in response (mimeType:", mimeType, ", data length:", imageData?.length || 0, ")");
+        
+        // Validate base64 data
+        if (!imageData || typeof imageData !== 'string') {
+          console.error("[SovereignSwitch] Invalid image data type:", typeof imageData);
+          continue;
+        }
+        
+        // Check if it's valid base64
+        const base64Regex = /^[A-Za-z0-9+/=]+$/;
+        if (!base64Regex.test(imageData)) {
+          console.error("[SovereignSwitch] Invalid base64 format, first 100 chars:", imageData.substring(0, 100));
+          continue;
+        }
+        
+        console.log("[SovereignSwitch] Found valid generated image (mimeType:", mimeType, ", data length:", imageData.length, ")");
         // Return as data URL
         return `data:${mimeType};base64,${imageData}`;
       }

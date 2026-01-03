@@ -4860,13 +4860,35 @@ Return ONLY a detailed image description, no other text.`;
                 // Clear container first to prevent showing old images
                 imageContainer.innerHTML = '';
                 
+                // Validate image URL before using it
+                let isValidImageUrl = false;
+                if (imageUrlToUse) {
+                    if (imageUrlToUse.startsWith('data:')) {
+                        // Validate data URL format
+                        const parts = imageUrlToUse.split(',');
+                        if (parts.length === 2 && parts[1].length > 100) {
+                            isValidImageUrl = true;
+                        } else {
+                            console.error('[selectPackageMatch] Invalid data URL format');
+                        }
+                    } else if (imageUrlToUse.startsWith('http://') || imageUrlToUse.startsWith('https://')) {
+                        isValidImageUrl = true;
+                    }
+                }
+                
+                if (!isValidImageUrl) {
+                    console.error('[selectPackageMatch] Invalid image URL, using fallback');
+                    // Use a safe placeholder
+                    imageUrlToUse = 'https://via.placeholder.com/800x600?text=Image+Generation+Failed';
+                }
+                
                 // Add description and image
                 imageContainer.innerHTML = `
                     <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
                         <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;" data-ar="وصف الصورة المولدة (بواسطة Gemini):" data-en="Generated Image Description (by Gemini):">${currentLang === 'ar' ? 'وصف الصورة المولدة (بواسطة Gemini):' : 'Generated Image Description (by Gemini):'}</div>
                         <div style="font-size: 13px; color: #333; font-style: italic; line-height: 1.6;">${imagePrompt.substring(0, 300)}${imagePrompt.length > 300 ? '...' : ''}</div>
                     </div>
-                    <img id="generatedPackageImage" src="${imageUrlToUse}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);" onerror="this.style.display='none'; this.parentElement.innerHTML+='<div style=\\'padding: 40px; text-align: center; color: #dc3545;\\'>Image failed to load</div>'">
+                    <img id="generatedPackageImage" src="${imageUrlToUse}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);" onerror="console.error('Image load error:', this.src.substring(0, 100)); this.style.display='none'; const errorDiv = document.createElement('div'); errorDiv.style.cssText='padding: 40px; text-align: center; color: #dc3545;'; errorDiv.textContent='${currentLang === 'ar' ? 'فشل تحميل الصورة' : 'Image failed to load'}'; this.parentElement.appendChild(errorDiv);">
                 `;
                 
                 console.log('[selectPackageMatch] Image URL set:', generatedPackageImageUrl);

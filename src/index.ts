@@ -98,10 +98,25 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
           body.productImageUrl,
           body.packageImageUrl
         );
-        console.log("[API] Successfully generated image, URL length:", imageUrl.length);
+        console.log("[API] Successfully generated image, URL type:", imageUrl.startsWith('data:') ? 'data URL' : 'regular URL', ", length:", imageUrl.length);
+        
+        // Validate the data URL format
+        if (imageUrl.startsWith('data:')) {
+          const parts = imageUrl.split(',');
+          if (parts.length !== 2) {
+            throw new Error("Invalid data URL format");
+          }
+          const base64Data = parts[1];
+          // Basic validation - check if it looks like valid base64
+          if (base64Data.length < 100) {
+            throw new Error("Image data too short, likely invalid");
+          }
+        }
       } catch (error: any) {
+        console.error("[API] Image generation failed:", error.message);
+        console.error("[API] Error stack:", error.stack);
+        
         // If image generation fails, enhance the prompt with text-only call
-        console.log("[API] Image generation failed, enhancing prompt:", error.message);
         try {
           imagePrompt = await sovereignSwitch.callAI(
             `Enhance this image generation prompt to be more detailed and specific for showing a product inside its package: ${body.prompt}`,
