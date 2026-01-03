@@ -327,20 +327,19 @@
         
         .connect-menu {
             position: absolute;
-            top: 100%;
+            top: calc(100% + 8px);
             right: 0;
-            margin-top: 8px;
             background: white;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.15);
             min-width: 200px;
-            z-index: 1000;
+            z-index: 10000;
             display: none;
             overflow: hidden;
         }
         
         .connect-menu.visible {
-            display: block;
+            display: block !important;
         }
         
         .connect-menu-item {
@@ -4236,7 +4235,7 @@
             // Add Connect Store button
             storesHtml += `
                 <div style="position: relative; display: flex; align-items: stretch;">
-                    <button onclick="toggleConnectMenu(); event.stopPropagation();" class="connect-store-btn">
+                    <button class="connect-store-btn" data-connect-button="true">
                         <span>+</span>
                         <span data-ar="ربط متجر" data-en="Connect Store">${currentLang === 'ar' ? 'ربط متجر' : 'Connect Store'}</span>
                     </button>
@@ -4262,12 +4261,32 @@
             `;
             
             storesList.innerHTML = storesHtml;
+            
+            // Attach event listener to the newly created button
+            const connectButton = storesList.querySelector('[data-connect-button="true"]');
+            if (connectButton) {
+                connectButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    toggleConnectMenu();
+                });
+                console.log('[renderStores] Event listener attached to connect button');
+            } else {
+                console.error('[renderStores] Connect button not found!');
+            }
         }
         
         function toggleConnectMenu() {
+            console.log('[toggleConnectMenu] Function called');
             const menu = document.getElementById('connectMenu');
+            console.log('[toggleConnectMenu] Menu element found:', menu ? 'Yes' : 'No');
             if (menu) {
+                const isVisible = menu.classList.contains('visible');
+                console.log('[toggleConnectMenu] Menu currently visible:', isVisible);
                 menu.classList.toggle('visible');
+                console.log('[toggleConnectMenu] Menu visibility toggled. Now visible:', menu.classList.contains('visible'));
+                console.log('[toggleConnectMenu] Menu computed display:', window.getComputedStyle(menu).display);
+            } else {
+                console.error('[toggleConnectMenu] Menu element not found!');
             }
         }
         
@@ -6164,6 +6183,15 @@ Return ONLY a detailed image description, no other text.`;
             renderInventoryTable();
             setLanguage('ar'); // Set default language
             updateLinkProductStoreSelect(); // Initialize store select in Add Product dialog
+            
+            // Attach event listener to static connect button (if it exists before renderStores replaces it)
+            const staticConnectButton = document.querySelector('.connect-store-btn');
+            if (staticConnectButton && !staticConnectButton.hasAttribute('data-connect-button')) {
+                staticConnectButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    toggleConnectMenu();
+                });
+            }
             
             // Pre-fetch products to warm up cache (runs asynchronously)
             prefetchProducts();
