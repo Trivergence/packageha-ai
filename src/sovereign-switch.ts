@@ -199,20 +199,13 @@ export class SovereignSwitch {
       
       const data = await response.json();
       
-      // Log ALL models from the API (before any filtering)
+      // Process models from the API (no verbose logging)
       const allModels = (data.models || []).map((m: any) => ({
         name: m.name.replace('models/', ''),
         fullName: m.name,
         displayName: m.displayName || '',
         supportedMethods: m.supportedGenerationMethods || []
       }));
-      
-      console.log("[listGeminiModels] ========== ALL MODELS FROM API ==========");
-      console.log("[listGeminiModels] Total models returned:", allModels.length);
-      allModels.forEach((m: any, index: number) => {
-        console.log(`[listGeminiModels] ${index + 1}. ${m.name}${m.displayName ? ` (${m.displayName})` : ''} - Methods: [${m.supportedMethods.join(', ')}]`);
-      });
-      console.log("[listGeminiModels] =========================================");
       
       // First, get all models that support generateContent
       const allValidModels = allModels
@@ -222,11 +215,6 @@ export class SovereignSwitch {
           fullName: m.fullName,
           displayName: m.displayName
         }));
-      
-      console.log("[listGeminiModels] Models supporting generateContent:", allValidModels.length);
-      allValidModels.forEach((m: any, index: number) => {
-        console.log(`[listGeminiModels]   ${index + 1}. ${m.name}${m.displayName ? ` (${m.displayName})` : ''}`);
-      });
       
       // Try strict filtering first (exclude problematic models)
       const strictFiltered = allValidModels.filter((m: any) => {
@@ -239,7 +227,6 @@ export class SovereignSwitch {
                                   modelName.includes('live');
         
         if (isInteractionOnly) {
-          console.log("[listGeminiModels] Excluding Interaction-only model:", m.name);
           return false;
         }
         
@@ -249,16 +236,10 @@ export class SovereignSwitch {
                                     modelName.includes('experimental');
         
         if (isPreviewOrResearch) {
-          console.log("[listGeminiModels] Excluding preview/research model:", m.name);
           return false;
         }
         
         return true;
-      });
-      
-      console.log("[listGeminiModels] Models after strict filtering:", strictFiltered.length);
-      strictFiltered.forEach((m: any, index: number) => {
-        console.log(`[listGeminiModels]   ${index + 1}. ${m.name}${m.displayName ? ` (${m.displayName})` : ''}`);
       });
       
       // If strict filtering left us with models, use those
@@ -266,9 +247,6 @@ export class SovereignSwitch {
       const modelsToReturn = strictFiltered.length > 0 ? strictFiltered : allValidModels;
       const modelNames = modelsToReturn.map(m => m.name).sort();
       
-      console.log("[listGeminiModels] ========== FINAL AVAILABLE MODELS ==========");
-      console.log("[listGeminiModels] Selected models (after filtering):", modelNames);
-      console.log("[listGeminiModels] ============================================");
       return modelNames;
     } catch (error: any) {
       console.error("[listGeminiModels] Error:", error);
