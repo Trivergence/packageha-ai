@@ -1088,6 +1088,14 @@
                             <div class="connect-menu-item-icon" style="background: #f5f7fa;">⚙️</div>
                             <div class="connect-menu-item-text" data-ar="مخصص" data-en="Custom">مخصص</div>
                         </div>
+                        <div class="connect-menu-item" onclick="connectStore('shopify')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛒</div>
+                            <div class="connect-menu-item-text" data-ar="Shopify" data-en="Shopify">Shopify</div>
+                        </div>
+                        <div class="connect-menu-item" onclick="connectStore('zed')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">📦</div>
+                            <div class="connect-menu-item-text" data-ar="Zed" data-en="Zed">Zed</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1122,6 +1130,121 @@
             <div id="noProductsMessage" class="no-products-message" style="display: none;">
                 <p data-ar="لا توجد منتجات في متجرك بعد" data-en="No products in your store yet">لا توجد منتجات في متجرك بعد</p>
                 <button onclick="startDesignFlow()" class="design-btn" data-ar="تصميم غلاف الآن" data-en="Design Package Now">تصميم غلاف الآن</button>
+            </div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button onclick="showAddProductDialog()" class="design-btn" style="padding: 14px 28px; font-size: 15px;" data-ar="إضافة منتج" data-en="Add Product">إضافة منتج</button>
+            </div>
+        </div>
+        
+        <!-- Add Product Dialog -->
+        <div id="addProductModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <h2 style="margin: 0; color: #1a1a1a;" data-ar="إضافة منتج جديد" data-en="Add New Product">إضافة منتج جديد</h2>
+                    <button onclick="closeAddProductDialog()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #666; line-height: 1;">&times;</button>
+                </div>
+                
+                <!-- Product Photo Upload -->
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="صورة المنتج" data-en="Product Photo">صورة المنتج</label>
+                    <div style="border: 2px dashed #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;" 
+                         onclick="document.getElementById('newProductPhotoInput').click()"
+                         onmouseover="this.style.borderColor='#1a1a1a'"
+                         onmouseout="this.style.borderColor='#e0e0e0'">
+                        <div id="newProductPhotoPreview" style="display: none; margin-bottom: 15px;">
+                            <img id="newProductPhotoImg" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        </div>
+                        <div id="newProductPhotoPlaceholder">
+                            <div style="font-size: 48px; margin-bottom: 10px;">📷</div>
+                            <div style="color: #666;" data-ar="انقر لرفع صورة المنتج" data-en="Click to upload product photo">انقر لرفع صورة المنتج</div>
+                        </div>
+                        <input type="file" id="newProductPhotoInput" accept="image/*" style="display: none;" onchange="handleNewProductPhotoUpload(event)">
+                    </div>
+                </div>
+                
+                <!-- Product Details Form -->
+                <div id="productDetailsForm" style="margin-bottom: 25px;">
+                    <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;" data-ar="تفاصيل المنتج" data-en="Product Details">تفاصيل المنتج</h3>
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="وصف المنتج" data-en="Product Description">وصف المنتج</label>
+                        <textarea id="newProductDescription" placeholder="Describe your product..." style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div class="dimensions-row" style="margin-bottom: 15px;">
+                        <div class="input-group">
+                            <label data-ar="الطول (سم)" data-en="Length (cm)">الطول (سم)</label>
+                            <input type="number" id="newProductLength" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div class="input-group">
+                            <label data-ar="العرض (سم)" data-en="Width (cm)">العرض (سم)</label>
+                            <input type="number" id="newProductWidth" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div class="input-group">
+                            <label data-ar="الارتفاع (سم)" data-en="Height (cm)">الارتفاع (سم)</label>
+                            <input type="number" id="newProductHeight" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="الوزن (جرام)" data-en="Weight (grams)">الوزن (جرام)</label>
+                        <input type="number" id="newProductWeight" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="الهشاشة" data-en="Fragility">الهشاشة</label>
+                        <select id="newProductFragility" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
+                            <option value="fragile" data-ar="هش" data-en="Fragile">هش</option>
+                            <option value="moderate" data-ar="متوسط" data-en="Moderate">متوسط</option>
+                            <option value="durable" data-ar="متين" data-en="Durable">متين</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label data-ar="الميزانية (ريال)" data-en="Budget (SAR)">الميزانية (ريال)</label>
+                        <input type="number" id="newProductBudget" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                    </div>
+                </div>
+                
+                <!-- Link Product Section -->
+                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1;">
+                    <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;" data-ar="ربط المنتج بمتجر" data-en="Link Product to Store">ربط المنتج بمتجر</h3>
+                    
+                    <!-- Linked Products Table -->
+                    <div id="linkedProductsTable" style="margin-bottom: 20px; max-height: 200px; overflow-y: auto; border: 1px solid #e8ecf1; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="background: #f5f7fa;">
+                                <tr>
+                                    <th style="padding: 10px; text-align: right; font-size: 13px; font-weight: 600; color: #666;" data-ar="المنتج" data-en="Product">المنتج</th>
+                                    <th style="padding: 10px; text-align: right; font-size: 13px; font-weight: 600; color: #666;" data-ar="المتجر" data-en="Store">المتجر</th>
+                                    <th style="padding: 10px; text-align: center; font-size: 13px; font-weight: 600; color: #666;" data-ar="إجراءات" data-en="Actions">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="linkedProductsTableBody">
+                                <tr>
+                                    <td colspan="3" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد منتجات مرتبطة" data-en="No linked products">لا توجد منتجات مرتبطة</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Link Product From -->
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <label style="font-weight: 600; color: #333;" data-ar="ربط منتج من:" data-en="Link Product from:">ربط منتج من:</label>
+                        <select id="linkProductStoreSelect" onchange="handleLinkProductStoreChange()" style="flex: 1; min-width: 200px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            <option value="" data-ar="اختر متجر..." data-en="Select store...">اختر متجر...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Store Products List (for Salla) -->
+                    <div id="storeProductsList" style="display: none; margin-top: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #e8ecf1; border-radius: 8px; padding: 15px;">
+                        <div id="storeProductsListContent">
+                            <!-- Products will be listed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dialog Actions -->
+                <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="closeAddProductDialog()" style="padding: 12px 24px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="إلغاء" data-en="Cancel">إلغاء</button>
+                    <button onclick="saveNewProduct()" style="padding: 12px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="حفظ المنتج" data-en="Save Product">حفظ المنتج</button>
+                </div>
             </div>
         </div>
         
@@ -3743,7 +3866,10 @@
             
             // Update all elements with data-ar and data-en attributes
             document.querySelectorAll('[data-ar][data-en]').forEach(el => {
-                el.textContent = el.getAttribute(`data-${lang}`);
+                const text = el.getAttribute(`data-${lang}`);
+                if (text) {
+                    el.textContent = text;
+                }
             });
             
             // Re-render stores and inventory table with new language
@@ -3777,6 +3903,8 @@
                 return;
             }
             
+            const disconnectText = currentLang === 'ar' ? 'قطع الاتصال' : 'Disconnect';
+            
             storesList.innerHTML = connectedStores.map(store => {
                 const host = hostConfig[store.host] || hostConfig.custom;
                 const logoHtml = store.logo 
@@ -3792,7 +3920,7 @@
                             </div>
                         </div>
                         <div class="store-name">${store.name}</div>
-                        <button onclick="disconnectStore(${store.id})" class="disconnect-btn" data-ar="قطع الاتصال" data-en="Disconnect">قطع الاتصال</button>
+                        <button onclick="disconnectStore(${store.id})" class="disconnect-btn">${disconnectText}</button>
                     </div>
                 `;
             }).join('');
@@ -3822,7 +3950,17 @@
                     });
                     renderStores();
                 }
+            } else if (host === 'shopify' || host === 'zed') {
+                // Show coming soon message
+                alert(currentLang === 'ar' 
+                    ? `اتصال ${host === 'shopify' ? 'Shopify' : 'Zed'} قريباً`
+                    : `${host === 'shopify' ? 'Shopify' : 'Zed'} connection coming soon`);
             }
+        }
+        
+        function orderPackageForProduct(productId) {
+            // For now, this can trigger the design flow or show order options
+            designPackageForProduct(productId);
         }
         
         function disconnectStore(storeId) {
@@ -3851,8 +3989,8 @@
                 nameAr: 'عطر فاخر - زجاجة 200 مل',
                 nameEn: 'Premium Perfume - 200ml Bottle',
                 productPhoto: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=200&h=200&fit=crop',
-                packageAr: 'صندوق كرتوني مخصص',
-                packageEn: 'Custom Cardboard Box',
+                packageAr: 'Custom Package',
+                packageEn: 'Custom Package',
                 packagePhoto: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=200&h=200&fit=crop',
                 storeId: 1,
                 storeName: 'Demo Store',
@@ -3892,43 +4030,42 @@
             
             if (noProductsMsg) noProductsMsg.style.display = 'none';
             
-            const isAr = currentLang === 'ar';
-            const noPackageText = isAr ? 'لا يوجد غلاف' : 'No Package';
-            const linkedText = isAr ? '✓ مرتبط' : '✓ Linked';
-            const designBtnText = isAr ? 'تصميم غلاف الآن' : 'Design Package Now';
-            
-            tbody.innerHTML = demoProducts.map(product => {
-                const productPhoto = product.productPhoto 
-                    ? `<img src="${product.productPhoto}" alt="${isAr ? product.nameAr : product.nameEn}" class="product-photo">`
-                    : `<div class="photo-placeholder">📦</div>`;
+                const isAr = currentLang === 'ar';
+                const noPackageText = isAr ? '' : '';
+                const orderBtnText = isAr ? 'طلب غلاف الآن' : 'Order Package Now';
                 
-                const productName = isAr ? product.nameAr : product.nameEn;
-                
-                const packageText = product.hasPackage 
-                    ? (isAr ? product.packageAr : product.packageEn)
-                    : `<span style="color: #999;">${noPackageText}</span>`;
-                
-                const packagePhoto = product.hasPackage && product.packagePhoto
-                    ? `<img src="${product.packagePhoto}" alt="${packageText}" class="package-photo">`
-                    : `<div class="photo-placeholder">📦</div>`;
-                
-                const host = hostConfig[product.host] || hostConfig.custom;
-                const sourceHtml = `
-                    <div class="store-source">
-                        <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
-                            ${host.icon}
+                tbody.innerHTML = demoProducts.map(product => {
+                    const productPhoto = product.productPhoto 
+                        ? `<img src="${product.productPhoto}" alt="${isAr ? product.nameAr : product.nameEn}" class="product-photo">`
+                        : `<div class="photo-placeholder">📦</div>`;
+                    
+                    const productName = isAr ? product.nameAr : product.nameEn;
+                    
+                    const packageText = product.hasPackage 
+                        ? 'Custom Package'
+                        : '';
+                    
+                    const packagePhoto = product.hasPackage && product.packagePhoto
+                        ? `<img src="${product.packagePhoto}" alt="Custom Package" class="package-photo">`
+                        : `<div class="photo-placeholder"></div>`;
+                    
+                    const host = hostConfig[product.host] || hostConfig.custom;
+                    const sourceHtml = `
+                        <div class="store-source">
+                            <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
+                                ${host.icon}
+                            </div>
+                            <span>${product.storeName}</span>
                         </div>
-                        <span>${product.storeName}</span>
-                    </div>
-                `;
-                
-                const restockText = isAr ? product.restockAr : product.restockEn;
-                const restockClass = product.restockAr === 'متوفر' || product.restockEn === 'Available' 
-                    ? 'restock-available' 
-                    : 'restock-out';
-                const actionCell = product.hasPackage 
-                    ? `<span class="linked-badge">${linkedText}</span>`
-                    : `<button onclick="designPackageForProduct(${product.id})" class="design-btn">${designBtnText}</button>`;
+                    `;
+                    
+                    const restockText = isAr ? product.restockAr : product.restockEn;
+                    const restockClass = product.restockAr === 'متوفر' || product.restockEn === 'Available' 
+                        ? 'restock-available' 
+                        : 'restock-out';
+                    const actionCell = product.hasPackage 
+                        ? `<button onclick="orderPackageForProduct(${product.id})" class="design-btn">${orderBtnText}</button>`
+                        : `<button onclick="designPackageForProduct(${product.id})" class="design-btn">${orderBtnText}</button>`;
                 
                 return `
                     <tr>
@@ -3973,14 +4110,24 @@
         }
         
         async function startDesignFlowWithProduct(productName) {
-            const apiUrl = document.getElementById('apiUrl').value.trim();
+            // Get API URL - use default if input is hidden or empty
+            const apiUrlInput = document.getElementById('apiUrl');
+            const apiUrl = apiUrlInput ? apiUrlInput.value.trim() : 'https://packageha-ai.akhodary-006.workers.dev';
+            
             if (!apiUrl) {
                 alert(currentLang === 'ar' ? 'يرجى إدخال رابط Worker أولاً' : 'Please enter Worker URL first');
                 return;
             }
             
+            // Ensure URL has protocol
+            let finalUrl = apiUrl;
+            if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+                finalUrl = 'https://' + finalUrl;
+            }
+            finalUrl = finalUrl.replace(/\/$/, ''); // Remove trailing slash
+            
             try {
-                const response = await fetch(apiUrl, {
+                const response = await fetch(finalUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -4010,6 +4157,247 @@
             }
         }
         
+        // Add Product Dialog Functions
+        let newProductData = {
+            photo: null,
+            description: '',
+            dimensions: { length: '', width: '', height: '' },
+            weight: '',
+            fragility: '',
+            budget: '',
+            linkedProducts: []
+        };
+        
+        function showAddProductDialog() {
+            const modal = document.getElementById('addProductModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                // Reset form
+                newProductData = {
+                    photo: null,
+                    description: '',
+                    dimensions: { length: '', width: '', height: '' },
+                    weight: '',
+                    fragility: '',
+                    budget: '',
+                    linkedProducts: []
+                };
+                document.getElementById('newProductDescription').value = '';
+                document.getElementById('newProductLength').value = '';
+                document.getElementById('newProductWidth').value = '';
+                document.getElementById('newProductHeight').value = '';
+                document.getElementById('newProductWeight').value = '';
+                document.getElementById('newProductFragility').value = '';
+                document.getElementById('newProductBudget').value = '';
+                document.getElementById('newProductPhotoPreview').style.display = 'none';
+                document.getElementById('newProductPhotoPlaceholder').style.display = 'block';
+                document.getElementById('linkProductStoreSelect').value = '';
+                document.getElementById('storeProductsList').style.display = 'none';
+                updateLinkProductStoreSelect();
+                renderLinkedProductsTable();
+            }
+        }
+        
+        function closeAddProductDialog() {
+            const modal = document.getElementById('addProductModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function handleNewProductPhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert(currentLang === 'ar' ? 'يرجى اختيار ملف صورة' : 'Please select an image file');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                newProductData.photo = e.target.result;
+                document.getElementById('newProductPhotoImg').src = e.target.result;
+                document.getElementById('newProductPhotoPreview').style.display = 'block';
+                document.getElementById('newProductPhotoPlaceholder').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function updateLinkProductStoreSelect() {
+            const select = document.getElementById('linkProductStoreSelect');
+            if (!select) return;
+            
+            // Clear existing options except the first one
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            // Add connected stores
+            connectedStores.forEach(store => {
+                const option = document.createElement('option');
+                option.value = store.id;
+                option.textContent = `${store.name} (${hostConfig[store.host]?.name || store.host})`;
+                option.setAttribute('data-host', store.host);
+                select.appendChild(option);
+            });
+        }
+        
+        async function handleLinkProductStoreChange() {
+            const select = document.getElementById('linkProductStoreSelect');
+            const storeId = select.value;
+            const store = connectedStores.find(s => s.id === parseInt(storeId));
+            
+            const productsList = document.getElementById('storeProductsList');
+            const productsListContent = document.getElementById('storeProductsListContent');
+            
+            if (!storeId || !store) {
+                productsList.style.display = 'none';
+                return;
+            }
+            
+            productsList.style.display = 'block';
+            productsListContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading products...</div>';
+            
+            if (store.host === 'salla' && sallaAccessToken) {
+                // Fetch Salla products
+                try {
+                    const apiUrlInput = document.getElementById('apiUrl');
+                    const apiUrl = apiUrlInput ? apiUrlInput.value.trim() : 'https://packageha-ai.akhodary-006.workers.dev';
+                    let finalUrl = apiUrl;
+                    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+                        finalUrl = 'https://' + finalUrl;
+                    }
+                    finalUrl = finalUrl.replace(/\/$/, '');
+                    
+                    const response = await fetch(`${finalUrl}/api/salla/products?access_token=${sallaAccessToken}`);
+                    const data = await response.json();
+                    
+                    if (data.products && data.products.length > 0) {
+                        productsListContent.innerHTML = data.products.map(product => `
+                            <div onclick="linkProductFromStore(${product.id}, '${store.host}', ${store.id})" 
+                                 style="padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;"
+                                 onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'"
+                                 onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 5px;">${product.name}</div>
+                                ${product.description ? `<div style="font-size: 13px; color: #666;">${product.description.substring(0, 100)}${product.description.length > 100 ? '...' : ''}</div>` : ''}
+                            </div>
+                        `).join('');
+                    } else {
+                        productsListContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">No products found in this store</div>';
+                    }
+                } catch (error) {
+                    console.error('[handleLinkProductStoreChange] Error:', error);
+                    productsListContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading products</div>';
+                }
+            } else {
+                productsListContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Store connection required</div>';
+            }
+        }
+        
+        function linkProductFromStore(productId, host, storeId) {
+            const store = connectedStores.find(s => s.id === storeId);
+            if (!store) return;
+            
+            // Add to linked products
+            newProductData.linkedProducts.push({
+                productId: productId,
+                host: host,
+                storeId: storeId,
+                storeName: store.name
+            });
+            
+            renderLinkedProductsTable();
+            // Clear selection
+            document.getElementById('linkProductStoreSelect').value = '';
+            document.getElementById('storeProductsList').style.display = 'none';
+        }
+        
+        function removeLinkedProduct(index) {
+            newProductData.linkedProducts.splice(index, 1);
+            renderLinkedProductsTable();
+        }
+        
+        function renderLinkedProductsTable() {
+            const tbody = document.getElementById('linkedProductsTableBody');
+            if (!tbody) return;
+            
+            if (newProductData.linkedProducts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد منتجات مرتبطة" data-en="No linked products">لا توجد منتجات مرتبطة</td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = newProductData.linkedProducts.map((linked, index) => {
+                const store = connectedStores.find(s => s.id === linked.storeId);
+                const host = hostConfig[linked.host] || hostConfig.custom;
+                return `
+                    <tr>
+                        <td style="padding: 10px;">Product ID: ${linked.productId}</td>
+                        <td style="padding: 10px;">
+                            <div class="store-source">
+                                <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
+                                    ${host.icon}
+                                </div>
+                                <span>${linked.storeName}</span>
+                            </div>
+                        </td>
+                        <td style="padding: 10px; text-align: center;">
+                            <button onclick="removeLinkedProduct(${index})" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;" data-ar="إزالة" data-en="Remove">إزالة</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function saveNewProduct() {
+            // Collect form data
+            newProductData.description = document.getElementById('newProductDescription').value.trim();
+            newProductData.dimensions.length = document.getElementById('newProductLength').value.trim();
+            newProductData.dimensions.width = document.getElementById('newProductWidth').value.trim();
+            newProductData.dimensions.height = document.getElementById('newProductHeight').value.trim();
+            newProductData.weight = document.getElementById('newProductWeight').value.trim();
+            newProductData.fragility = document.getElementById('newProductFragility').value;
+            newProductData.budget = document.getElementById('newProductBudget').value.trim();
+            
+            if (!newProductData.description) {
+                alert(currentLang === 'ar' ? 'يرجى إدخال وصف المنتج' : 'Please enter product description');
+                return;
+            }
+            
+            // Create product name from description (first 50 chars)
+            const productName = newProductData.description.substring(0, 50);
+            const productNameAr = productName;
+            const productNameEn = productName;
+            
+            // Add to demo products
+            const newProduct = {
+                id: Date.now(),
+                nameAr: productNameAr,
+                nameEn: productNameEn,
+                productPhoto: newProductData.photo || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop',
+                packageAr: null,
+                packageEn: null,
+                packagePhoto: null,
+                storeId: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeId : 1,
+                storeName: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeName : 'Demo Store',
+                host: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].host : 'custom',
+                restockAr: 'متوفر',
+                restockEn: 'Available',
+                hasPackage: false
+            };
+            
+            demoProducts.push(newProduct);
+            renderInventoryTable();
+            closeAddProductDialog();
+            
+            // Show success message
+            alert(currentLang === 'ar' ? 'تم إضافة المنتج بنجاح' : 'Product added successfully');
+        }
+        
         // Initialize - DO NOT auto-initialize flow, only show inventory
         // Check for Salla callback on page load and update redirect URI display
         window.addEventListener('DOMContentLoaded', function() {
@@ -4018,6 +4406,7 @@
             renderStores();
             renderInventoryTable();
             setLanguage('ar'); // Set default language
+            updateLinkProductStoreSelect(); // Initialize store select in Add Product dialog
             
             // Update redirect URI when API URL changes
             const apiUrlInput = document.getElementById('apiUrl');
