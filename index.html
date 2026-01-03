@@ -4267,7 +4267,8 @@
             if (connectButton) {
                 connectButton.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    toggleConnectMenu();
+                    e.preventDefault();
+                    toggleConnectMenu(e);
                 });
                 console.log('[renderStores] Event listener attached to connect button');
             } else {
@@ -4275,16 +4276,25 @@
             }
         }
         
-        function toggleConnectMenu() {
+        function toggleConnectMenu(event) {
+            // Prevent event from bubbling up immediately
+            if (event) {
+                event.stopPropagation();
+            }
+            
             console.log('[toggleConnectMenu] Function called');
             const menu = document.getElementById('connectMenu');
             console.log('[toggleConnectMenu] Menu element found:', menu ? 'Yes' : 'No');
             if (menu) {
                 const isVisible = menu.classList.contains('visible');
                 console.log('[toggleConnectMenu] Menu currently visible:', isVisible);
-                menu.classList.toggle('visible');
-                console.log('[toggleConnectMenu] Menu visibility toggled. Now visible:', menu.classList.contains('visible'));
-                console.log('[toggleConnectMenu] Menu computed display:', window.getComputedStyle(menu).display);
+                
+                // Use setTimeout to prevent immediate closing by outside click handler
+                setTimeout(() => {
+                    menu.classList.toggle('visible');
+                    console.log('[toggleConnectMenu] Menu visibility toggled. Now visible:', menu.classList.contains('visible'));
+                    console.log('[toggleConnectMenu] Menu computed display:', window.getComputedStyle(menu).display);
+                }, 0);
             } else {
                 console.error('[toggleConnectMenu] Menu element not found!');
             }
@@ -4448,7 +4458,8 @@
             const clickedInsideMenu = menu.contains(e.target);
             const clickedOnButton = e.target.closest('.connect-store-btn');
             
-            if (!clickedInsideMenu && !clickedOnButton) {
+            // Only close if menu is visible and click is outside both menu and button
+            if (menu.classList.contains('visible') && !clickedInsideMenu && !clickedOnButton) {
                 menu.classList.remove('visible');
             }
         });
@@ -6189,7 +6200,8 @@ Return ONLY a detailed image description, no other text.`;
             if (staticConnectButton && !staticConnectButton.hasAttribute('data-connect-button')) {
                 staticConnectButton.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    toggleConnectMenu();
+                    e.preventDefault();
+                    toggleConnectMenu(e);
                 });
             }
             
