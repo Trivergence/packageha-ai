@@ -1049,7 +1049,7 @@
         }
         
         .step-number {
-            display: inline-block;
+            display: block;
             width: 28px;
             height: 28px;
             background: #1a1a1a;
@@ -1058,7 +1058,8 @@
             font-size: 14px;
             font-weight: 600;
             line-height: 28px;
-            margin-bottom: 12px;
+            margin: 0 auto 12px auto;
+            text-align: center;
         }
         
         .step-title {
@@ -1066,6 +1067,8 @@
             font-weight: 600;
             color: #1a1a1a;
             text-align: center;
+            width: 100%;
+            display: block;
         }
         
         .step-arrow {
@@ -4433,8 +4436,19 @@
                         </div>
                     `;
                     
+                    const deleteProductIcon = `
+                        <button onclick="deleteProduct(${product.id})" 
+                                style="background: none; border: none; cursor: pointer; padding: 4px; color: #dc3545; font-size: 18px; transition: all 0.2s;"
+                                onmouseover="this.style.transform='scale(1.2)'; this.style.color='#c82333';"
+                                onmouseout="this.style.transform='scale(1)'; this.style.color='#dc3545';"
+                                title="${isAr ? 'حذف المنتج' : 'Delete Product'}">
+                            🗑️
+                        </button>
+                    `;
+                    
                     const productCell = `
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;">
+                            <div style="position: absolute; top: -5px; right: -5px;">${deleteProductIcon}</div>
                             ${productPhoto}
                             <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${productName}</div>
                             ${storeIcons}
@@ -4446,8 +4460,18 @@
                     if (product.hasPackage && product.packagePhoto) {
                         // Use actual package name (Ar or En based on current language)
                         const packageName = currentLang === 'ar' ? (product.packageAr || product.packageEn || 'Custom Package') : (product.packageEn || product.packageAr || 'Custom Package');
+                        const deletePackageIcon = `
+                            <button onclick="deletePackage(${product.id})" 
+                                    style="background: none; border: none; cursor: pointer; padding: 4px; color: #dc3545; font-size: 18px; transition: all 0.2s;"
+                                    onmouseover="this.style.transform='scale(1.2)'; this.style.color='#c82333';"
+                                    onmouseout="this.style.transform='scale(1)'; this.style.color='#dc3545';"
+                                    title="${isAr ? 'حذف الغلاف' : 'Delete Package'}">
+                                🗑️
+                            </button>
+                        `;
                         packageCell = `
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;">
+                                <div style="position: absolute; top: -5px; right: -5px;">${deletePackageIcon}</div>
                                 <img src="${product.packagePhoto}" alt="${packageName}" class="package-photo">
                                 <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${packageName}</div>
                             </div>
@@ -4475,8 +4499,18 @@
                     
                     let stockActionCell = '';
                     if (product.hasPackage) {
+                        const editStockIcon = `
+                            <button onclick="editStock(${product.id})" 
+                                    style="background: none; border: none; cursor: pointer; padding: 4px; color: #007bff; font-size: 18px; transition: all 0.2s;"
+                                    onmouseover="this.style.transform='scale(1.2)'; this.style.color='#0056b3';"
+                                    onmouseout="this.style.transform='scale(1)'; this.style.color='#007bff';"
+                                    title="${isAr ? 'تعديل المخزون' : 'Edit Stock'}">
+                                ✏️
+                            </button>
+                        `;
                         stockActionCell = `
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; position: relative;">
+                                <div style="position: absolute; top: -5px; right: -5px;">${editStockIcon}</div>
                                 <div style="font-size: 14px; color: #666;" data-ar="المخزون:" data-en="Stock:">${currentLang === 'ar' ? 'المخزون:' : 'Stock:'} ${stockDisplay}</div>
                                 <button onclick="orderPackageForProduct(${product.id})" class="design-btn" style="width: 100%; max-width: 200px;">
                                     ${orderBtnText}
@@ -4496,6 +4530,71 @@
                     </tr>
                 `;
             }).join('');
+        }
+        
+        function deleteProduct(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const productName = currentLang === 'ar' ? product.nameAr : product.nameEn;
+            const confirmMsg = currentLang === 'ar' 
+                ? `هل أنت متأكد من حذف المنتج "${productName}"؟`
+                : `Are you sure you want to delete the product "${productName}"?`;
+            
+            if (confirm(confirmMsg)) {
+                // Remove product from array
+                const index = demoProducts.findIndex(p => p.id === productId);
+                if (index > -1) {
+                    demoProducts.splice(index, 1);
+                    renderInventoryTable();
+                }
+            }
+        }
+        
+        function deletePackage(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const confirmMsg = currentLang === 'ar' 
+                ? 'هل أنت متأكد من حذف الغلاف؟ سيتم حذف المخزون أيضاً.'
+                : 'Are you sure you want to delete the package? Stock will also be cleared.';
+            
+            if (confirm(confirmMsg)) {
+                // Clear package association and stock
+                product.hasPackage = false;
+                product.packageAr = null;
+                product.packageEn = null;
+                product.packagePhoto = null;
+                product.packageId = null;
+                product.packageVariantId = null;
+                product.stockAmount = 0;
+                
+                renderInventoryTable();
+            }
+        }
+        
+        function editStock(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const currentStock = product.stockAmount || 0;
+            const promptMsg = currentLang === 'ar' 
+                ? `أدخل كمية المخزون الجديدة (الحالية: ${currentStock}):`
+                : `Enter new stock amount (current: ${currentStock}):`;
+            
+            const newStock = prompt(promptMsg, currentStock.toString());
+            
+            if (newStock !== null) {
+                const stockValue = parseInt(newStock);
+                if (!isNaN(stockValue) && stockValue >= 0) {
+                    product.stockAmount = stockValue;
+                    renderInventoryTable();
+                } else {
+                    alert(currentLang === 'ar' 
+                        ? 'يرجى إدخال رقم صحيح أكبر من أو يساوي الصفر'
+                        : 'Please enter a valid number greater than or equal to zero');
+                }
+            }
         }
         
         function orderPackageForProduct(productId) {
