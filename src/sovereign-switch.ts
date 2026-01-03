@@ -247,7 +247,8 @@ export class SovereignSwitch {
   }
 
   /**
-   * Get a working Gemini model (tries to find one that works)
+   * Get a working Gemini model for TEXT tasks (package matching, conversations)
+   * Prioritizes text-optimized models, avoids image-specific models
    */
   async getWorkingGeminiModel(apiKey: string, preferredModel?: string): Promise<string> {
     // First, try to list available models
@@ -263,20 +264,60 @@ export class SovereignSwitch {
       return preferredModel;
     }
     
-    // Prefer models with "flash" in the name (faster, cheaper)
-    const flashModels = availableModels.filter(m => m.toLowerCase().includes('flash'));
-    if (flashModels.length > 0) {
-      return flashModels[0];
+    // Filter out image-specific models for text tasks
+    const textModels = availableModels.filter(m => {
+      const lower = m.toLowerCase();
+      // Exclude image-specific models
+      return !lower.includes('image') && 
+             !lower.includes('nano') && 
+             !lower.includes('banana');
+    });
+    
+    // Use text models if available, otherwise fall back to all models
+    const modelsToUse = textModels.length > 0 ? textModels : availableModels;
+    
+    // Priority order for TEXT tasks:
+    // 1. gemini-1.5-flash (fast, good for text)
+    // 2. gemini-1.5-pro (best quality for text)
+    // 3. gemini-pro (reliable fallback)
+    // 4. Any flash model (fast)
+    // 5. Any 1.5 model (newer)
+    // 6. First available
+    
+    const flash15 = modelsToUse.find(m => m.includes('1.5-flash') && !m.includes('image'));
+    if (flash15) {
+      console.log("[getWorkingGeminiModel] Selected 1.5-flash for text:", flash15);
+      return flash15;
     }
     
-    // Prefer models with "1.5" in the name (newer)
-    const v15Models = availableModels.filter(m => m.includes('1.5'));
-    if (v15Models.length > 0) {
-      return v15Models[0];
+    const pro15 = modelsToUse.find(m => m.includes('1.5-pro') && !m.includes('image') && !m.includes('preview'));
+    if (pro15) {
+      console.log("[getWorkingGeminiModel] Selected 1.5-pro for text:", pro15);
+      return pro15;
     }
     
-    // Fallback to first available model
-    return availableModels[0];
+    const pro = modelsToUse.find(m => m.includes('pro') && !m.includes('1.5') && !m.includes('image') && !m.includes('preview'));
+    if (pro) {
+      console.log("[getWorkingGeminiModel] Selected pro for text:", pro);
+      return pro;
+    }
+    
+    // Any flash model (but not image-specific)
+    const flash = modelsToUse.find(m => m.toLowerCase().includes('flash') && !m.toLowerCase().includes('image'));
+    if (flash) {
+      console.log("[getWorkingGeminiModel] Selected flash for text:", flash);
+      return flash;
+    }
+    
+    // Any 1.5 model
+    const v15 = modelsToUse.find(m => m.includes('1.5') && !m.includes('image'));
+    if (v15) {
+      console.log("[getWorkingGeminiModel] Selected 1.5 for text:", v15);
+      return v15;
+    }
+    
+    console.log("[getWorkingGeminiModel] Using first available model for text:", modelsToUse[0]);
+    return modelsToUse[0];
   }
 
   /**
