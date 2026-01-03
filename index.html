@@ -4203,32 +4203,63 @@
             const storesList = document.getElementById('storesList');
             if (!storesList) return;
             
-            if (connectedStores.length === 0) {
-                storesList.innerHTML = `<div style="width: 100%; text-align: center; padding: 40px; color: #999;" data-ar="لا توجد متاجر متصلة" data-en="No connected stores">لا توجد متاجر متصلة</div>`;
-                return;
-            }
-            
             const disconnectText = currentLang === 'ar' ? 'قطع الاتصال' : 'Disconnect';
             
-            storesList.innerHTML = connectedStores.map(store => {
-                const host = hostConfig[store.host] || hostConfig.custom;
-                const logoHtml = store.logo 
-                    ? `<img src="${store.logo}" alt="${store.name}" class="store-logo">`
-                    : `<div class="store-logo-placeholder">${host.icon}</div>`;
-                
-                return `
-                    <div class="store-card">
-                        <div class="store-logo-container">
-                            ${logoHtml}
-                            <div class="host-badge" style="background: ${host.color};">
-                                <span style="color: white; font-size: 14px;">${host.icon}</span>
+            let storesHtml = '';
+            
+            if (connectedStores.length === 0) {
+                storesHtml = `<div style="width: 100%; text-align: center; padding: 40px; color: #999;" data-ar="لا توجد متاجر متصلة" data-en="No connected stores">لا توجد متاجر متصلة</div>`;
+            } else {
+                storesHtml = connectedStores.map(store => {
+                    const host = hostConfig[store.host] || hostConfig.custom;
+                    const logoHtml = store.logo 
+                        ? `<img src="${store.logo}" alt="${store.name}" class="store-logo">`
+                        : `<div class="store-logo-placeholder">${host.icon}</div>`;
+                    
+                    return `
+                        <div class="store-card">
+                            <div class="store-logo-container">
+                                ${logoHtml}
+                                <div class="host-badge" style="background: ${host.color};">
+                                    <span style="color: white; font-size: 14px;">${host.icon}</span>
+                                </div>
                             </div>
+                            <div class="store-name">${store.name}</div>
+                            <button onclick="disconnectStore(${store.id})" class="disconnect-btn">${disconnectText}</button>
                         </div>
-                        <div class="store-name">${store.name}</div>
-                        <button onclick="disconnectStore(${store.id})" class="disconnect-btn">${disconnectText}</button>
+                    `;
+                }).join('');
+            }
+            
+            // Add Connect Store button
+            storesHtml += `
+                <div style="position: relative;" onclick="event.stopPropagation();">
+                    <button onclick="toggleConnectMenu()" class="connect-store-btn">
+                        <span>+</span>
+                        <span data-ar="ربط متجر" data-en="Connect Store">${currentLang === 'ar' ? 'ربط متجر' : 'Connect Store'}</span>
+                    </button>
+                    <div id="connectMenu" class="connect-menu">
+                        <div class="connect-menu-item" onclick="connectStore('salla')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛍️</div>
+                            <div class="connect-menu-item-text" data-ar="سلة" data-en="Salla">${currentLang === 'ar' ? 'سلة' : 'Salla'}</div>
+                        </div>
+                        <div class="connect-menu-item" onclick="connectStore('shopify')" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛒</div>
+                            <div class="connect-menu-item-text" data-ar="Shopify" data-en="Shopify">Shopify</div>
+                        </div>
+                        <div class="connect-menu-item" onclick="connectStore('zed')" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">📦</div>
+                            <div class="connect-menu-item-text" data-ar="Zed" data-en="Zed">Zed</div>
+                        </div>
+                        <div class="connect-menu-item" onclick="connectStore('custom')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">⚙️</div>
+                            <div class="connect-menu-item-text" data-ar="مخصص" data-en="Custom">${currentLang === 'ar' ? 'مخصص' : 'Custom'}</div>
+                        </div>
                     </div>
-                `;
-            }).join('');
+                </div>
+            `;
+            
+            storesList.innerHTML = storesHtml;
         }
         
         function toggleConnectMenu() {
@@ -4643,12 +4674,8 @@
             window.currentDesignProductId = productId;
             window.editingPackageProductId = productId;
             
-            // Open design package dialog
-            showDesignPackageDialog();
-            
-            // Note: Package specs (material, print type, finishing) are not stored in product object
-            // So we just open the dialog and let user re-select if needed
-            // The package name and photo are already set in the product
+            // Open design package dialog with product data pre-filled
+            showDesignPackageDialog(product);
         }
         
         function deleteProduct(productId) {
@@ -4747,20 +4774,31 @@
         
         let shippingAddressAutocomplete = null;
         
-        function showDesignPackageDialog() {
+        function showDesignPackageDialog(product = null) {
             const modal = document.getElementById('designPackageModal');
             if (modal) {
                 modal.style.display = 'flex';
-                // Reset form
-                document.getElementById('packageMaterial').value = '';
+                
+                // Reset form fields (package specs are not stored in product, so always reset)
+                const materialField = document.getElementById('packageMaterial');
+                if (materialField) materialField.value = '';
+                
                 document.querySelectorAll('input[name="packagePrintType"]').forEach(radio => radio.checked = false);
                 document.querySelectorAll('input[type="checkbox"][id^="finish"]').forEach(checkbox => checkbox.checked = false);
-                // Fulfillment fields removed - they're now in Order Package dialog
+                
+                // Show package selection form
+                const packageSelectionForm = document.getElementById('packageSelectionForm');
+                if (packageSelectionForm) packageSelectionForm.style.display = 'block';
                 
                 // Hide sections that appear after submission
-                document.getElementById('packageMatchesSection').style.display = 'none';
-                document.getElementById('generatedImageSection').style.display = 'none';
-                document.getElementById('startDesignBtn').style.display = 'block';
+                const packageMatchesSection = document.getElementById('packageMatchesSection');
+                if (packageMatchesSection) packageMatchesSection.style.display = 'none';
+                
+                const generatedImageSection = document.getElementById('generatedImageSection');
+                if (generatedImageSection) generatedImageSection.style.display = 'none';
+                
+                const startDesignBtn = document.getElementById('startDesignBtn');
+                if (startDesignBtn) startDesignBtn.style.display = 'block';
                 
                 // Initialize Google Maps autocomplete for shipping address
                 setTimeout(() => {
