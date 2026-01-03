@@ -198,14 +198,35 @@ export class SovereignSwitch {
       }
       
       const data = await response.json();
+      
+      // Log ALL models from the API (before any filtering)
+      const allModels = (data.models || []).map((m: any) => ({
+        name: m.name.replace('models/', ''),
+        fullName: m.name,
+        displayName: m.displayName || '',
+        supportedMethods: m.supportedGenerationMethods || []
+      }));
+      
+      console.log("[listGeminiModels] ========== ALL MODELS FROM API ==========");
+      console.log("[listGeminiModels] Total models returned:", allModels.length);
+      allModels.forEach((m: any, index: number) => {
+        console.log(`[listGeminiModels] ${index + 1}. ${m.name}${m.displayName ? ` (${m.displayName})` : ''} - Methods: [${m.supportedMethods.join(', ')}]`);
+      });
+      console.log("[listGeminiModels] =========================================");
+      
       // First, get all models that support generateContent
-      const allValidModels = (data.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+      const allValidModels = allModels
+        .filter((m: any) => m.supportedMethods.includes('generateContent'))
         .map((m: any) => ({
-          name: m.name.replace('models/', ''),
-          fullName: m.name,
-          displayName: m.displayName || ''
+          name: m.name,
+          fullName: m.fullName,
+          displayName: m.displayName
         }));
+      
+      console.log("[listGeminiModels] Models supporting generateContent:", allValidModels.length);
+      allValidModels.forEach((m: any, index: number) => {
+        console.log(`[listGeminiModels]   ${index + 1}. ${m.name}${m.displayName ? ` (${m.displayName})` : ''}`);
+      });
       
       // Try strict filtering first (exclude problematic models)
       const strictFiltered = allValidModels.filter((m: any) => {
@@ -235,12 +256,19 @@ export class SovereignSwitch {
         return true;
       });
       
+      console.log("[listGeminiModels] Models after strict filtering:", strictFiltered.length);
+      strictFiltered.forEach((m: any, index: number) => {
+        console.log(`[listGeminiModels]   ${index + 1}. ${m.name}${m.displayName ? ` (${m.displayName})` : ''}`);
+      });
+      
       // If strict filtering left us with models, use those
       // Otherwise, fall back to all valid models (less strict)
       const modelsToReturn = strictFiltered.length > 0 ? strictFiltered : allValidModels;
       const modelNames = modelsToReturn.map(m => m.name).sort();
       
-      console.log("[listGeminiModels] Available models (after filtering):", modelNames);
+      console.log("[listGeminiModels] ========== FINAL AVAILABLE MODELS ==========");
+      console.log("[listGeminiModels] Selected models (after filtering):", modelNames);
+      console.log("[listGeminiModels] ============================================");
       return modelNames;
     } catch (error: any) {
       console.error("[listGeminiModels] Error:", error);
@@ -250,70 +278,65 @@ export class SovereignSwitch {
 
   /**
    * Get a working Gemini model for TEXT tasks (package matching, conversations)
-   * HARDCODED: Uses gemini-1.5-flash (proven, reliable, fast for text/JSON tasks)
-   * Fallback: gemini-1.5-pro (better quality if flash not available)
+   * HARDCODED: Uses gemini-pro (most reliable, widely available, proven to work)
+   * This is the most basic model that definitely works for JSON/text tasks
    */
   async getWorkingGeminiModel(apiKey: string, preferredModel?: string): Promise<string> {
-    // Primary model: gemini-1.5-flash
-    // - Fast, reliable, widely available
-    // - Excellent for text processing and JSON parsing
-    // - Proven to work well for package matching tasks
-    const primaryModel = "gemini-1.5-flash";
+    // Use gemini-pro - the most reliable, basic model that definitely works
+    // This was working before and is the most widely available
+    const reliableModel = "gemini-pro";
     
-    // Fallback model: gemini-1.5-pro
-    // - Better quality, slightly slower
-    // - Good for complex reasoning tasks
-    const fallbackModel = "gemini-1.5-pro";
-    
-    // Verify the model is available
+    // Verify the model is available, but always fall back to gemini-pro
     try {
       const availableModels = await this.listGeminiModels(apiKey);
       
-      // Try primary model first
-      if (availableModels.includes(primaryModel)) {
-        console.log("[getWorkingGeminiModel] Using hardcoded primary text model:", primaryModel);
-        return primaryModel;
+      // Check if gemini-pro is available
+      if (availableModels.includes(reliableModel)) {
+        console.log("[getWorkingGeminiModel] Using reliable model:", reliableModel);
+        return reliableModel;
       }
       
-      // Try fallback model
-      if (availableModels.includes(fallbackModel)) {
-        console.log("[getWorkingGeminiModel] Using hardcoded fallback text model:", fallbackModel);
-        return fallbackModel;
+      // If preferred model is provided and available, use it
+      if (preferredModel && availableModels.includes(preferredModel)) {
+        console.log("[getWorkingGeminiModel] Using preferred model:", preferredModel);
+        return preferredModel;
       }
       
-      // Try to find any 1.5-flash variant
-      const flash15 = availableModels.find(m => m.includes('1.5-flash') && !m.includes('preview'));
-      if (flash15) {
-        console.log("[getWorkingGeminiModel] Using alternative 1.5-flash:", flash15);
-        return flash15;
+      // Try to find any pro model (not preview, not image)
+      const pro = availableModels.find(m => 
+        m.includes('pro') && 
+        !m.includes('preview') && 
+        !m.includes('image') &&
+        !m.includes('research')
+      );
+      if (pro) {
+        console.log("[getWorkingGeminiModel] Using available pro model:", pro);
+        return pro;
       }
       
-      // Try to find any 1.5-pro variant
-      const pro15 = availableModels.find(m => m.includes('1.5-pro') && !m.includes('preview') && !m.includes('image'));
-      if (pro15) {
-        console.log("[getWorkingGeminiModel] Using alternative 1.5-pro:", pro15);
-        return pro15;
-      }
-      
-      // Last resort: any flash model
-      const flash = availableModels.find(m => m.toLowerCase().includes('flash') && !m.includes('preview') && !m.includes('image'));
+      // Try any flash model
+      const flash = availableModels.find(m => 
+        m.toLowerCase().includes('flash') && 
+        !m.includes('preview') && 
+        !m.includes('image')
+      );
       if (flash) {
-        console.log("[getWorkingGeminiModel] Using any available flash model:", flash);
+        console.log("[getWorkingGeminiModel] Using available flash model:", flash);
         return flash;
       }
       
-      // Final fallback: first available model
+      // Use first available if we have any
       if (availableModels.length > 0) {
         console.log("[getWorkingGeminiModel] Using first available model:", availableModels[0]);
         return availableModels[0];
       }
     } catch (error) {
-      console.warn("[getWorkingGeminiModel] Error checking models, using hardcoded primary:", error);
+      console.warn("[getWorkingGeminiModel] Error checking models, using reliable model:", error);
     }
     
-    // Return primary model even if check fails (should be available)
-    console.log("[getWorkingGeminiModel] Using hardcoded primary text model (no verification):", primaryModel);
-    return primaryModel;
+    // Always return gemini-pro as final fallback - it's the most basic and should be available
+    console.log("[getWorkingGeminiModel] Using reliable model (gemini-pro):", reliableModel);
+    return reliableModel;
   }
 
   /**
