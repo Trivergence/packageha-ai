@@ -2956,13 +2956,15 @@
             }
         }
         
-        // Check for OAuth callback
+        // Check for OAuth callback or pre-existing connection
         function checkSallaCallback() {
             const urlParams = new URLSearchParams(window.location.search);
             const accessToken = urlParams.get('access_token');
             const state = urlParams.get('state');
             const oauthError = urlParams.get('oauth_error');
             const errorDescription = urlParams.get('error_description');
+            const connected = urlParams.get('connected'); // Flag from /app endpoint
+            const storeId = urlParams.get('store_id');
             
             // Handle OAuth errors
             if (oauthError) {
@@ -2983,12 +2985,26 @@
                 return;
             }
             
-            // Handle successful OAuth
+            // Handle successful connection (from OAuth or app context)
             if (accessToken) {
                 sallaAccessToken = accessToken;
-                document.getElementById('sallaStatus').innerHTML = '<span style="color: #28a745;">✓ Connected to Salla</span>';
-                document.getElementById('productInputSection').style.display = 'block';
-                document.getElementById('sallaAuthSection').style.display = 'none';
+                if (storeId) {
+                    sallaStoreId = storeId;
+                }
+                
+                // If connected flag is set, merchant is already connected (no need to show OAuth button)
+                if (connected === 'true') {
+                    document.getElementById('sallaStatus').innerHTML = 
+                        '<span style="color: #28a745;">✓ Connected to Salla Store</span>';
+                    document.getElementById('productInputSection').style.display = 'block';
+                    document.getElementById('sallaAuthSection').style.display = 'none';
+                    console.log('[checkSallaCallback] Merchant already connected via app installation');
+                } else {
+                    // From OAuth flow
+                    document.getElementById('sallaStatus').innerHTML = '<span style="color: #28a745;">✓ Connected to Salla</span>';
+                    document.getElementById('productInputSection').style.display = 'block';
+                    document.getElementById('sallaAuthSection').style.display = 'none';
+                }
                 
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);

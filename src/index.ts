@@ -59,7 +59,81 @@ export default {
       );
     }
 
-    // Handle Salla OAuth callback
+    // Handle Salla webhook for app installation (Easy Mode)
+    // When app is installed, Salla sends app.store.authorize event with access token
+    if (url.pathname === "/api/salla/webhook" && request.method === "POST") {
+      try {
+        const body = await request.json() as {
+          event?: string;
+          merchant?: {
+            id?: number;
+            domain?: string;
+          };
+          data?: {
+            access_token?: string;
+            refresh_token?: string;
+            expires_in?: number;
+            store?: {
+              id?: number;
+              domain?: string;
+            };
+          };
+        };
+
+        // Check if this is an app installation/authorization event
+        if (body.event === "app.store.authorize" && body.data?.access_token) {
+          const accessToken = body.data.access_token;
+          const refreshToken = body.data.refresh_token;
+          const storeId = body.merchant?.id || body.data.store?.id;
+          const storeDomain = body.merchant?.domain || body.data.store?.domain;
+
+          // Store the access token (in production, use a database or KV store)
+          // For now, we'll pass it through the app context
+          console.log(`[Webhook] App authorized for store ${storeId}, domain: ${storeDomain}`);
+
+          return new Response(
+            JSON.stringify({ 
+              success: true,
+              message: "App authorization received",
+              storeId: storeId
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        }
+
+        // Handle other webhook events
+        return new Response(
+          JSON.stringify({ received: true, event: body.event }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            }
+          }
+        );
+      } catch (error: any) {
+        console.error("[Webhook] Error:", error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            }
+          }
+        );
+      }
+    }
+
+    // Handle Salla OAuth callback (Custom Mode)
     if (url.pathname === "/api/salla/callback" && request.method === "GET") {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
@@ -362,22 +436,64 @@ export default {
         }
       }
 
-      return new Response(
-        JSON.stringify({ 
-          service: "Studium Agent",
-          version: "2.0",
-          campus: "Packageha",
-          practice: "Sales",
-          status: "operational"
-        }), 
-        { 
-          status: 200,
-          headers: { 
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"
-          }
-        }
-      );
+    // Salla App Page - This endpoint can be configured in Salla app settings
+    // Salla will redirect merchants here when they click on your app
+    // When app is opened from Salla, it may include merchant context in headers or query params
+    if (url.pathname === "/app" || url.pathname === "/app/") {
+      // Check for access token from various sources:
+      // 1. Query parameter (from OAuth callback)
+      // 2. Authorization header (from Salla app context)
+      // 3. X-Salla-Access-Token header (Salla may send this)
+      // 4. X-Salla-Store-Id header (to identify the store)
+      const accessToken = url.searchParams.get("access_token") || 
+                         request.headers.get("Authorization")?.replace("Bearer ", "") ||
+                         request.headers.get("X-Salla-Access-Token") ||
+                         request.headers.get("x-salla-access-token");
+      
+      const storeId = url.searchParams.get("store_id") ||
+                     request.headers.get("X-Salla-Store-Id") ||
+                     request.headers.get("x-salla-store-id");
+
+      // Redirect to the design form
+      const redirectUrl = new URL("/sallaTest.html", request.url);
+      
+      // If we have access token, pass it along (merchant is already connected)
+      if (accessToken) {
+        redirectUrl.searchParams.set("access_token", accessToken);
+        redirectUrl.searchParams.set("connected", "true"); // Flag to skip OAuth flow
+      }
+      
+      if (storeId) {
+        redirectUrl.searchParams.set("store_id", storeId);
+      }
+      
+      return Response.redirect(redirectUrl.toString(), 302);
     }
+
+    // Fallback: serve static files (index.html, sallaTest.html, etc.)
+    // This is handled by Cloudflare Workers assets configuration
+    
+    return new Response(
+      JSON.stringify({ 
+        service: "Studium Agent",
+        version: "2.0",
+        campus: "Packageha",
+        practice: "Sales",
+        status: "operational",
+        endpoints: {
+          landing: "/",
+          merchantForm: "/sallaTest.html",
+          appPage: "/app",
+          api: "/api"
+        }
+      }), 
+      { 
+        status: 200,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
+      }
+    );
   }
 };
