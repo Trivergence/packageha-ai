@@ -4733,18 +4733,14 @@ Return ONLY a detailed image description, no other text.`;
                 // In production, replace this with actual image generation
                 generatedPackageImageUrl = `https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&h=600&fit=crop&q=80`;
                 
-                // Display generated image
-                const generatedImg = document.getElementById('generatedPackageImage');
-                generatedImg.src = generatedPackageImageUrl;
-                generatedImg.onload = function() {
-                    imageContainer.innerHTML = `
-                        <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;" data-ar="وصف الصورة المولدة (بواسطة Gemini):" data-en="Generated Image Description (by Gemini):">${currentLang === 'ar' ? 'وصف الصورة المولدة (بواسطة Gemini):' : 'Generated Image Description (by Gemini):'}</div>
-                            <div style="font-size: 13px; color: #333; font-style: italic; line-height: 1.6;">${imagePrompt.substring(0, 300)}${imagePrompt.length > 300 ? '...' : ''}</div>
-                        </div>
-                        <img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
-                    `;
-                };
+                // Display generated image - update container directly instead of trying to set src on non-existent element
+                imageContainer.innerHTML = `
+                    <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;" data-ar="وصف الصورة المولدة (بواسطة Gemini):" data-en="Generated Image Description (by Gemini):">${currentLang === 'ar' ? 'وصف الصورة المولدة (بواسطة Gemini):' : 'Generated Image Description (by Gemini):'}</div>
+                        <div style="font-size: 13px; color: #333; font-style: italic; line-height: 1.6;">${imagePrompt.substring(0, 300)}${imagePrompt.length > 300 ? '...' : ''}</div>
+                    </div>
+                    <img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+                `;
                 
             } catch (error) {
                 console.error('[selectPackageMatch] ========== ERROR ==========');

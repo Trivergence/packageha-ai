@@ -250,141 +250,91 @@ export class SovereignSwitch {
 
   /**
    * Get a working Gemini model for TEXT tasks (package matching, conversations)
-   * Simple, reliable model selection - prioritizes common working models
+   * HARDCODED: Uses gemini-2.5-pro (best for text processing, advanced reasoning, JSON parsing)
+   * Based on Google's official recommendations for text-based tasks
    */
   async getWorkingGeminiModel(apiKey: string, preferredModel?: string): Promise<string> {
-    // First, try to list available models
-    const availableModels = await this.listGeminiModels(apiKey);
+    // Hardcoded best model for text tasks: gemini-2.5-pro
+    // This model excels at:
+    // - Text processing and analysis
+    // - Advanced reasoning
+    // - JSON parsing and structured output
+    // - Package matching based on requirements
+    const bestTextModel = "gemini-2.5-pro";
     
-    if (availableModels.length === 0) {
-      // Fallback if list fails
-      return preferredModel || "gemini-pro";
+    // Verify the model is available (optional check)
+    try {
+      const availableModels = await this.listGeminiModels(apiKey);
+      if (availableModels.includes(bestTextModel)) {
+        console.log("[getWorkingGeminiModel] Using hardcoded best text model:", bestTextModel);
+        return bestTextModel;
+      }
+      // If not available, try alternatives
+      const pro25 = availableModels.find(m => m.includes('2.5-pro') && !m.includes('preview'));
+      if (pro25) {
+        console.log("[getWorkingGeminiModel] Using alternative 2.5-pro:", pro25);
+        return pro25;
+      }
+      // Fallback to any pro model
+      const pro = availableModels.find(m => m.includes('pro') && !m.includes('preview') && !m.includes('image'));
+      if (pro) {
+        console.log("[getWorkingGeminiModel] Using fallback pro model:", pro);
+        return pro;
+      }
+    } catch (error) {
+      console.warn("[getWorkingGeminiModel] Error checking models, using hardcoded:", error);
     }
     
-    // If preferred model is in the list, use it
-    if (preferredModel && availableModels.includes(preferredModel)) {
-      return preferredModel;
-    }
-    
-    // Simple priority order - use first available that matches
-    // Prefer models with "flash" in the name (faster, cheaper)
-    const flashModels = availableModels.filter(m => m.toLowerCase().includes('flash'));
-    if (flashModels.length > 0) {
-      return flashModels[0];
-    }
-    
-    // Prefer models with "1.5" in the name (newer)
-    const v15Models = availableModels.filter(m => m.includes('1.5'));
-    if (v15Models.length > 0) {
-      return v15Models[0];
-    }
-    
-    // Fallback to first available model
-    return availableModels[0];
+    // Return hardcoded model even if check fails (model should be available)
+    console.log("[getWorkingGeminiModel] Using hardcoded best text model (no verification):", bestTextModel);
+    return bestTextModel;
   }
 
   /**
    * Get best Gemini model for image generation (creative tasks)
-   * Prioritizes models that support image generation (Nano Banana = Gemini 2.5 Flash Image)
-   * Excludes Interaction-only models and preview/research models
+   * HARDCODED: Uses gemini-2.5-flash-image (Nano Banana) - best for image understanding and generation
+   * Based on Google's official recommendations for image tasks
    */
   async getBestImageModel(apiKey: string): Promise<string> {
-    const availableModels = await this.listGeminiModels(apiKey);
+    // Hardcoded best model for image tasks: gemini-2.5-flash-image (Nano Banana)
+    // This model excels at:
+    // - Image understanding (can analyze product/package photos)
+    // - Image generation (can create detailed image descriptions)
+    // - Multimodal tasks combining text and images
+    const bestImageModel = "gemini-2.5-flash-image";
     
-    if (availableModels.length === 0) {
-      console.warn("[getBestImageModel] No models available, using fallback");
-      return "gemini-2.5-flash-image"; // Nano Banana fallback
+    // Verify the model is available (optional check)
+    try {
+      const availableModels = await this.listGeminiModels(apiKey);
+      if (availableModels.includes(bestImageModel)) {
+        console.log("[getBestImageModel] Using hardcoded best image model (Nano Banana):", bestImageModel);
+        return bestImageModel;
+      }
+      // If not available, try alternatives
+      const flash25Image = availableModels.find(m => {
+        const lower = m.toLowerCase();
+        return (lower.includes('2.5') || lower.includes('2_5')) && lower.includes('image');
+      });
+      if (flash25Image) {
+        console.log("[getBestImageModel] Using alternative 2.5 image model:", flash25Image);
+        return flash25Image;
+      }
+      // Try 2.5 flash as fallback
+      const flash25 = availableModels.find(m => {
+        const lower = m.toLowerCase();
+        return (lower.includes('2.5') || lower.includes('2_5')) && lower.includes('flash');
+      });
+      if (flash25) {
+        console.log("[getBestImageModel] Using alternative 2.5 flash:", flash25);
+        return flash25;
+      }
+    } catch (error) {
+      console.warn("[getBestImageModel] Error checking models, using hardcoded:", error);
     }
     
-    // Filter out problematic models:
-    // - Interaction-only models
-    // - Preview/research models (they often have restrictions)
-    // - Models with "deep-research", "preview", "experimental" in name
-    const validModels = availableModels.filter(m => {
-      const lower = m.toLowerCase();
-      return !lower.includes('interactive') && 
-             !lower.includes('interaction') &&
-             !lower.includes('live') &&
-             !lower.includes('preview') &&
-             !lower.includes('deep-research') &&
-             !lower.includes('research-pro') &&
-             !lower.includes('research') &&
-             !lower.includes('experimental');
-    });
-    
-    console.log("[getBestImageModel] Valid models after filtering:", validModels);
-    
-    if (validModels.length === 0) {
-      console.warn("[getBestImageModel] No valid models after filtering, using fallback");
-      return "gemini-2.5-flash-image"; // Nano Banana fallback
-    }
-    
-    // Prioritize models for image generation (Nano Banana = Gemini 2.5 Flash Image):
-    // 1. Models with "2.5" and "image" or "flash" (Nano Banana / Gemini 2.5 Flash Image)
-    // 2. Models with "2.5" and "flash"
-    // 3. Models with "2.0" and "flash"
-    // 4. Models with "1.5" and "pro"
-    // 5. Models with "1.5" and "flash"
-    // 6. Other models
-    
-    // Priority 1: 2.5 Flash Image (Nano Banana)
-    const flash25Image = validModels.find(m => {
-      const lower = m.toLowerCase();
-      return (lower.includes('2.5') || lower.includes('2_5')) && 
-             (lower.includes('image') || lower.includes('flash'));
-    });
-    if (flash25Image) {
-      console.log("[SovereignSwitch] Selected 2.5 Flash Image (Nano Banana) for image generation:", flash25Image);
-      return flash25Image;
-    }
-    
-    // Priority 2: 2.5 Flash
-    const flash25 = validModels.find(m => {
-      const lower = m.toLowerCase();
-      return (lower.includes('2.5') || lower.includes('2_5')) && lower.includes('flash');
-    });
-    if (flash25) {
-      console.log("[SovereignSwitch] Selected 2.5 Flash for image generation:", flash25);
-      return flash25;
-    }
-    
-    // Priority 3: 2.0 Flash
-    const flash20 = validModels.find(m => m.includes('2.0-flash') || m.includes('2_0-flash'));
-    if (flash20) {
-      console.log("[SovereignSwitch] Selected 2.0 Flash for image generation:", flash20);
-      return flash20;
-    }
-    
-    // Priority 4: 1.5 Pro
-    const pro15 = validModels.find(m => m.includes('1.5-pro') && !m.includes('preview'));
-    if (pro15) {
-      console.log("[SovereignSwitch] Selected 1.5 Pro for image generation:", pro15);
-      return pro15;
-    }
-    
-    // Priority 5: 1.5 Flash
-    const flash15 = validModels.find(m => m.includes('1.5-flash'));
-    if (flash15) {
-      console.log("[SovereignSwitch] Selected 1.5 Flash for image generation:", flash15);
-      return flash15;
-    }
-    
-    // Priority 6: Any model with "image" in name
-    const imageModel = validModels.find(m => m.toLowerCase().includes('image'));
-    if (imageModel) {
-      console.log("[SovereignSwitch] Selected image model for image generation:", imageModel);
-      return imageModel;
-    }
-    
-    // Priority 7: Any other pro model
-    const pro = validModels.find(m => m.includes('pro') && !m.includes('1.5') && !m.includes('preview'));
-    if (pro) {
-      console.log("[SovereignSwitch] Selected pro model for image generation:", pro);
-      return pro;
-    }
-    
-    console.log("[SovereignSwitch] Using first valid model for image generation:", validModels[0]);
-    return validModels[0];
+    // Return hardcoded model even if check fails (model should be available)
+    console.log("[getBestImageModel] Using hardcoded best image model (Nano Banana, no verification):", bestImageModel);
+    return bestImageModel;
   }
 
   private async callGemini(
