@@ -1096,17 +1096,17 @@
                             <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛍️</div>
                             <div class="connect-menu-item-text" data-ar="سلة" data-en="Salla">سلة</div>
                         </div>
-                        <div class="connect-menu-item" onclick="connectStore('custom')">
-                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">⚙️</div>
-                            <div class="connect-menu-item-text" data-ar="مخصص" data-en="Custom">مخصص</div>
-                        </div>
-                        <div class="connect-menu-item" onclick="connectStore('shopify')">
+                        <div class="connect-menu-item" onclick="connectStore('shopify')" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
                             <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛒</div>
                             <div class="connect-menu-item-text" data-ar="Shopify" data-en="Shopify">Shopify</div>
                         </div>
-                        <div class="connect-menu-item" onclick="connectStore('zed')">
+                        <div class="connect-menu-item" onclick="connectStore('zed')" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
                             <div class="connect-menu-item-icon" style="background: #f5f7fa;">📦</div>
                             <div class="connect-menu-item-text" data-ar="Zed" data-en="Zed">Zed</div>
+                        </div>
+                        <div class="connect-menu-item" onclick="connectStore('custom')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">⚙️</div>
+                            <div class="connect-menu-item-text" data-ar="مخصص" data-en="Custom">مخصص</div>
                         </div>
                     </div>
                 </div>
@@ -1234,23 +1234,27 @@
                     </div>
                 </div>
                 
-                <!-- Link Product Section -->
+                <!-- Store Linkages Section -->
                 <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1;">
-                    <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;" data-ar="ربط المنتج بمتجر" data-en="Link Product to Store">ربط المنتج بمتجر</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #333; font-size: 16px;" data-ar="ربط المتجر" data-en="Store Linkages">Store Linkages</h3>
+                        <button onclick="addStoreLinkage()" disabled style="padding: 8px 16px; background: #e0e0e0; color: #999; border: none; border-radius: 6px; font-weight: 600; cursor: not-allowed; font-size: 14px; opacity: 0.5;" data-ar="+ إضافة" data-en="+ Add">+ Add</button>
+                    </div>
                     
-                    <!-- Linked Products Table -->
-                    <div id="linkedProductsTable" style="margin-bottom: 20px; max-height: 200px; overflow-y: auto; border: 1px solid #e8ecf1; border-radius: 8px;">
+                    <!-- Store Linkages Table -->
+                    <div id="storeLinkagesTable" style="margin-bottom: 20px; border: 1px solid #e8ecf1; border-radius: 8px; overflow: hidden;">
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead style="background: #f5f7fa;">
                                 <tr>
-                                    <th style="padding: 10px; text-align: right; font-size: 13px; font-weight: 600; color: #666;" data-ar="المنتج" data-en="Product">المنتج</th>
-                                    <th style="padding: 10px; text-align: right; font-size: 13px; font-weight: 600; color: #666;" data-ar="المتجر" data-en="Store">المتجر</th>
-                                    <th style="padding: 10px; text-align: center; font-size: 13px; font-weight: 600; color: #666;" data-ar="إجراءات" data-en="Actions">إجراءات</th>
+                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666; width: 1px;" data-ar="الصورة" data-en="Image">Image</th>
+                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المنتج" data-en="Product">Product</th>
+                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المعلومات" data-en="Info">Info</th>
+                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المتجر" data-en="Store">Store</th>
                                 </tr>
                             </thead>
-                            <tbody id="linkedProductsTableBody">
+                            <tbody id="storeLinkagesTableBody">
                                 <tr>
-                                    <td colspan="3" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد منتجات مرتبطة" data-en="No linked products">لا توجد منتجات مرتبطة</td>
+                                    <td colspan="4" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد روابط متجر" data-en="No store linkages">No store linkages</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -4098,22 +4102,10 @@
             if (host === 'salla') {
                 connectSalla();
             } else if (host === 'custom') {
-                // For custom stores, show a modal to enter store details
-                const storeName = prompt(currentLang === 'ar' ? 'أدخل اسم المتجر' : 'Enter store name');
-                if (storeName) {
-                    connectedStores.push({
-                        id: Date.now(),
-                        name: storeName,
-                        host: 'custom',
-                        logo: null
-                    });
-                    renderStores();
-                }
+                showCustomStoreDialog();
             } else if (host === 'shopify' || host === 'zed') {
-                // Show coming soon message
-                alert(currentLang === 'ar' 
-                    ? `اتصال ${host === 'shopify' ? 'Shopify' : 'Zed'} قريباً`
-                    : `${host === 'shopify' ? 'Shopify' : 'Zed'} connection coming soon`);
+                // Disabled - do nothing
+                return;
             }
         }
         
@@ -4133,6 +4125,111 @@
             
             // If package exists, show the wizard to proceed with ordering
             designPackageForProduct(productId);
+        }
+        
+        function showCustomStoreDialog() {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('customStoreModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'customStoreModal';
+                modal.className = 'modal-overlay';
+                modal.style.display = 'none';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 500px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <h2 style="margin: 0; color: #1a1a1a;" data-ar="إضافة متجر مخصص" data-en="Add Custom Store">Add Custom Store</h2>
+                            <button onclick="closeCustomStoreDialog()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #666; line-height: 1;">&times;</button>
+                        </div>
+                        
+                        <!-- Store Logo Upload -->
+                        <div style="margin-bottom: 25px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="شعار المتجر" data-en="Store Logo">Store Logo</label>
+                            <div style="border: 2px dashed #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;" 
+                                 onclick="document.getElementById('customStoreLogoInput').click()"
+                                 onmouseover="this.style.borderColor='#1a1a1a'"
+                                 onmouseout="this.style.borderColor='#e0e0e0'">
+                                <div id="customStoreLogoPreview" style="display: none; margin-bottom: 15px;">
+                                    <img id="customStoreLogoImg" src="" alt="Logo Preview" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                </div>
+                                <div id="customStoreLogoPlaceholder">
+                                    <div style="font-size: 48px; margin-bottom: 10px;">🖼️</div>
+                                    <div style="color: #666;" data-ar="انقر لرفع شعار المتجر" data-en="Click to upload store logo">Click to upload store logo</div>
+                                </div>
+                                <input type="file" id="customStoreLogoInput" accept="image/*" style="display: none;" onchange="handleCustomStoreLogoUpload(event)">
+                            </div>
+                        </div>
+                        
+                        <!-- Store Name -->
+                        <div style="margin-bottom: 25px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="اسم المتجر" data-en="Store Name">Store Name</label>
+                            <input type="text" id="customStoreName" data-ar-placeholder="أدخل اسم المتجر" data-en-placeholder="Enter store name" placeholder="Enter store name" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <!-- Dialog Actions -->
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button onclick="closeCustomStoreDialog()" style="padding: 12px 24px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="إلغاء" data-en="Cancel">Cancel</button>
+                            <button onclick="saveCustomStore()" style="padding: 12px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="حفظ" data-en="Save">Save</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            // Reset form
+            document.getElementById('customStoreName').value = '';
+            document.getElementById('customStoreLogoPreview').style.display = 'none';
+            document.getElementById('customStoreLogoPlaceholder').style.display = 'block';
+            window.customStoreLogoData = null;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeCustomStoreDialog() {
+            const modal = document.getElementById('customStoreModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function handleCustomStoreLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert(currentLang === 'ar' ? 'يرجى اختيار ملف صورة' : 'Please select an image file');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('customStoreLogoPreview');
+                const placeholder = document.getElementById('customStoreLogoPlaceholder');
+                const img = document.getElementById('customStoreLogoImg');
+                
+                img.src = e.target.result;
+                window.customStoreLogoData = e.target.result; // Store as base64
+                preview.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function saveCustomStore() {
+            const storeName = document.getElementById('customStoreName').value.trim();
+            if (!storeName) {
+                alert(currentLang === 'ar' ? 'يرجى إدخال اسم المتجر' : 'Please enter store name');
+                return;
+            }
+            
+            connectedStores.push({
+                id: Date.now(),
+                name: storeName,
+                host: 'custom',
+                logo: window.customStoreLogoData || null
+            });
+            renderStores();
+            closeCustomStoreDialog();
         }
         
         function disconnectStore(storeId) {
@@ -4211,20 +4308,35 @@
                         ? `<img src="${product.productPhoto}" alt="${isAr ? product.nameAr : product.nameEn}" class="product-photo" style="margin-bottom: 8px;">`
                         : `<div class="photo-placeholder" style="margin-bottom: 8px;">📦</div>`;
                     const productName = isAr ? product.nameAr : product.nameEn;
+                    
+                    // Store icons under product description
+                    const host = hostConfig[product.host] || hostConfig.custom;
+                    const storeIcons = `
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px;">
+                            <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; width: 20px; height: 20px; border-radius: 4px;" title="${product.storeName}">
+                                ${host.icon}
+                            </div>
+                            <span style="font-size: 11px; color: #666;">${product.storeName}</span>
+                        </div>
+                    `;
+                    
                     const productCell = `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
                             ${productPhoto}
                             <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${productName}</div>
+                            ${storeIcons}
                         </div>
                     `;
                     
                     // Package column: Package info + Photo OR Design Package button
                     let packageCell = '';
                     if (product.hasPackage && product.packagePhoto) {
+                        // Use actual package name (Ar or En based on current language)
+                        const packageName = currentLang === 'ar' ? (product.packageAr || product.packageEn || 'Custom Package') : (product.packageEn || product.packageAr || 'Custom Package');
                         packageCell = `
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                                <img src="${product.packagePhoto}" alt="Custom Package" class="package-photo">
-                                <div style="font-weight: 600; color: #1a1a1a; text-align: center;">Custom Package</div>
+                                <img src="${product.packagePhoto}" alt="${packageName}" class="package-photo">
+                                <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${packageName}</div>
                             </div>
                         `;
                     } else {
@@ -4237,16 +4349,8 @@
                         `;
                     }
                     
-                    // Source column
-                    const host = hostConfig[product.host] || hostConfig.custom;
-                    const sourceHtml = `
-                        <div class="store-source">
-                            <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
-                                ${host.icon}
-                            </div>
-                            <span>${product.storeName}</span>
-                        </div>
-                    `;
+                    // Source column - now empty (moved to product cell)
+                    const sourceHtml = '';
                     
                     // Stock & Actions column: Stock amount + Order button
                     const stockAmount = product.stockAmount || 0;
@@ -5186,7 +5290,10 @@ Return ONLY a detailed image description, no other text.`;
                 productId: productId,
                 host: host,
                 storeId: storeId,
-                storeName: store.name
+                storeName: store.name,
+                productImage: product.image || 'https://via.placeholder.com/60?text=Product',
+                productName: product.name || `Product ID: ${productId}`,
+                productInfo: product.description || ''
             });
             
             renderLinkedProductsTable();
@@ -5201,13 +5308,13 @@ Return ONLY a detailed image description, no other text.`;
         }
         
         function renderLinkedProductsTable() {
-            const tbody = document.getElementById('linkedProductsTableBody');
+            const tbody = document.getElementById('storeLinkagesTableBody');
             if (!tbody) return;
             
             if (newProductData.linkedProducts.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="3" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد منتجات مرتبطة" data-en="No linked products">لا توجد منتجات مرتبطة</td>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد روابط متجر" data-en="No store linkages">No store linkages</td>
                     </tr>
                 `;
                 return;
@@ -5216,23 +5323,39 @@ Return ONLY a detailed image description, no other text.`;
             tbody.innerHTML = newProductData.linkedProducts.map((linked, index) => {
                 const store = connectedStores.find(s => s.id === linked.storeId);
                 const host = hostConfig[linked.host] || hostConfig.custom;
+                
+                // Get product info from store (if available)
+                const productImage = linked.productImage || 'https://via.placeholder.com/60?text=Product';
+                const productName = linked.productName || `Product ID: ${linked.productId}`;
+                const productInfo = linked.productInfo || '';
+                
                 return `
                     <tr>
-                        <td style="padding: 10px;">Product ID: ${linked.productId}</td>
-                        <td style="padding: 10px;">
-                            <div class="store-source">
-                                <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
+                        <td style="padding: 12px; width: 80px;">
+                            <img src="${productImage}" alt="${productName}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0;">
+                        </td>
+                        <td style="padding: 12px;">
+                            <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">${productName}</div>
+                        </td>
+                        <td style="padding: 12px;">
+                            <div style="font-size: 13px; color: #666;">${productInfo || '-'}</div>
+                        </td>
+                        <td style="padding: 12px;">
+                            <div class="store-source" style="display: flex; align-items: center; gap: 8px;">
+                                <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; width: 24px; height: 24px; border-radius: 4px;">
                                     ${host.icon}
                                 </div>
-                                <span>${linked.storeName}</span>
+                                <span style="font-size: 13px; color: #333;">${linked.storeName}</span>
                             </div>
-                        </td>
-                        <td style="padding: 10px; text-align: center;">
-                            <button onclick="removeLinkedProduct(${index})" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;" data-ar="إزالة" data-en="Remove">إزالة</button>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+        
+        function addStoreLinkage() {
+            // Disabled for now
+            return;
         }
         
         function saveNewProduct() {
