@@ -2864,7 +2864,15 @@
             console.log('[connectSalla] Redirect URI:', redirectUri);
             console.log('[connectSalla] Make sure this URL is registered in your Salla app settings!');
             
-            const state = Math.random().toString(36).substring(7);
+            // Generate a longer, more secure state parameter (Salla requires sufficient length)
+            // Format: random string + timestamp to ensure uniqueness and length
+            const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            const timestamp = Date.now().toString(36);
+            const state = `${randomPart}${timestamp}`;
+            
+            console.log('[connectSalla] Generated state:', state, 'Length:', state.length);
             
             // Build OAuth URL with properly encoded redirect_uri
             const authUrl = `https://accounts.salla.sa/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=offline_access&state=${state}`;
@@ -2953,7 +2961,29 @@
             const urlParams = new URLSearchParams(window.location.search);
             const accessToken = urlParams.get('access_token');
             const state = urlParams.get('state');
+            const oauthError = urlParams.get('oauth_error');
+            const errorDescription = urlParams.get('error_description');
             
+            // Handle OAuth errors
+            if (oauthError) {
+                console.error('[checkSallaCallback] OAuth error:', oauthError, errorDescription);
+                const errorMsg = errorDescription || oauthError;
+                document.getElementById('sallaStatus').innerHTML = 
+                    `<span style="color: #dc3545;">✗ OAuth Error: ${errorMsg}</span>`;
+                
+                // Show detailed error message
+                alert(`Salla OAuth Error: ${errorMsg}\n\nCommon causes:\n` +
+                      `- State parameter too short or invalid\n` +
+                      `- Redirect URI mismatch\n` +
+                      `- App configuration issue\n\n` +
+                      `Please check your Salla app settings and try again.`);
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return;
+            }
+            
+            // Handle successful OAuth
             if (accessToken) {
                 sallaAccessToken = accessToken;
                 document.getElementById('sallaStatus').innerHTML = '<span style="color: #28a745;">✓ Connected to Salla</span>';

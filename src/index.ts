@@ -63,10 +63,57 @@ export default {
     if (url.pathname === "/api/salla/callback" && request.method === "GET") {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
+      const error = url.searchParams.get("error");
+      const errorDescription = url.searchParams.get("error_description");
       
+      // Handle OAuth errors from Salla
+      if (error) {
+        const errorMessage = errorDescription || error;
+        console.error("[Salla OAuth Callback] Error from Salla:", error, errorDescription);
+        
+        // Redirect to frontend with error
+        let frontendUrl: URL;
+        try {
+          const redirectUri = env.SALLA_REDIRECT_URI || "";
+          const baseUrl = new URL(redirectUri);
+          baseUrl.pathname = '/sallaTest.html';
+          baseUrl.searchParams.set("oauth_error", error);
+          baseUrl.searchParams.set("error_description", errorMessage);
+          frontendUrl = baseUrl;
+        } catch (e) {
+          // Fallback: return error in JSON
+          return new Response(
+            JSON.stringify({ 
+              error: "OAuth error from Salla",
+              details: error,
+              description: errorMessage
+            }),
+            {
+              status: 400,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        }
+        
+        return Response.redirect(frontendUrl.toString(), 302);
+      }
+      
+      // Check for authorization code
       if (!code) {
         return new Response(
-          JSON.stringify({ error: "Missing authorization code" }),
+          JSON.stringify({ 
+            error: "Missing authorization code",
+            received_params: {
+              has_code: !!code,
+              has_state: !!state,
+              has_error: !!error,
+              error: error || null,
+              error_description: errorDescription || null
+            }
+          }),
           {
             status: 400,
             headers: {
@@ -84,18 +131,20 @@ export default {
         const clientSecret = env.SALLA_CLIENT_SECRET || "";
         const redirectUri = env.SALLA_REDIRECT_URI || "";
 
+        // OAuth 2.0 token exchange typically uses form-encoded data
+        const tokenBody = new URLSearchParams();
+        tokenBody.append('grant_type', 'authorization_code');
+        tokenBody.append('client_id', clientId);
+        tokenBody.append('client_secret', clientSecret);
+        tokenBody.append('code', code);
+        tokenBody.append('redirect_uri', redirectUri);
+
         const tokenResponse = await fetch(tokenUrl, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-www-form-urlencoded"
           },
-          body: JSON.stringify({
-            grant_type: "authorization_code",
-            client_id: clientId,
-            client_secret: clientSecret,
-            code: code,
-            redirect_uri: redirectUri
-          })
+          body: tokenBody.toString()
         });
 
         if (!tokenResponse.ok) {
