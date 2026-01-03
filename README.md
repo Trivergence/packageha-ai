@@ -631,45 +631,44 @@ curl -X POST https://packageha-ai.akhodary-006.workers.dev \
 
 ## Salla Integration Setup
 
-### OAuth Configuration
+### Developer Configuration
 
-**IMPORTANT**: Before using Salla integration, you must register the redirect URI in your Salla app settings.
-
-1. **Get your Redirect URI:**
-   - Format: `https://YOUR-WORKER-URL.workers.dev/api/salla/callback`
-   - Example: `https://packageha-ai.akhodary-006.workers.dev/api/salla/callback`
-
-2. **Register in Salla Partners Portal:**
-   - Go to: https://portal.salla.partners/apps/YOUR-APP-ID
-   - Navigate to **OAuth Settings** or **Redirect URIs** section
-   - Add the redirect URI (must match EXACTLY, including `https://` and no trailing slash)
-   - **Note**: This is different from Webhook URL settings
-
-3. **Set Environment Variables:**
+1. **Set Environment Variables:**
    ```bash
    wrangler secret put SALLA_CLIENT_ID
    wrangler secret put SALLA_CLIENT_SECRET
    wrangler secret put SALLA_REDIRECT_URI
    ```
 
-4. **Update `wrangler.toml`:**
+2. **Update `wrangler.toml`:**
    ```toml
    SALLA_REDIRECT_URI = "https://your-worker.workers.dev/api/salla/callback"
    ```
 
-### Testing Salla Integration
+3. **Register Redirect URI in Salla Partners Portal:**
+   - Go to: https://portal.salla.partners/apps/YOUR-APP-ID
+   - Navigate to **OAuth Settings** → **Callback URLs**
+   - Add: `https://your-worker.workers.dev/api/salla/callback`
+   - Must match EXACTLY (including `https://`, no trailing slash)
 
-**For Merchants:**
-- **Landing Page**: `https://your-worker.workers.dev/` - Arabic landing page for merchants
-- **Direct Form**: `https://your-worker.workers.dev/sallaTest.html` - Direct access to the design form
+4. **Configure Webhook (Optional - for Easy Mode):**
+   - Go to: Salla Partners Portal → Your App → Webhooks/Notifications
+   - Add webhook URL: `https://your-worker.workers.dev/api/salla/webhook`
+   - Enable "Store Events" → "app.store.authorize"
 
-**For Developers:**
-- Use `sallaTest.html` for Salla merchant integration testing
-- Use `test.html` for MVP Direct Sales Flow testing
+### Endpoints
 
-**Important**: For real store connections, your app must be **published** in Salla Partners Portal. Development mode apps are only accessible to the developer. See `SALLA_OAUTH_SETUP.md` for publishing instructions.
+- `/app` - App page endpoint (configure in Salla as App Page URL)
+- `/api/salla/callback` - OAuth callback endpoint
+- `/api/salla/webhook` - Webhook handler for app installation events
+- `/api/salla/products` - Get products from Salla store (requires access token)
+- `/api/salla/product/:id` - Get specific product details
 
-**Merchant Access**: Share the root URL (`/`) with merchants. They'll see a friendly Arabic landing page that explains the service and links to the design form.
+### Notes
+
+- **OAuth Mode**: Currently using "Custom Mode" (redirect-based OAuth)
+- **App Publishing**: App must be published in Salla Partners Portal for real store access
+- **Token Storage**: Access tokens are currently passed via URL (consider secure storage for production)
 
 ---
 
