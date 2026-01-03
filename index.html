@@ -4468,7 +4468,8 @@
                 const requestStartTime = Date.now();
                 console.log('[submitDesignPackage] Sending POST request...');
                 
-                const response = await fetch(finalUrl, {
+                // Use dedicated API endpoint to avoid static asset conflicts
+                const response = await fetch(`${finalUrl}/api/chat`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
