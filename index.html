@@ -5792,36 +5792,38 @@ Return ONLY a detailed image description, no other text.`;
                         budget: '',
                         linkedProducts: []
                     };
-                const descField = document.getElementById('newProductDescription');
-                if (descField) descField.value = '';
+                    const descField = document.getElementById('newProductDescription');
+                    if (descField) descField.value = '';
+                    
+                    const lengthField = document.getElementById('productLength');
+                    const widthField = document.getElementById('productWidth');
+                    const heightField = document.getElementById('productHeight');
+                    if (lengthField) lengthField.value = '';
+                    if (widthField) widthField.value = '';
+                    if (heightField) heightField.value = '';
+                    
+                    const weightField = document.getElementById('newProductWeight');
+                    if (weightField) weightField.value = '';
+                    
+                    const fragilityField = document.getElementById('newProductFragility');
+                    if (fragilityField) fragilityField.value = '';
+                    
+                    const budgetField = document.getElementById('newProductBudget');
+                    if (budgetField) budgetField.value = '';
+                    
+                    const photoPreview = document.getElementById('newProductPhotoPreview');
+                    if (photoPreview) photoPreview.style.display = 'none';
+                    
+                    const photoPlaceholder = document.getElementById('newProductPhotoPlaceholder');
+                    if (photoPlaceholder) photoPlaceholder.style.display = 'block';
+                    
+                    const linkStoreSelect = document.getElementById('linkProductStoreSelect');
+                    if (linkStoreSelect) linkStoreSelect.value = '';
+                    
+                    const storeProductsList = document.getElementById('storeProductsList');
+                    if (storeProductsList) storeProductsList.style.display = 'none';
+                }
                 
-                const lengthField = document.getElementById('productLength');
-                const widthField = document.getElementById('productWidth');
-                const heightField = document.getElementById('productHeight');
-                if (lengthField) lengthField.value = '';
-                if (widthField) widthField.value = '';
-                if (heightField) heightField.value = '';
-                
-                const weightField = document.getElementById('newProductWeight');
-                if (weightField) weightField.value = '';
-                
-                const fragilityField = document.getElementById('newProductFragility');
-                if (fragilityField) fragilityField.value = '';
-                
-                const budgetField = document.getElementById('newProductBudget');
-                if (budgetField) budgetField.value = '';
-                
-                const photoPreview = document.getElementById('newProductPhotoPreview');
-                if (photoPreview) photoPreview.style.display = 'none';
-                
-                const photoPlaceholder = document.getElementById('newProductPhotoPlaceholder');
-                if (photoPlaceholder) photoPlaceholder.style.display = 'block';
-                
-                const linkStoreSelect = document.getElementById('linkProductStoreSelect');
-                if (linkStoreSelect) linkStoreSelect.value = '';
-                
-                const storeProductsList = document.getElementById('storeProductsList');
-                if (storeProductsList) storeProductsList.style.display = 'none';
                 updateLinkProductStoreSelect();
                 renderLinkedProductsTable();
             }
