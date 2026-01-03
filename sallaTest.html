@@ -29,7 +29,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packageha AI - Salla Integration Tester</title>
+    <title>Packageha - تصميم أغلفة المنتجات</title>
     <!-- Google Maps Places API for address autocomplete -->
     <!-- NOTE: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual Google Maps API key -->
     <!-- IMPORTANT: Enable "Places API" in Google Cloud Console for this API key -->
@@ -65,8 +65,8 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #FFC107;
+            color: #000;
             padding: 20px 30px;
         }
         
@@ -98,8 +98,8 @@
         
         .config-section button {
             padding: 8px 16px;
-            background: white;
-            color: #667eea;
+            background: #000;
+            color: #FFC107;
             border: none;
             border-radius: 6px;
             cursor: pointer;
@@ -127,8 +127,8 @@
         }
         
         .step-section.active {
-            border-color: #667eea;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            border-color: #FFC107;
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
         }
         
         .step-header {
@@ -142,7 +142,7 @@
         }
         
         .step-section.active .step-header {
-            background: #f8f9ff;
+            background: #FFF9E6;
         }
         
         .step-section.completed .step-header {
@@ -180,8 +180,8 @@
         }
         
         .step-section.active .step-number {
-            background: #667eea;
-            color: white;
+            background: #FFC107;
+            color: #000;
         }
         
         .step-info {
@@ -209,7 +209,7 @@
         
         .step-section.active .step-chevron {
             transform: rotate(180deg);
-            color: #667eea;
+            color: #FFC107;
         }
         
         .step-content {
@@ -271,7 +271,7 @@
             cursor: pointer;
             padding: 4px 8px;
             border-radius: 4px;
-            color: #667eea;
+            color: #FFC107;
             font-size: 16px;
             transition: all 0.2s;
             opacity: 0.7;
@@ -429,13 +429,13 @@
         }
         
         .option-card:hover {
-            border-color: #667eea;
+            border-color: #FFC107;
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
             transform: translateY(-2px);
         }
         
         .option-card.selected {
-            border-color: #667eea;
+            border-color: #FFC107;
             background: #f8f9ff;
         }
         
@@ -465,7 +465,7 @@
         .input-group input:focus,
         .input-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #FFC107;
         }
         
         .dimensions-row {
@@ -476,8 +476,8 @@
         
         .submit-btn {
             padding: 12px 24px;
-            background: #667eea;
-            color: white;
+            background: #000;
+            color: #FFC107;
             border: none;
             border-radius: 6px;
             font-weight: 600;
@@ -487,7 +487,7 @@
         }
         
         .submit-btn:hover:not(:disabled) {
-            background: #5568d3;
+            background: #333;
         }
         
         .submit-btn:disabled {
@@ -498,8 +498,8 @@
         .draft-order-success {
             padding: 30px;
             text-align: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #FFC107;
+            color: #000;
         }
         
         .draft-order-success h2 {
@@ -517,7 +517,7 @@
         .draft-order-links a {
             padding: 12px 24px;
             background: white;
-            color: #667eea;
+            color: #FFC107;
             text-decoration: none;
             border-radius: 8px;
             font-weight: 600;
@@ -571,85 +571,49 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📦 Packageha AI - Salla Integration Tester</h1>
-            <div class="config-section">
+            <h1>بكجها - تصميم أغلفة المنتجات</h1>
+            <div class="config-section" style="display: none;">
                 <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
-                <button onclick="loadAvailableModels()" style="margin-right: 8px;">Check Models</button>
-                <button onclick="resetSession()" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Reset Session</button>
             </div>
             <!-- Flow selector removed - only direct_sales flow is supported -->
         </div>
         
         <!-- Salla Integration Section -->
         <div id="sallaIntegration" style="padding: 20px 30px; background: #f8f9fa; border-bottom: 2px solid #e0e0e0;">
-            <h2 style="margin-bottom: 20px; color: #333; font-size: 18px;">🛍️ Connect Your Salla Store</h2>
+            <h2 style="margin-bottom: 20px; color: #333; font-size: 18px;">ربط متجرك على سلة</h2>
             <div id="sallaAuthSection" style="margin-bottom: 20px;">
-                <button onclick="connectSalla()" style="padding: 12px 24px; background: #00d4aa; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                    Connect Salla Store
+                <button onclick="connectSalla()" style="padding: 12px 24px; background: #000; color: #FFC107; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    ربط متجر سلة
                 </button>
                 <div id="sallaStatus" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
-                <div id="redirectUriInfo" style="margin-top: 15px; padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; font-size: 12px;">
-                    <strong>⚠️ CRITICAL: Register Redirect URI in Salla</strong><br>
-                    <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px;">
-                        <strong>Step 1:</strong> Copy this exact Redirect URI:<br>
-                        <code id="redirectUriDisplay" style="display: block; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; word-break: break-all; font-family: monospace; border: 1px solid #ddd; cursor: pointer;" onclick="copyRedirectUri()" title="Click to copy"></code>
-                        <button onclick="copyRedirectUri()" style="margin-top: 8px; padding: 6px 12px; background: #00d4aa; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">📋 Copy Redirect URI</button>
-                    </div>
-                    <div style="margin-top: 12px; padding: 10px; background: white; border-radius: 4px;">
-                        <strong>Step 2:</strong> Register it in Salla Partners Portal:<br>
-                        <ol style="margin: 8px 0; padding-left: 20px; color: #856404;">
-                            <li>Go to <a href="https://portal.salla.partners/apps/357944659" target="_blank" style="color: #00d4aa; font-weight: 600;">Salla Partners Portal → Your App</a></li>
-                            <li>Look for <strong>"OAuth Settings"</strong> or <strong>"Redirect URIs"</strong> section (NOT Webhooks)</li>
-                            <li>Add the Redirect URI above (must match EXACTLY, including https://)</li>
-                            <li>Save the settings</li>
-                        </ol>
-                        <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-left: 3px solid #ffc107; font-size: 11px;">
-                            <strong>Note:</strong> If you don't see "OAuth Settings" or "Redirect URIs", check:
-                            <ul style="margin: 4px 0; padding-left: 20px;">
-                                <li>App Settings → OAuth Configuration</li>
-                                <li>Or look for "Authorized Redirect URIs"</li>
-                                <li>The redirect URI is <strong>different from Webhook URL</strong></li>
-                                <li>If using "Easy Mode", you might need to switch to "Standard Mode" or register redirect URIs separately</li>
-                            </ul>
-                        </div>
-                        <div style="margin-top: 10px; padding: 8px; background: #e7f3ff; border-left: 3px solid #2196F3; font-size: 11px;">
-                            <strong>💡 Alternative:</strong> If you can't find OAuth redirect URI settings, try:
-                            <ul style="margin: 4px 0; padding-left: 20px;">
-                                <li>Check if your app uses "Easy Mode" OAuth (webhook-based)</li>
-                                <li>Look for "OAuth 2.0" or "Authorization" settings</li>
-                                <li>Contact Salla support if redirect URI field is missing</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
             </div>
             
             <div id="productInputSection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">📦 Select Your Product</h3>
+                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">اختر منتجك</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
                     <!-- Option 1: Select from Store -->
                     <div id="selectFromStoreOption" style="padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
-                         onclick="showProductSelector()" onmouseover="this.style.borderColor='#00d4aa'" onmouseout="this.style.borderColor='#e0e0e0'">
+                         onclick="showProductSelector()" onmouseover="this.style.borderColor='#FFC107'" onmouseout="this.style.borderColor='#e0e0e0'">
                         <div style="font-size: 24px; margin-bottom: 10px;">🏪</div>
-                        <div style="font-weight: 600; margin-bottom: 5px;">Select from Store</div>
-                        <div style="font-size: 12px; color: #666;">Choose a product from your Salla store</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">اختر من المتجر</div>
+                        <div style="font-size: 12px; color: #666;">اختر منتجاً من متجرك على سلة</div>
                     </div>
                     
                     <!-- Option 2: Upload Image -->
                     <div style="padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
-                         onclick="document.getElementById('imageUploadInput').click()" onmouseover="this.style.borderColor='#00d4aa'" onmouseout="this.style.borderColor='#e0e0e0'">
+                         onclick="document.getElementById('imageUploadInput').click()" onmouseover="this.style.borderColor='#FFC107'" onmouseout="this.style.borderColor='#e0e0e0'">
                         <div style="font-size: 24px; margin-bottom: 10px;">📷</div>
-                        <div style="font-weight: 600; margin-bottom: 5px;">Upload Product Photo</div>
-                        <div style="font-size: 12px; color: #666;">Upload an image of your product</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">رفع صورة المنتج</div>
+                        <div style="font-size: 12px; color: #666;">ارفع صورة لمنتجك</div>
                         <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
                     </div>
                     
                     <!-- Option 3: Text Description -->
                     <div style="padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
-                         onclick="showTextInput()" onmouseover="this.style.borderColor='#00d4aa'" onmouseout="this.style.borderColor='#e0e0e0'">
+                         onclick="showTextInput()" onmouseover="this.style.borderColor='#FFC107'" onmouseout="this.style.borderColor='#e0e0e0'">
                         <div style="font-size: 24px; margin-bottom: 10px;">✍️</div>
-                        <div style="font-weight: 600; margin-bottom: 5px;">Describe Your Product</div>
-                        <div style="font-size: 12px; color: #666;">Enter a text description</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">وصف المنتج</div>
+                        <div style="font-size: 12px; color: #666;">اكتب وصفاً لمنتجك</div>
                     </div>
                 </div>
                 
@@ -677,7 +641,7 @@
                                   style="width: 100%; min-height: 150px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
                         <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
                             <button onclick="closeTextInput()" style="padding: 10px 20px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
-                            <button onclick="submitTextDescription()" style="padding: 10px 20px; background: #00d4aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Start Package Design</button>
+                            <button onclick="submitTextDescription()" style="padding: 10px 20px; background: #FFC107; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Start Package Design</button>
                         </div>
                     </div>
                 </div>
@@ -1179,15 +1143,15 @@
                     console.warn(`[renderConsultationStep] NO currentQuestion for ${stepId} but backend step matches!`);
                     console.warn(`[renderConsultationStep] stepData:`, stepData);
                     console.warn(`[renderConsultationStep] flowState.backendStep:`, flowState.backendStep);
-                    html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                    html += '<div class="step-body"><p style="color: #666;">Loading...</p></div>';
                 } else {
                     // Step might not be active yet, or we're in a transition
                     console.log(`[renderConsultationStep] No currentQuestion for ${stepId}, backend step: ${backendStep}, expected: ${expectedBackendStep}`);
                     // Don't show error if step isn't supposed to be active
                     if (backendStep && expectedBackendStep && backendStep !== expectedBackendStep) {
-                        html += '<div class="step-body"><p style="color: #666;">⏳ Waiting for backend to transition to this step...</p></div>';
+                        html += '<div class="step-body"><p style="color: #666;">Loading...</p></div>';
                     } else {
-                        html += '<div class="step-body"><p style="color: #dc3545;">⚠️ Loading question... (If this persists, check console for errors)</p></div>';
+                        html += '<div class="step-body"><p style="color: #666;">Loading...</p></div>';
                     }
                 }
             }
@@ -1511,7 +1475,7 @@
                         </div>
                         <div style="margin-bottom: 20px; padding: 15px; background: #f8f9ff; border-radius: 6px;">
                             <div style="font-weight: 600; margin-bottom: 8px; color: #666;">Calculated Price:</div>
-                            <div id="customPriceDisplay" style="font-size: 24px; font-weight: 700; color: #667eea;">0.00 SAR</div>
+                            <div id="customPriceDisplay" style="font-size: 24px; font-weight: 700; color: #FFC107;">0.00 SAR</div>
                             <div style="font-size: 12px; color: #666; margin-top: 5px;">Formula: (L × W × H) ÷ 10</div>
                         </div>
                         <div style="display: flex; gap: 10px;">
@@ -1593,7 +1557,7 @@
                     : '<div style="width: 100%; height: 150px; background: #f0f0f0; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>';
                 
                 const priceHtml = match.price 
-                    ? `<div style="font-size: 16px; font-weight: 700; color: #667eea; margin-top: 8px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
+                    ? `<div style="font-size: 16px; font-weight: 700; color: #FFC107; margin-top: 8px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
                     : '';
                 
                 // Use the matchSource passed in, or try to detect it
@@ -1617,14 +1581,14 @@
                 `;
             });
             html += `
-                <div class="option-card" onclick="showCustomPackageForm()" style="border: 2px dashed #667eea;">
-                    <div style="width: 100%; height: 150px; background: #f8f9ff; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                <div class="option-card" onclick="showCustomPackageForm()" style="border: 2px dashed #FFC107;">
+                    <div style="width: 100%; height: 150px; background: #FFF9E6; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                         <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
-                        <div style="font-size: 12px; color: #667eea; font-weight: 600;">Custom Package</div>
+                        <div style="font-size: 12px; color: #FFC107; font-weight: 600;">Custom Package</div>
                     </div>
                     <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Custom Package</div>
                     <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Enter dimensions to calculate price</div>
-                    <div id="customPackagePrice" style="font-size: 16px; color: #667eea; font-weight: 700; margin-top: 8px; display: none;">Price: <span id="calculatedPrice">0</span> SAR</div>
+                    <div id="customPackagePrice" style="font-size: 16px; color: #FFC107; font-weight: 700; margin-top: 8px; display: none;">Price: <span id="calculatedPrice">0</span> SAR</div>
                 </div>
             `;
             
@@ -1856,7 +1820,7 @@
                         <p style="color: #666; margin-bottom: 12px; font-size: 14px;">
                             Made changes to your answers? Regenerate the draft order with your updated information.
                         </p>
-                        <button class="submit-btn" onclick="regenerateDraftOrder()" style="background: #667eea;">
+                        <button class="submit-btn" onclick="regenerateDraftOrder()" style="background: #FFC107; color: #000;">
                             🔄 Regenerate Draft Order
                         </button>
                     </div>
@@ -2934,7 +2898,7 @@
                     btn.style.background = '#28a745';
                     setTimeout(() => {
                         btn.textContent = originalText;
-                        btn.style.background = '#00d4aa';
+                        btn.style.background = '#FFC107';
                     }, 2000);
                 }).catch(err => {
                     console.error('Failed to copy:', err);
@@ -3031,7 +2995,7 @@
                     productList.innerHTML = data.products.map(product => `
                         <div onclick="selectSallaProduct(${product.id})" 
                              style="padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-                             onmouseover="this.style.borderColor='#00d4aa'; this.style.transform='translateY(-2px)'"
+                             onmouseover="this.style.borderColor='#FFC107'; this.style.transform='translateY(-2px)'"
                              onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'">
                             ${product.images && product.images.length > 0 ? 
                                 `<img src="${product.images[0].url}" alt="${product.name}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 6px; margin-bottom: 10px;">` : 
