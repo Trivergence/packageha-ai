@@ -1127,7 +1127,6 @@
                         <tr>
                             <th data-ar="المنتج" data-en="Product">المنتج</th>
                             <th data-ar="الغلاف" data-en="Package">الغلاف</th>
-                            <th data-ar="المصدر" data-en="Source">المصدر</th>
                             <th data-ar="المخزون والإجراءات" data-en="Stock & Actions">المخزون والإجراءات</th>
                         </tr>
                     </thead>
@@ -4368,7 +4367,6 @@
                     <tr>
                         <td style="text-align: center; padding: 20px;">${productCell}</td>
                         <td style="text-align: center; padding: 20px;">${packageCell}</td>
-                        <td style="padding: 20px;">${sourceHtml}</td>
                         <td style="text-align: center; padding: 20px;">${stockActionCell}</td>
                     </tr>
                 `;
@@ -5023,11 +5021,6 @@ Return ONLY a detailed image description, no other text.`;
             
             // Close dialog
             closeDesignPackageDialog();
-            
-            // Show success message
-            alert(currentLang === 'ar' 
-                ? `تم ربط المنتج "${currentLang === 'ar' ? product.nameAr : product.nameEn}" بالغلاف "${selectedPackageMatch.name}" بنجاح!`
-                : `Product "${currentLang === 'ar' ? product.nameAr : product.nameEn}" successfully linked to package "${selectedPackageMatch.name}"!`);
         }
         
         async function startDesignFlow() {
@@ -5390,9 +5383,6 @@ Return ONLY a detailed image description, no other text.`;
             demoProducts.push(newProduct);
             renderInventoryTable();
             closeAddProductDialog();
-            
-            // Show success message
-            alert(currentLang === 'ar' ? 'تم إضافة المنتج بنجاح' : 'Product added successfully');
         }
         
         // Initialize - DO NOT auto-initialize flow, only show inventory

@@ -857,12 +857,17 @@ export class PackagehaSession {
         console.log("[handleDiscovery] isAutoSearch:", isAutoSearch);
         console.log("[handleDiscovery] Total products available:", products.length);
         
-        // Prepare inventory context
+        // Prepare inventory context - include ALL products with full details
         const inventoryList = products.map((p, index) => {
             const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
             const price = p.variants?.[0]?.price || 'N/A';
+            // Include more context: title, price, and any available description/metadata
             return `ID ${index}: ${cleanTitle} (Price: ${price} SAR)`;
         }).join("\n");
+        
+        console.log("[handleDiscovery] Inventory list length:", inventoryList.length);
+        console.log("[handleDiscovery] First 500 chars of inventory:", inventoryList.substring(0, 500));
+        console.log("[handleDiscovery] Total products in inventory list:", products.length);
         
         // Build AI prompt for inclusive scoring (no filtering, only reject with clear reason)
         let systemPrompt = `You are a packaging matching system. Score ALL packages and return JSON.
@@ -871,24 +876,27 @@ CRITICAL: Return ONLY valid JSON. No explanations, no markdown, just JSON.
 
 RULES:
 1. BE INCLUSIVE: Include ALL packages. Only exclude if clearly wrong category (e.g., "food container" for "electronics").
-2. Score by: Fitness (70%) = keyword match, Price (30%) = lower is better.
-3. Return at least 5-10 top matches sorted by combinedScore.
+2. Score by: Fitness (70%) = keyword match between product description and package name, Price (30%) = lower is better.
+3. IMPORTANT: Match based on the ACTUAL product description provided. If product is "soap", prioritize soap-related packages, not perfume packages.
+4. Return at least 5-10 top matches sorted by combinedScore (highest first).
 
 REQUIRED JSON FORMAT (return exactly this structure):
 {"type":"multiple","matches":[{"id":0,"name":"Package Name","reason":"Match explanation","fitnessScore":0.8,"priceScore":0.6,"combinedScore":0.74}]}
 
 If inventory is empty, return: {"type":"none","reason":"No packages available"}`;
 
-        let userPrompt = `Inventory:\n${inventoryList}\n\n`;
+        let userPrompt = `Inventory (${products.length} total packages):\n${inventoryList}\n\n`;
         
         if (isAutoSearch && productDimensionsText) {
-            userPrompt += `Product: ${productDescription}\n`;
-            userPrompt += `Dimensions: ${productDimensionsText}\n\n`;
-            userPrompt += `Score ALL packages. Return top 10 matches as JSON.`;
+            userPrompt += `Product Description: "${productDescription}"\n`;
+            userPrompt += `Product Dimensions: ${productDimensionsText}\n\n`;
+            userPrompt += `Task: Score ALL ${products.length} packages based on how well they match the product description "${productDescription}". Return top 10 matches as JSON sorted by combinedScore (highest first).`;
         } else {
-            userPrompt += `Query: "${userMessage}"\n\n`;
-            userPrompt += `Score ALL packages matching this query. Return top 10 matches as JSON.`;
+            userPrompt += `Search Query: "${userMessage}"\n\n`;
+            userPrompt += `Task: Score ALL ${products.length} packages that match the search query "${userMessage}". Return top 10 matches as JSON sorted by combinedScore (highest first).`;
         }
+        
+        console.log("[handleDiscovery] Full user prompt (first 1000 chars):", userPrompt.substring(0, 1000));
         
         console.log("[handleDiscovery] System prompt length:", systemPrompt.length);
         console.log("[handleDiscovery] User prompt length:", userPrompt.length);

@@ -100,16 +100,35 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
         );
         console.log("[API] Successfully generated image, URL type:", imageUrl.startsWith('data:') ? 'data URL' : 'regular URL', ", length:", imageUrl.length);
         
-        // Validate the data URL format
+        // Validate and fix the data URL format
         if (imageUrl.startsWith('data:')) {
           const parts = imageUrl.split(',');
           if (parts.length !== 2) {
-            throw new Error("Invalid data URL format");
+            throw new Error("Invalid data URL format - expected 2 parts separated by comma");
           }
+          
+          const mimeTypePart = parts[0];
           const base64Data = parts[1];
+          
           // Basic validation - check if it looks like valid base64
           if (base64Data.length < 100) {
             throw new Error("Image data too short, likely invalid");
+          }
+          
+          // Force PNG format for browser compatibility (convert from AVIF if needed)
+          if (mimeTypePart.includes('avif')) {
+            console.log("[API] Converting AVIF to PNG for browser compatibility");
+            imageUrl = `data:image/png;base64,${base64Data}`;
+          } else if (!mimeTypePart.includes('image/')) {
+            // If mime type is missing or invalid, default to PNG
+            console.log("[API] Invalid or missing mime type, defaulting to PNG");
+            imageUrl = `data:image/png;base64,${base64Data}`;
+          }
+          
+          // Final validation - ensure base64 is valid
+          const base64Regex = /^[A-Za-z0-9+/=]+$/;
+          if (!base64Regex.test(base64Data)) {
+            throw new Error("Invalid base64 data format");
           }
         }
       } catch (error: any) {
