@@ -4132,7 +4132,7 @@
             startDesignFlowWithProduct(productName);
         }
         
-        function startDesignFlow() {
+        async function startDesignFlow() {
             // Show the wizard
             const stepsContainer = document.getElementById('stepsContainer');
             if (stepsContainer) {
@@ -4140,48 +4140,93 @@
                 stepsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
-            // Initialize the flow
-            initializeFlow();
+            // Initialize the flow with empty message
+            await startDesignFlowWithProduct('');
+        }
+        
+        async function initializeFlow() {
+            // Alias for startDesignFlow - for backward compatibility
+            await startDesignFlow();
         }
         
         async function startDesignFlowWithProduct(productName) {
             // Get API URL - use default if input is hidden or empty
             const apiUrlInput = document.getElementById('apiUrl');
-            const apiUrl = apiUrlInput ? apiUrlInput.value.trim() : 'https://packageha-ai.akhodary-006.workers.dev';
+            let apiUrl = 'https://packageha-ai.akhodary-006.workers.dev'; // Default URL
             
-            if (!apiUrl) {
-                alert(currentLang === 'ar' ? 'يرجى إدخال رابط Worker أولاً' : 'Please enter Worker URL first');
-                return;
+            if (apiUrlInput && apiUrlInput.value.trim()) {
+                apiUrl = apiUrlInput.value.trim();
             }
             
-            // Ensure URL has protocol
+            // Ensure URL has protocol and no trailing slash
             let finalUrl = apiUrl;
             if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
                 finalUrl = 'https://' + finalUrl;
             }
             finalUrl = finalUrl.replace(/\/$/, ''); // Remove trailing slash
             
+            console.log('[startDesignFlowWithProduct] Making POST request to:', finalUrl);
+            console.log('[startDesignFlowWithProduct] Product name:', productName);
+            
             try {
+                // First, try to make the POST request
                 const response = await fetch(finalUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({
                         flow: 'direct_sales',
                         message: productName
                     })
                 });
                 
+                console.log('[startDesignFlowWithProduct] Response status:', response.status);
+                console.log('[startDesignFlowWithProduct] Response headers:', Object.fromEntries(response.headers.entries()));
+                
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('[startDesignFlowWithProduct] Response error:', response.status, errorText);
-                    throw new Error(`Server error: ${response.status}`);
+                    
+                    // If 405, try using initializeFlow instead as fallback
+                    if (response.status === 405) {
+                        console.log('[startDesignFlowWithProduct] 405 error - trying initializeFlow as fallback');
+                        // Store product name in flowState for initializeFlow to use
+                        flowState.productDetails = { description: productName };
+                        initializeFlow();
+                        return;
+                    }
+                    
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
-                handleResponse(data, { type: 'product_design_start' });
+                console.log('[startDesignFlowWithProduct] Response data:', data);
+                
+                if (data && typeof handleResponse === 'function') {
+                    handleResponse(data, { type: 'product_design_start' });
+                } else {
+                    console.error('[startDesignFlowWithProduct] handleResponse function not found');
+                    // Fallback: use initializeFlow
+                    flowState.productDetails = { description: productName };
+                    initializeFlow();
+                }
             } catch (error) {
                 console.error('[startDesignFlowWithProduct] Error:', error);
-                alert(currentLang === 'ar' ? 'حدث خطأ. يرجى المحاولة مرة أخرى.' : 'An error occurred. Please try again.');
+                
+                // Fallback: try initializeFlow if POST fails
+                console.log('[startDesignFlowWithProduct] Using initializeFlow as fallback');
+                flowState.productDetails = { description: productName };
+                
+                try {
+                    initializeFlow();
+                } catch (fallbackError) {
+                    console.error('[startDesignFlowWithProduct] Fallback also failed:', fallbackError);
+                    alert(currentLang === 'ar' 
+                        ? 'حدث خطأ في الاتصال بالخادم. يرجى التحقق من عنوان URL والمحاولة مرة أخرى.'
+                        : 'Connection error. Please check the URL and try again.');
+                }
             }
         }
         
