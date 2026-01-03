@@ -659,8 +659,17 @@ curl -X POST https://packageha-ai.akhodary-006.workers.dev \
 
 ### Testing Salla Integration
 
+**For Merchants:**
+- **Landing Page**: `https://your-worker.workers.dev/` - Arabic landing page for merchants
+- **Direct Form**: `https://your-worker.workers.dev/sallaTest.html` - Direct access to the design form
+
+**For Developers:**
 - Use `sallaTest.html` for Salla merchant integration testing
 - Use `test.html` for MVP Direct Sales Flow testing
+
+**Important**: For real store connections, your app must be **published** in Salla Partners Portal. Development mode apps are only accessible to the developer. See `SALLA_OAUTH_SETUP.md` for publishing instructions.
+
+**Merchant Access**: Share the root URL (`/`) with merchants. They'll see a friendly Arabic landing page that explains the service and links to the design form.
 
 ---
 

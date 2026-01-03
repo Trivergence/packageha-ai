@@ -90,6 +90,76 @@ This requires a different implementation approach.
 
 4. **Clear browser cache** and try again
 
+## Publishing Your App for Production
+
+If you're getting an error that the app "is not available" or "could not find the app" when connecting to a real store, your app is likely in **development mode** and needs to be published.
+
+### Steps to Publish Your App:
+
+1. **Go to Salla Partners Portal:**
+   - Navigate to: https://portal.salla.partners/apps/357944659
+   - Or go to "My Apps" → Select your app
+
+2. **Start Publishing Process:**
+   - Look for a button like **"Start Publishing your App"** or **"Publish App"**
+   - This is usually in the app's main settings or overview page
+
+3. **Complete Publishing Requirements:**
+   - Provide app information (name, description, logo)
+   - Configure app features and capabilities
+   - Set pricing (if applicable)
+   - Add contact details and support information
+   - Submit for Salla review
+
+4. **Wait for Approval:**
+   - Salla will review your app
+   - Once approved, it will be available in the Salla App Store
+   - Real stores will be able to install and use your app
+
+### Alternative: Test with Demo Store
+
+While waiting for approval, you can:
+- Use Salla's demo/test stores for development
+- Test the OAuth flow with test accounts
+- Continue development without publishing
+
+### Important Notes:
+
+- **Development Mode**: Apps in development are only accessible to the developer
+- **Production Mode**: Published apps are available to all Salla merchants
+- **OAuth Mode**: Make sure you're using "Custom Mode" (not "Easy Mode") for OAuth redirect flow
+- **Redirect URI**: Must be registered before publishing
+
+## How Merchants Access the Form
+
+For testing in development mode, merchants can access the form in two ways:
+
+### Option 1: Direct URL (Recommended)
+Share this URL with merchants:
+```
+https://packageha-ai.akhodary-006.workers.dev/
+```
+or
+```
+https://packageha-ai.akhodary-006.workers.dev/sallaTest.html
+```
+
+The root URL (`/`) shows a friendly Arabic landing page that explains the service and links to the form.
+
+### Option 2: From Salla App (When Published)
+Once your app is published, merchants can:
+1. Go to Salla App Store
+2. Find and install "بكجها" (Packageha)
+3. Open the app from their Salla dashboard
+4. The app will redirect them to the design form
+
+### For Development Testing:
+1. Share the URL: `https://packageha-ai.akhodary-006.workers.dev/`
+2. Merchant clicks "ابدأ التصميم الآن" (Start Designing Now)
+3. They connect their Salla store
+4. They select a product, upload image, or enter description
+5. The package design flow begins
+
 ## Need Help?
 
 If you still can't find where to register redirect URIs:
