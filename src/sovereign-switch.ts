@@ -250,44 +250,70 @@ export class SovereignSwitch {
 
   /**
    * Get a working Gemini model for TEXT tasks (package matching, conversations)
-   * HARDCODED: Uses gemini-2.5-pro (best for text processing, advanced reasoning, JSON parsing)
-   * Based on Google's official recommendations for text-based tasks
+   * HARDCODED: Uses gemini-1.5-flash (proven, reliable, fast for text/JSON tasks)
+   * Fallback: gemini-1.5-pro (better quality if flash not available)
    */
   async getWorkingGeminiModel(apiKey: string, preferredModel?: string): Promise<string> {
-    // Hardcoded best model for text tasks: gemini-2.5-pro
-    // This model excels at:
-    // - Text processing and analysis
-    // - Advanced reasoning
-    // - JSON parsing and structured output
-    // - Package matching based on requirements
-    const bestTextModel = "gemini-2.5-pro";
+    // Primary model: gemini-1.5-flash
+    // - Fast, reliable, widely available
+    // - Excellent for text processing and JSON parsing
+    // - Proven to work well for package matching tasks
+    const primaryModel = "gemini-1.5-flash";
     
-    // Verify the model is available (optional check)
+    // Fallback model: gemini-1.5-pro
+    // - Better quality, slightly slower
+    // - Good for complex reasoning tasks
+    const fallbackModel = "gemini-1.5-pro";
+    
+    // Verify the model is available
     try {
       const availableModels = await this.listGeminiModels(apiKey);
-      if (availableModels.includes(bestTextModel)) {
-        console.log("[getWorkingGeminiModel] Using hardcoded best text model:", bestTextModel);
-        return bestTextModel;
+      
+      // Try primary model first
+      if (availableModels.includes(primaryModel)) {
+        console.log("[getWorkingGeminiModel] Using hardcoded primary text model:", primaryModel);
+        return primaryModel;
       }
-      // If not available, try alternatives
-      const pro25 = availableModels.find(m => m.includes('2.5-pro') && !m.includes('preview'));
-      if (pro25) {
-        console.log("[getWorkingGeminiModel] Using alternative 2.5-pro:", pro25);
-        return pro25;
+      
+      // Try fallback model
+      if (availableModels.includes(fallbackModel)) {
+        console.log("[getWorkingGeminiModel] Using hardcoded fallback text model:", fallbackModel);
+        return fallbackModel;
       }
-      // Fallback to any pro model
-      const pro = availableModels.find(m => m.includes('pro') && !m.includes('preview') && !m.includes('image'));
-      if (pro) {
-        console.log("[getWorkingGeminiModel] Using fallback pro model:", pro);
-        return pro;
+      
+      // Try to find any 1.5-flash variant
+      const flash15 = availableModels.find(m => m.includes('1.5-flash') && !m.includes('preview'));
+      if (flash15) {
+        console.log("[getWorkingGeminiModel] Using alternative 1.5-flash:", flash15);
+        return flash15;
+      }
+      
+      // Try to find any 1.5-pro variant
+      const pro15 = availableModels.find(m => m.includes('1.5-pro') && !m.includes('preview') && !m.includes('image'));
+      if (pro15) {
+        console.log("[getWorkingGeminiModel] Using alternative 1.5-pro:", pro15);
+        return pro15;
+      }
+      
+      // Last resort: any flash model
+      const flash = availableModels.find(m => m.toLowerCase().includes('flash') && !m.includes('preview') && !m.includes('image'));
+      if (flash) {
+        console.log("[getWorkingGeminiModel] Using any available flash model:", flash);
+        return flash;
+      }
+      
+      // Final fallback: first available model
+      if (availableModels.length > 0) {
+        console.log("[getWorkingGeminiModel] Using first available model:", availableModels[0]);
+        return availableModels[0];
       }
     } catch (error) {
-      console.warn("[getWorkingGeminiModel] Error checking models, using hardcoded:", error);
+      console.warn("[getWorkingGeminiModel] Error checking models, using hardcoded primary:", error);
     }
     
-    // Return hardcoded model even if check fails (model should be available)
-    console.log("[getWorkingGeminiModel] Using hardcoded best text model (no verification):", bestTextModel);
-    return bestTextModel;
+    // Return primary model even if check fails (should be available)
+    console.log("[getWorkingGeminiModel] Using hardcoded primary text model (no verification):", primaryModel);
+    return primaryModel;
   }
 
   /**
