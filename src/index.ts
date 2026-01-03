@@ -306,6 +306,51 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     }
   }
   
+  // Get variant ID from product ID endpoint
+  if (url.pathname === "/api/get-variant-id" && request.method === "POST") {
+    try {
+      const body = await request.json() as { productId: number };
+      
+      if (!body.productId) {
+        return jsonResponse({ error: "productId is required" }, 400);
+      }
+      
+      const cleanShop = env.SHOP_URL.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
+      const url = `https://${cleanShop}/admin/api/2024-01/products/${body.productId}.json?fields=id,title,variants`;
+      
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "X-Shopify-Access-Token": env.SHOPIFY_ACCESS_TOKEN,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Shopify API Error ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      const product = data.product;
+      
+      if (!product || !product.variants || product.variants.length === 0) {
+        throw new Error(`Product ${body.productId} has no variants`);
+      }
+      
+      // Return the first variant ID
+      const variantId = product.variants[0].id;
+      
+      return jsonResponse({
+        variantId: variantId,
+        productTitle: product.title
+      });
+    } catch (error: any) {
+      console.error("[API] Get variant ID error:", error);
+      return jsonResponse({ error: error.message }, 500);
+    }
+  }
+  
   // Create draft order endpoint
   if (url.pathname === "/api/create-draft-order" && request.method === "POST") {
     try {

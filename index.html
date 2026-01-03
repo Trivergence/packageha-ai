@@ -4648,6 +4648,40 @@
             submitBtn.textContent = currentLang === 'ar' ? 'جاري المعالجة...' : 'Processing...';
             
             try {
+                // First, get the variant ID from the product ID if we don't have it
+                let variantId = product.packageVariantId;
+                
+                if (!variantId && product.packageId) {
+                    console.log('[submitOrder] Fetching variant ID for product:', product.packageId);
+                    const variantResponse = await fetch('/api/get-variant-id', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            productId: product.packageId
+                        })
+                    });
+                    
+                    if (!variantResponse.ok) {
+                        const errorData = await variantResponse.json();
+                        throw new Error(errorData.error || 'Failed to get variant ID');
+                    }
+                    
+                    const variantData = await variantResponse.json();
+                    variantId = variantData.variantId;
+                    console.log('[submitOrder] Got variant ID:', variantId);
+                    
+                    // Store it for future use
+                    product.packageVariantId = variantId;
+                }
+                
+                if (!variantId) {
+                    throw new Error(currentLang === 'ar' 
+                        ? 'لم يتم العثور على معرف المتغير للغلاف'
+                        : 'Variant ID not found for package');
+                }
+                
                 // Call API to create draft order
                 const response = await fetch('/api/create-draft-order', {
                     method: 'POST',
@@ -4655,7 +4689,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        variantId: product.packageVariantId || product.packageId, // Use variant ID if available, fallback to package ID
+                        variantId: variantId,
                         quantity: quantity,
                         note: note
                     })
@@ -4705,9 +4739,31 @@
                 }
             } catch (error) {
                 console.error('Error creating order:', error);
+                
+                // Parse error message for better user experience
+                let errorMessage = error.message || 'Unknown error';
+                
+                // Check if it's a Shopify API error
+                if (errorMessage.includes('Shopify API Error')) {
+                    // Try to extract a more user-friendly message
+                    if (errorMessage.includes('no longer available')) {
+                        errorMessage = currentLang === 'ar' 
+                            ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
+                            : 'The selected product is no longer available. Please select a different package.';
+                    } else if (errorMessage.includes('422')) {
+                        errorMessage = currentLang === 'ar' 
+                            ? 'خطأ في بيانات الطلب. يرجى المحاولة مرة أخرى أو اختيار غلاف آخر.'
+                            : 'Invalid order data. Please try again or select a different package.';
+                    } else {
+                        errorMessage = currentLang === 'ar' 
+                            ? 'حدث خطأ في الاتصال بـ Shopify. يرجى المحاولة مرة أخرى.'
+                            : 'Error connecting to Shopify. Please try again.';
+                    }
+                }
+                
                 alert(currentLang === 'ar' 
-                    ? `خطأ في إنشاء الطلب: ${error.message}`
-                    : `Error creating order: ${error.message}`);
+                    ? `خطأ في إنشاء الطلب: ${errorMessage}`
+                    : `Error creating order: ${errorMessage}`);
                 submitBtn.disabled = false;
                 submitBtn.textContent = currentLang === 'ar' ? 'إرسال الطلب' : 'Submit Order';
             }
