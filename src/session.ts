@@ -865,43 +865,29 @@ export class PackagehaSession {
         }).join("\n");
         
         // Build AI prompt for inclusive scoring (no filtering, only reject with clear reason)
-        let systemPrompt = `You are a packaging expert. Your task is to SCORE all packages and return the best matches.
+        let systemPrompt = `You are a packaging matching system. Score ALL packages and return JSON.
 
-IMPORTANT RULES:
-1. BE INCLUSIVE: Include ALL packages unless there is a CLEAR, OBVIOUS reason to reject them (e.g., package is clearly for a completely different product category like "food containers" when searching for "electronics packaging").
-2. DO NOT filter by dimensions - include packages even if dimensions are unknown or seem small.
-3. SCORE all included packages based on:
-   a) Fitness (70% weight): How well the package description matches keywords in the product description
-   b) Price (30% weight): Lower price = higher score
+CRITICAL: Return ONLY valid JSON. No explanations, no markdown, just JSON.
 
-Return ONLY a JSON object with this structure:
-{
-  "type": "multiple",
-  "matches": [
-    {
-      "id": <package_index>,
-      "name": "<package_name>",
-      "reason": "Brief explanation of match quality",
-      "fitnessScore": <0.0 to 1.0>,
-      "priceScore": <0.0 to 1.0>,
-      "combinedScore": <0.0 to 1.0>
-    }
-  ]
-}
+RULES:
+1. BE INCLUSIVE: Include ALL packages. Only exclude if clearly wrong category (e.g., "food container" for "electronics").
+2. Score by: Fitness (70%) = keyword match, Price (30%) = lower is better.
+3. Return at least 5-10 top matches sorted by combinedScore.
 
-Only return "none" if there are literally NO packages in the inventory. Otherwise, return at least the top 5-10 matches.`;
+REQUIRED JSON FORMAT (return exactly this structure):
+{"type":"multiple","matches":[{"id":0,"name":"Package Name","reason":"Match explanation","fitnessScore":0.8,"priceScore":0.6,"combinedScore":0.74}]}
+
+If inventory is empty, return: {"type":"none","reason":"No packages available"}`;
 
         let userPrompt = `Inventory:\n${inventoryList}\n\n`;
         
         if (isAutoSearch && productDimensionsText) {
-            userPrompt += `Product Information:\n`;
-            userPrompt += `Product Description: ${productDescription}\n`;
-            userPrompt += `Product Dimensions: ${productDimensionsText}\n\n`;
-            userPrompt += `Task: Score ALL packages by keyword matching (70%) and price (30%). Include packages even if dimensions are unknown. Only exclude packages with a CLEAR reason (e.g., completely wrong product category). Return the top matches sorted by combined score.`;
+            userPrompt += `Product: ${productDescription}\n`;
+            userPrompt += `Dimensions: ${productDimensionsText}\n\n`;
+            userPrompt += `Score ALL packages. Return top 10 matches as JSON.`;
         } else {
-            // User-initiated search - just keyword matching
-            userPrompt += `User Query: "${userMessage}"\n\n`;
-            userPrompt += `Task: Score ALL packages that match the user's query based on keyword matching (70%) and price (30%). Be inclusive - only exclude packages with a CLEAR reason. Return matches sorted by combined score.`;
+            userPrompt += `Query: "${userMessage}"\n\n`;
+            userPrompt += `Score ALL packages matching this query. Return top 10 matches as JSON.`;
         }
         
         console.log("[handleDiscovery] System prompt length:", systemPrompt.length);
@@ -911,14 +897,18 @@ Only return "none" if there are literally NO packages in the inventory. Otherwis
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
         
         // Process decision
+        console.log("[handleDiscovery] Decision received:", JSON.stringify(decision, null, 2));
+        
         if (decision.type === "chat") {
-            return { reply: decision.reply || "I focus on packaging solutions. What are you looking for?" };
+            // If we got a chat response but have products, return them anyway as fallback
+            console.log("[handleDiscovery] Got chat response, using fallback - returning all products");
+            return this.createFallbackMatches(products, productDescription, memory);
         }
 
         if (decision.type === "none") {
-            return { 
-                reply: "No packages found that can fit your product dimensions. Please check your product dimensions or consider custom packaging." 
-            };
+            // Even if LLM says none, return fallback matches
+            console.log("[handleDiscovery] Got 'none' response, using fallback - returning all products");
+            return this.createFallbackMatches(products, productDescription, memory);
         }
 
         // Handle multiple matches
@@ -926,10 +916,14 @@ Only return "none" if there are literally NO packages in the inventory. Otherwis
         
         if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
             matches = decision.matches
-                .filter(m => m.id !== undefined && products[m.id])
+                .filter(m => m.id !== undefined && m.id >= 0 && m.id < products.length)
                 .slice(0, 10) // Limit to 10 matches
                 .map(m => {
                     const product = products[m.id!];
+                    if (!product) {
+                        console.warn(`[handleDiscovery] Product at index ${m.id} not found`);
+                        return null;
+                    }
                     const imageUrl = product.images && product.images.length > 0 
                         ? product.images[0].src 
                         : null;
@@ -944,11 +938,12 @@ Only return "none" if there are literally NO packages in the inventory. Otherwis
                         reason: m.reason || "Suitable for your product",
                         imageUrl: imageUrl,
                         price: price,
-                        fitnessScore: m.fitnessScore || 0,
-                        priceScore: m.priceScore || 0,
-                        combinedScore: m.combinedScore || 0
+                        fitnessScore: m.fitnessScore || 0.5,
+                        priceScore: m.priceScore || 0.5,
+                        combinedScore: m.combinedScore || 0.5
                     };
-                });
+                })
+                .filter(m => m !== null);
         }
         
         if (matches.length > 0) {
@@ -964,9 +959,44 @@ Only return "none" if there are literally NO packages in the inventory. Otherwis
             };
         }
         
-        // Fallback
-        return { 
-            reply: "No suitable packages found. Please try adjusting your search criteria." 
+        // Final fallback - return all products
+        console.log("[handleDiscovery] No matches from LLM, using final fallback");
+        return this.createFallbackMatches(products, productDescription, memory);
+    }
+
+    /**
+     * Fallback: Return all products as matches when LLM fails
+     */
+    private createFallbackMatches(products: any[], productDescription: string, memory: Memory): { reply: string; productMatches: any[] } {
+        const matches = products.slice(0, 10).map((product, index) => {
+            const imageUrl = product.images && product.images.length > 0 
+                ? product.images[0].src 
+                : null;
+            const price = product.variants && product.variants.length > 0
+                ? product.variants[0].price
+                : null;
+            
+            return {
+                id: index,
+                packageId: product.id,
+                name: product.title,
+                reason: "Available package option",
+                imageUrl: imageUrl,
+                price: price,
+                fitnessScore: 0.5,
+                priceScore: 0.5,
+                combinedScore: 0.5
+            };
+        });
+
+        if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
+            memory.step = "select_product";
+        }
+        memory.pendingMatches = matches;
+
+        return {
+            reply: `I found ${matches.length} available packages.`,
+            productMatches: matches
         };
     }
 
@@ -1874,7 +1904,15 @@ Timestamp: ${new Date().toISOString()}
 
     private sanitizeJSON(text: string): string {
         // Remove markdown code blocks
-        return text.replace(/```json|```/g, "").trim();
+        let cleaned = text.replace(/```json|```/g, "").trim();
+        
+        // Try to extract JSON object if there's extra text
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            cleaned = jsonMatch[0];
+        }
+        
+        return cleaned;
     }
 
     private async loadMemory(): Promise<Memory> {
