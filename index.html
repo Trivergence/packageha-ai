@@ -50,24 +50,24 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Cairo', sans-serif;
-            background: linear-gradient(135deg, #FFC107 0%, #FFD54F 50%, #FFC107 100%);
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
             min-height: 100vh;
-            padding: 15px;
+            padding: 20px;
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
             overflow: hidden;
         }
         
         .header {
-            background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
-            color: #000;
-            padding: 25px 30px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
+            padding: 30px 40px;
             position: relative;
             overflow: hidden;
         }
@@ -75,17 +75,12 @@
         .header::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: pulse 3s ease-in-out infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.1); opacity: 0.8; }
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(255,193,7,0.1) 0%, transparent 70%);
+            pointer-events: none;
         }
         
         .header-content {
@@ -108,9 +103,10 @@
         .lang-toggle {
             display: flex;
             gap: 5px;
-            background: rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.1);
             border-radius: 20px;
             padding: 5px;
+            backdrop-filter: blur(10px);
         }
         
         .lang-toggle button {
@@ -118,7 +114,7 @@
             border: none;
             border-radius: 15px;
             background: transparent;
-            color: #000;
+            color: #fff;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
@@ -126,8 +122,203 @@
         }
         
         .lang-toggle button.active {
-            background: #000;
+            background: rgba(255,255,255,0.2);
             color: #FFC107;
+        }
+        
+        /* User Account & Store Management */
+        .account-section {
+            padding: 30px 40px;
+            background: #fafbfc;
+            border-bottom: 1px solid #e8ecf1;
+        }
+        
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .account-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 0;
+        }
+        
+        .connect-store-btn {
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connect-store-btn:hover {
+            background: #2d2d2d;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .stores-list {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .store-card {
+            background: white;
+            border: 1px solid #e8ecf1;
+            border-radius: 16px;
+            padding: 20px;
+            min-width: 200px;
+            position: relative;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .store-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+        }
+        
+        .store-logo-container {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            background: #f5f7fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .store-logo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .store-logo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #999;
+        }
+        
+        .host-badge {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .host-badge img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        
+        .store-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        
+        .disconnect-btn {
+            width: 100%;
+            padding: 8px 16px;
+            background: transparent;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        
+        .disconnect-btn:hover {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .connect-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .connect-menu.visible {
+            display: block;
+        }
+        
+        .connect-menu-item {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid #f5f7fa;
+        }
+        
+        .connect-menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .connect-menu-item:hover {
+            background: #f5f7fa;
+        }
+        
+        .connect-menu-item-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .connect-menu-item-text {
+            flex: 1;
+            font-weight: 600;
+            color: #1a1a1a;
         }
         
         .config-section {
@@ -187,8 +378,8 @@
         }
         
         .step-section.active {
-            border-color: #FFC107;
-            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+            border-color: #1a1a1a;
+            box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
         }
         
         .step-header {
@@ -202,7 +393,7 @@
         }
         
         .step-section.active .step-header {
-            background: #FFF9E6;
+            background: #f5f7fa;
         }
         
         .step-section.completed .step-header {
@@ -240,8 +431,8 @@
         }
         
         .step-section.active .step-number {
-            background: #FFC107;
-            color: #000;
+            background: #1a1a1a;
+            color: #fff;
         }
         
         .step-info {
@@ -269,7 +460,7 @@
         
         .step-section.active .step-chevron {
             transform: rotate(180deg);
-            color: #FFC107;
+            color: #1a1a1a;
         }
         
         .step-content {
@@ -525,7 +716,7 @@
         .input-group input:focus,
         .input-group textarea:focus {
             outline: none;
-            border-color: #FFC107;
+            border-color: #1a1a1a;
         }
         
         .dimensions-row {
@@ -644,8 +835,8 @@
         }
         
         .inventory-table thead {
-            background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
-            color: #000;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
         }
         
         .inventory-table th {
@@ -672,7 +863,39 @@
         }
         
         .inventory-table tbody tr:hover {
-            background: #FFF9E6;
+            background: #f5f7fa;
+        }
+        
+        .product-photo, .package-photo {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #e8ecf1;
+        }
+        
+        .photo-placeholder {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            background: #f5f7fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 20px;
+        }
+        
+        .store-source {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .store-source-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
         }
         
         .restock-badge {
@@ -695,8 +918,8 @@
         
         .design-btn {
             padding: 10px 20px;
-            background: #000;
-            color: #FFC107;
+            background: #1a1a1a;
+            color: #fff;
             border: none;
             border-radius: 8px;
             font-weight: 600;
@@ -707,9 +930,9 @@
         }
         
         .design-btn:hover {
-            background: #333;
+            background: #2d2d2d;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
         .linked-badge {
@@ -816,6 +1039,32 @@
             </div>
         </div>
         
+        <!-- User Account & Store Management Section -->
+        <div class="account-section">
+            <div class="account-header">
+                <h2 data-ar="حسابي والمتاجر المتصلة" data-en="My Account & Connected Stores">حسابي والمتاجر المتصلة</h2>
+                <div style="position: relative;">
+                    <button onclick="toggleConnectMenu()" class="connect-store-btn">
+                        <span>+</span>
+                        <span data-ar="ربط متجر" data-en="Connect Store">ربط متجر</span>
+                    </button>
+                    <div id="connectMenu" class="connect-menu">
+                        <div class="connect-menu-item" onclick="connectStore('salla')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛍️</div>
+                            <div class="connect-menu-item-text" data-ar="سلة" data-en="Salla">سلة</div>
+                        </div>
+                        <div class="connect-menu-item" onclick="connectStore('custom')">
+                            <div class="connect-menu-item-icon" style="background: #f5f7fa;">⚙️</div>
+                            <div class="connect-menu-item-text" data-ar="مخصص" data-en="Custom">مخصص</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="storesList" class="stores-list">
+                <!-- Connected stores will be rendered here -->
+            </div>
+        </div>
+        
         <!-- Inventory Table Section -->
         <div id="inventorySection" class="inventory-section">
             <h2 data-ar="📦 مخزون الأغلفة والمنتجات" data-en="📦 Package & Product Inventory">📦 مخزون الأغلفة والمنتجات</h2>
@@ -823,8 +1072,11 @@
                 <table id="inventoryTable" class="inventory-table">
                     <thead>
                         <tr>
-                            <th data-ar="الغلاف" data-en="Package">الغلاف</th>
+                            <th data-ar="صورة المنتج" data-en="Product Photo">صورة المنتج</th>
                             <th data-ar="المنتجات المرتبطة" data-en="Associated Products">المنتجات المرتبطة</th>
+                            <th data-ar="الغلاف" data-en="Package">الغلاف</th>
+                            <th data-ar="صورة الغلاف" data-en="Package Photo">صورة الغلاف</th>
+                            <th data-ar="المصدر" data-en="Source">المصدر</th>
                             <th data-ar="إعادة التخزين" data-en="Restock">إعادة التخزين</th>
                             <th data-ar="إجراءات" data-en="Actions">إجراءات</th>
                         </tr>
@@ -3532,9 +3784,103 @@
                 el.textContent = el.getAttribute(`data-${lang}`);
             });
             
-            // Re-render inventory table with new language
+            // Re-render stores and inventory table with new language
+            renderStores();
             renderInventoryTable();
         }
+        
+        // Store Management
+        const connectedStores = [
+            {
+                id: 1,
+                name: 'Demo Store',
+                host: 'custom',
+                logo: null
+            }
+        ];
+        
+        const hostConfig = {
+            salla: { name: 'Salla', icon: '🛍️', color: '#00A859' },
+            custom: { name: 'Custom', icon: '⚙️', color: '#6c757d' },
+            shopify: { name: 'Shopify', icon: '🛒', color: '#96bf48' },
+            zed: { name: 'Zed', icon: '📦', color: '#ff6b35' }
+        };
+        
+        function renderStores() {
+            const storesList = document.getElementById('storesList');
+            if (!storesList) return;
+            
+            if (connectedStores.length === 0) {
+                storesList.innerHTML = `<div style="width: 100%; text-align: center; padding: 40px; color: #999;" data-ar="لا توجد متاجر متصلة" data-en="No connected stores">لا توجد متاجر متصلة</div>`;
+                return;
+            }
+            
+            storesList.innerHTML = connectedStores.map(store => {
+                const host = hostConfig[store.host] || hostConfig.custom;
+                const logoHtml = store.logo 
+                    ? `<img src="${store.logo}" alt="${store.name}" class="store-logo">`
+                    : `<div class="store-logo-placeholder">${host.icon}</div>`;
+                
+                return `
+                    <div class="store-card">
+                        <div class="store-logo-container">
+                            ${logoHtml}
+                            <div class="host-badge" style="background: ${host.color};">
+                                <span style="color: white; font-size: 14px;">${host.icon}</span>
+                            </div>
+                        </div>
+                        <div class="store-name">${store.name}</div>
+                        <button onclick="disconnectStore(${store.id})" class="disconnect-btn" data-ar="قطع الاتصال" data-en="Disconnect">قطع الاتصال</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleConnectMenu() {
+            const menu = document.getElementById('connectMenu');
+            if (menu) {
+                menu.classList.toggle('visible');
+            }
+        }
+        
+        function connectStore(host) {
+            toggleConnectMenu();
+            // In production, this would open OAuth flow or store connection modal
+            if (host === 'salla') {
+                connectSalla();
+            } else if (host === 'custom') {
+                // For custom stores, show a modal to enter store details
+                const storeName = prompt(currentLang === 'ar' ? 'أدخل اسم المتجر' : 'Enter store name');
+                if (storeName) {
+                    connectedStores.push({
+                        id: Date.now(),
+                        name: storeName,
+                        host: 'custom',
+                        logo: null
+                    });
+                    renderStores();
+                }
+            }
+        }
+        
+        function disconnectStore(storeId) {
+            if (confirm(currentLang === 'ar' ? 'هل أنت متأكد من قطع الاتصال بهذا المتجر؟' : 'Are you sure you want to disconnect this store?')) {
+                const index = connectedStores.findIndex(s => s.id === storeId);
+                if (index > -1) {
+                    connectedStores.splice(index, 1);
+                    renderStores();
+                }
+            }
+        }
+        
+        // Close connect menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('connectMenu');
+            const btn = document.querySelector('.connect-store-btn');
+            if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.remove('visible');
+            }
+        });
         
         // Inventory Management
         const demoProducts = [
@@ -3542,8 +3888,13 @@
                 id: 1,
                 nameAr: 'عطر فاخر - زجاجة 200 مل',
                 nameEn: 'Premium Perfume - 200ml Bottle',
+                productPhoto: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=200&h=200&fit=crop',
                 packageAr: 'صندوق كرتوني مخصص',
                 packageEn: 'Custom Cardboard Box',
+                packagePhoto: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=200&h=200&fit=crop',
+                storeId: 1,
+                storeName: 'Demo Store',
+                host: 'custom',
                 restockAr: 'متوفر',
                 restockEn: 'Available',
                 hasPackage: true
@@ -3552,8 +3903,13 @@
                 id: 2,
                 nameAr: 'شامبو عضوي - 500 مل',
                 nameEn: 'Organic Shampoo - 500ml',
+                productPhoto: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=200&h=200&fit=crop',
                 packageAr: null,
                 packageEn: null,
+                packagePhoto: null,
+                storeId: 1,
+                storeName: 'Demo Store',
+                host: 'custom',
                 restockAr: 'نفد المخزون',
                 restockEn: 'Out of Stock',
                 hasPackage: false
@@ -3580,10 +3936,30 @@
             const designBtnText = isAr ? 'تصميم غلاف الآن' : 'Design Package Now';
             
             tbody.innerHTML = demoProducts.map(product => {
+                const productPhoto = product.productPhoto 
+                    ? `<img src="${product.productPhoto}" alt="${isAr ? product.nameAr : product.nameEn}" class="product-photo">`
+                    : `<div class="photo-placeholder">📦</div>`;
+                
+                const productName = isAr ? product.nameAr : product.nameEn;
+                
                 const packageText = product.hasPackage 
                     ? (isAr ? product.packageAr : product.packageEn)
                     : `<span style="color: #999;">${noPackageText}</span>`;
-                const productName = isAr ? product.nameAr : product.nameEn;
+                
+                const packagePhoto = product.hasPackage && product.packagePhoto
+                    ? `<img src="${product.packagePhoto}" alt="${packageText}" class="package-photo">`
+                    : `<div class="photo-placeholder">📦</div>`;
+                
+                const host = hostConfig[product.host] || hostConfig.custom;
+                const sourceHtml = `
+                    <div class="store-source">
+                        <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
+                            ${host.icon}
+                        </div>
+                        <span>${product.storeName}</span>
+                    </div>
+                `;
+                
                 const restockText = isAr ? product.restockAr : product.restockEn;
                 const restockClass = product.restockAr === 'متوفر' || product.restockEn === 'Available' 
                     ? 'restock-available' 
@@ -3594,10 +3970,13 @@
                 
                 return `
                     <tr>
-                        <td>${packageText}</td>
+                        <td style="text-align: center;">${productPhoto}</td>
                         <td>${productName}</td>
-                        <td><span class="restock-badge ${restockClass}">${restockText}</span></td>
-                        <td>${actionCell}</td>
+                        <td>${packageText}</td>
+                        <td style="text-align: center;">${packagePhoto}</td>
+                        <td>${sourceHtml}</td>
+                        <td style="text-align: center;"><span class="restock-badge ${restockClass}">${restockText}</span></td>
+                        <td style="text-align: center;">${actionCell}</td>
                     </tr>
                 `;
             }).join('');
@@ -3657,6 +4036,7 @@
         window.addEventListener('DOMContentLoaded', function() {
             checkSallaCallback();
             updateRedirectUriDisplay();
+            renderStores();
             renderInventoryTable();
             setLanguage('ar'); // Set default language
             
