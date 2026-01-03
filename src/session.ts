@@ -820,6 +820,22 @@ export class PackagehaSession {
         
         const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}${promptInstructions}\n\nReturn JSON:\n- If multiple suitable matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "Brief explanation of why this package matches..."}, ...] }\n- If single match: { "type": "found", "id": <index>, "reason": "Brief explanation..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
 
+        // LOG PROMPTS FOR DEBUGGING
+        console.log("[handleDiscovery] ========== PROMPT ANALYSIS ==========");
+        console.log("[handleDiscovery] isAutoSearch:", isAutoSearch);
+        console.log("[handleDiscovery] userMessage length:", userMessage.length);
+        console.log("[handleDiscovery] userMessage preview:", userMessage.substring(0, 200));
+        console.log("[handleDiscovery] inventoryList length:", inventoryList.length);
+        console.log("[handleDiscovery] inventoryList preview:", inventoryList.substring(0, 500));
+        console.log("[handleDiscovery] productContext length:", productContext.length);
+        console.log("[handleDiscovery] productContext:", productContext);
+        console.log("[handleDiscovery] promptInstructions:", promptInstructions);
+        console.log("[handleDiscovery] systemPrompt length:", systemPrompt.length);
+        console.log("[handleDiscovery] systemPrompt:", systemPrompt);
+        console.log("[handleDiscovery] userPrompt length:", userPrompt.length);
+        console.log("[handleDiscovery] userPrompt:", userPrompt);
+        console.log("[handleDiscovery] =====================================");
+
         // Get AI decision
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
 
@@ -1806,18 +1822,36 @@ Timestamp: ${new Date().toISOString()}
 
     private async getAIDecision(prompt: string, systemPrompt: string): Promise<AIDecision> {
         try {
+            console.log("[getAIDecision] ========== CALLING AI ==========");
+            console.log("[getAIDecision] System prompt length:", systemPrompt.length);
+            console.log("[getAIDecision] User prompt length:", prompt.length);
+            console.log("[getAIDecision] Total prompt length:", systemPrompt.length + prompt.length);
+            
             const response = await this.sovereignSwitch.callAI(prompt, systemPrompt);
+            
+            console.log("[getAIDecision] Raw AI response length:", response.length);
+            console.log("[getAIDecision] Raw AI response:", response);
+            
             const cleanJson = this.sanitizeJSON(response);
+            console.log("[getAIDecision] Cleaned JSON length:", cleanJson.length);
+            console.log("[getAIDecision] Cleaned JSON:", cleanJson);
+            
             const decision = JSON.parse(cleanJson) as AIDecision;
+            console.log("[getAIDecision] Parsed decision:", JSON.stringify(decision, null, 2));
             
             // Validate decision structure
             if (!decision.type || !["found", "chat", "none", "multiple"].includes(decision.type)) {
+                console.error("[getAIDecision] Invalid decision type:", decision.type);
                 throw new Error("Invalid decision type");
             }
             
+            console.log("[getAIDecision] ========== SUCCESS ==========");
             return decision;
         } catch (error: any) {
-            console.error("[getAIDecision] Error:", error);
+            console.error("[getAIDecision] ========== ERROR ==========");
+            console.error("[getAIDecision] Error type:", error.constructor.name);
+            console.error("[getAIDecision] Error message:", error.message);
+            console.error("[getAIDecision] Error stack:", error.stack);
             return { 
                 type: "chat", 
                 reply: "I'm having trouble processing that. Could you rephrase your request?" 
