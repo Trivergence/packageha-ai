@@ -4676,13 +4676,38 @@ Return ONLY a detailed image description, no other text.`;
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('[selectPackageMatch] Response error:', response.status, errorText);
-                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    
+                    // Check for specific Gemini API errors
+                    let errorMessage = currentLang === 'ar' 
+                        ? 'حدث خطأ أثناء إنشاء الصورة. يرجى المحاولة مرة أخرى.'
+                        : 'An error occurred while creating the image. Please try again.';
+                    
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        if (errorData.error && errorData.error.includes('Interactions API')) {
+                            errorMessage = currentLang === 'ar'
+                                ? 'خطأ في نموذج الذكاء الاصطناعي. جاري المحاولة بنموذج بديل...'
+                                : 'AI model error. Trying alternative model...';
+                            console.warn('[selectPackageMatch] Interactions API error detected, backend should retry with fallback');
+                        }
+                    } catch (e) {
+                        // Error text is not JSON, use default message
+                    }
+                    
+                    throw new Error(errorMessage);
                 }
                 
                 const data = await response.json();
                 console.log('[selectPackageMatch] Response data:', data);
                 
-                const imagePrompt = data.imagePrompt || '';
+                if (!data.imagePrompt) {
+                    console.error('[selectPackageMatch] No imagePrompt in response:', data);
+                    throw new Error(currentLang === 'ar' 
+                        ? 'لم يتم إنشاء وصف الصورة. يرجى المحاولة مرة أخرى.'
+                        : 'Image description was not generated. Please try again.');
+                }
+                
+                const imagePrompt = data.imagePrompt;
                 console.log('[selectPackageMatch] Generated image prompt length:', imagePrompt.length);
                 console.log('[selectPackageMatch] Generated image prompt:', imagePrompt);
                 

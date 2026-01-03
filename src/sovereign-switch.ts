@@ -198,12 +198,35 @@ export class SovereignSwitch {
       }
       
       const data = await response.json();
-      // Filter models that support generateContent
+      // Filter models that support generateContent AND exclude Interaction-only models
       const models = (data.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+        .filter((m: any) => {
+          const supportsGenerateContent = m.supportedGenerationMethods?.includes('generateContent');
+          if (!supportsGenerateContent) {
+            return false;
+          }
+          
+          // Exclude models that ONLY support Interactions API
+          // These models typically have "interactive" or "live" in their name
+          const modelName = (m.name || '').toLowerCase();
+          const displayName = (m.displayName || '').toLowerCase();
+          const isInteractionOnly = modelName.includes('interactive') || 
+                                    modelName.includes('interaction') ||
+                                    modelName.includes('live') ||
+                                    displayName.includes('interactive') ||
+                                    displayName.includes('live');
+          
+          if (isInteractionOnly) {
+            console.log("[listGeminiModels] Excluding Interaction-only model:", m.name);
+            return false;
+          }
+          
+          return true;
+        })
         .map((m: any) => m.name.replace('models/', ''))
         .sort();
       
+      console.log("[listGeminiModels] Available models (after filtering):", models);
       return models;
     } catch (error: any) {
       console.error("[listGeminiModels] Error:", error);
@@ -246,12 +269,26 @@ export class SovereignSwitch {
 
   /**
    * Get best Gemini model for image generation (creative tasks)
+   * Excludes Interaction-only models
    */
   async getBestImageModel(apiKey: string): Promise<string> {
     const availableModels = await this.listGeminiModels(apiKey);
     
     if (availableModels.length === 0) {
+      console.warn("[getBestImageModel] No models available, using fallback");
       return "gemini-1.5-pro"; // Fallback
+    }
+    
+    // Filter out Interaction-only models explicitly
+    const validModels = availableModels.filter(m => 
+      !m.toLowerCase().includes('interactive') && 
+      !m.toLowerCase().includes('interaction') &&
+      !m.toLowerCase().includes('live')
+    );
+    
+    if (validModels.length === 0) {
+      console.warn("[getBestImageModel] No valid models after filtering, using first available");
+      return availableModels[0];
     }
     
     // Prefer models in this order for creative/image generation tasks:
@@ -259,26 +296,26 @@ export class SovereignSwitch {
     // 2. gemini-1.5-flash (fast, good quality)
     // 3. gemini-pro (fallback)
     
-    const pro15 = availableModels.find(m => m.includes('1.5-pro'));
+    const pro15 = validModels.find(m => m.includes('1.5-pro') && !m.includes('interactive'));
     if (pro15) {
-      console.log("[SovereignSwitch] Selected gemini-1.5-pro for image generation");
+      console.log("[SovereignSwitch] Selected gemini-1.5-pro for image generation:", pro15);
       return pro15;
     }
     
-    const flash15 = availableModels.find(m => m.includes('1.5-flash'));
+    const flash15 = validModels.find(m => m.includes('1.5-flash') && !m.includes('interactive'));
     if (flash15) {
-      console.log("[SovereignSwitch] Selected gemini-1.5-flash for image generation");
+      console.log("[SovereignSwitch] Selected gemini-1.5-flash for image generation:", flash15);
       return flash15;
     }
     
-    const pro = availableModels.find(m => m.includes('pro') && !m.includes('1.5'));
+    const pro = validModels.find(m => m.includes('pro') && !m.includes('1.5') && !m.includes('interactive'));
     if (pro) {
-      console.log("[SovereignSwitch] Selected gemini-pro for image generation");
+      console.log("[SovereignSwitch] Selected gemini-pro for image generation:", pro);
       return pro;
     }
     
-    console.log("[SovereignSwitch] Using first available model for image generation:", availableModels[0]);
-    return availableModels[0];
+    console.log("[SovereignSwitch] Using first valid model for image generation:", validModels[0]);
+    return validModels[0];
   }
 
   private async callGemini(
@@ -344,6 +381,38 @@ export class SovereignSwitch {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[SovereignSwitch] Gemini API error:", response.status, errorText);
+      
+      // Check if this is an "Interactions API only" error
+      if (errorText.includes("Interactions API") || errorText.includes("only supports Interactions")) {
+        console.error("[SovereignSwitch] Model only supports Interactions API, trying fallback model");
+        
+        // Try with a known working model
+        const fallbackModel = "gemini-1.5-flash";
+        const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${config.apiKey}`;
+        
+        try {
+          const fallbackResponse = await fetch(fallbackEndpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+          
+          if (!fallbackResponse.ok) {
+            const fallbackErrorText = await fallbackResponse.text();
+            throw new Error(`Gemini API error (fallback also failed): ${fallbackResponse.status} - ${fallbackErrorText}`);
+          }
+          
+          const fallbackData = await fallbackResponse.json();
+          const fallbackResult = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          console.log("[SovereignSwitch] Fallback model succeeded, response length:", fallbackResult.length);
+          return fallbackResult;
+        } catch (fallbackError: any) {
+          throw new Error(`Gemini API error: ${response.status} - ${errorText}. Fallback also failed: ${fallbackError.message}`);
+        }
+      }
+      
       throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
 
