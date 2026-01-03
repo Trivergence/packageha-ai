@@ -4276,27 +4276,27 @@
             }
         }
         
+        // Flag to prevent immediate closing
+        let menuJustOpened = false;
+        
         function toggleConnectMenu(event) {
-            // Prevent event from bubbling up immediately
             if (event) {
                 event.stopPropagation();
+                event.preventDefault();
             }
             
-            console.log('[toggleConnectMenu] Function called');
             const menu = document.getElementById('connectMenu');
-            console.log('[toggleConnectMenu] Menu element found:', menu ? 'Yes' : 'No');
             if (menu) {
                 const isVisible = menu.classList.contains('visible');
-                console.log('[toggleConnectMenu] Menu currently visible:', isVisible);
+                menu.classList.toggle('visible');
                 
-                // Use setTimeout to prevent immediate closing by outside click handler
-                setTimeout(() => {
-                    menu.classList.toggle('visible');
-                    console.log('[toggleConnectMenu] Menu visibility toggled. Now visible:', menu.classList.contains('visible'));
-                    console.log('[toggleConnectMenu] Menu computed display:', window.getComputedStyle(menu).display);
-                }, 0);
-            } else {
-                console.error('[toggleConnectMenu] Menu element not found!');
+                if (!isVisible) {
+                    // Menu just opened - set flag to prevent immediate closing
+                    menuJustOpened = true;
+                    setTimeout(() => {
+                        menuJustOpened = false;
+                    }, 100);
+                }
             }
         }
         
@@ -4451,6 +4451,11 @@
         
         // Close connect menu when clicking outside
         document.addEventListener('click', function(e) {
+            // Don't close if menu just opened
+            if (menuJustOpened) {
+                return;
+            }
+            
             const menu = document.getElementById('connectMenu');
             if (!menu) return;
             
