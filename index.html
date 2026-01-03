@@ -33,13 +33,16 @@
     <!-- Google Maps Places API for address autocomplete -->
     <!-- NOTE: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual Google Maps API key -->
     <!-- IMPORTANT: Enable "Places API" in Google Cloud Console for this API key -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAYiLzZ_7ccJatguVNSOq4YTwOrcKhgY&libraries=places&language=ar&callback=initGoogleMaps"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAYiLzZ_7ccJatguVNSOq4YTwOrcKhgY&libraries=places&language=ar"></script>
     <script>
         // Global flag to track if Google Maps loaded successfully
         window.googleMapsLoaded = false;
-        function initGoogleMaps() {
-            window.googleMapsLoaded = true;
-        }
+        // Check if Google Maps is already loaded
+        window.addEventListener('load', function() {
+            if (typeof google !== 'undefined' && google.maps) {
+                window.googleMapsLoaded = true;
+            }
+        });
     </script>
     <style>
         * {
@@ -1113,13 +1116,10 @@
                 <table id="inventoryTable" class="inventory-table">
                     <thead>
                         <tr>
-                            <th data-ar="صورة المنتج" data-en="Product Photo">صورة المنتج</th>
-                            <th data-ar="المنتجات المرتبطة" data-en="Associated Products">المنتجات المرتبطة</th>
+                            <th data-ar="المنتج" data-en="Product">المنتج</th>
                             <th data-ar="الغلاف" data-en="Package">الغلاف</th>
-                            <th data-ar="صورة الغلاف" data-en="Package Photo">صورة الغلاف</th>
                             <th data-ar="المصدر" data-en="Source">المصدر</th>
-                            <th data-ar="إعادة التخزين" data-en="Restock">إعادة التخزين</th>
-                            <th data-ar="إجراءات" data-en="Actions">إجراءات</th>
+                            <th data-ar="المخزون والإجراءات" data-en="Stock & Actions">المخزون والإجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -3457,58 +3457,29 @@
             window.location.href = authUrl;
         }
         
-        // Update redirect URI display
+        // Update redirect URI display (if element exists)
         function updateRedirectUriDisplay() {
-            const apiUrl = document.getElementById('apiUrl').value.trim();
-            if (!apiUrl) {
-                document.getElementById('redirectUriDisplay').textContent = 'Enter Worker URL above';
+            const redirectUriDisplay = document.getElementById('redirectUriDisplay');
+            if (!redirectUriDisplay) return; // Element doesn't exist, skip
+            
+            const apiUrl = document.getElementById('apiUrl');
+            if (!apiUrl) return;
+            
+            const apiUrlValue = apiUrl.value.trim();
+            if (!apiUrlValue) {
+                redirectUriDisplay.textContent = 'Enter Worker URL above';
                 return;
             }
             
-            let baseUrl = apiUrl;
+            let baseUrl = apiUrlValue;
             if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
                 baseUrl = 'https://' + baseUrl;
             }
             baseUrl = baseUrl.replace(/\/$/, '');
             
             const redirectUri = `${baseUrl}/api/salla/callback`;
-            document.getElementById('redirectUriDisplay').textContent = redirectUri;
-            // Store in a data attribute for easy copying
-            document.getElementById('redirectUriDisplay').setAttribute('data-uri', redirectUri);
-        }
-        
-        // Copy redirect URI to clipboard
-        function copyRedirectUri() {
-            const redirectUri = document.getElementById('redirectUriDisplay').getAttribute('data-uri') || 
-                               document.getElementById('redirectUriDisplay').textContent;
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(redirectUri).then(() => {
-                    const btn = event.target;
-                    const originalText = btn.textContent;
-                    btn.textContent = '✓ Copied!';
-                    btn.style.background = '#28a745';
-                    setTimeout(() => {
-                        btn.textContent = originalText;
-                        btn.style.background = '#FFC107';
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy:', err);
-                    alert('Failed to copy. Please copy manually:\n\n' + redirectUri);
-                });
-            } else {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = redirectUri;
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    alert('Redirect URI copied to clipboard!');
-                } catch (err) {
-                    alert('Please copy manually:\n\n' + redirectUri);
-                }
-                document.body.removeChild(textArea);
-            }
+            redirectUriDisplay.textContent = redirectUri;
+            redirectUriDisplay.setAttribute('data-uri', redirectUri);
         }
         
         // Check for OAuth callback or pre-existing connection
@@ -3959,7 +3930,20 @@
         }
         
         function orderPackageForProduct(productId) {
-            // For now, this can trigger the design flow or show order options
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            // Check if product has a package
+            if (!product.hasPackage) {
+                alert(currentLang === 'ar' 
+                    ? 'يرجى تصميم غلاف أولاً لربطه بهذا المنتج'
+                    : 'Please design a package first to associate it with this product');
+                // Optionally trigger design flow
+                designPackageForProduct(productId);
+                return;
+            }
+            
+            // If package exists, show the wizard to proceed with ordering
             designPackageForProduct(productId);
         }
         
@@ -3995,8 +3979,7 @@
                 storeId: 1,
                 storeName: 'Demo Store',
                 host: 'custom',
-                restockAr: 'متوفر',
-                restockEn: 'Available',
+                stockAmount: 150,
                 hasPackage: true
             },
             {
@@ -4010,8 +3993,7 @@
                 storeId: 1,
                 storeName: 'Demo Store',
                 host: 'custom',
-                restockAr: 'نفد المخزون',
-                restockEn: 'Out of Stock',
+                stockAmount: 0,
                 hasPackage: false
             }
         ];
@@ -4031,24 +4013,43 @@
             if (noProductsMsg) noProductsMsg.style.display = 'none';
             
                 const isAr = currentLang === 'ar';
-                const noPackageText = isAr ? '' : '';
                 const orderBtnText = isAr ? 'طلب غلاف الآن' : 'Order Package Now';
+                const designBtnText = isAr ? 'تصميم غلاف' : 'Design Package';
+                const noPackageMsg = isAr ? 'يرجى تصميم غلاف أولاً لربطه بهذا المنتج' : 'Please design a package first to associate it with this product';
                 
                 tbody.innerHTML = demoProducts.map(product => {
+                    // Product column: Photo + Name
                     const productPhoto = product.productPhoto 
-                        ? `<img src="${product.productPhoto}" alt="${isAr ? product.nameAr : product.nameEn}" class="product-photo">`
-                        : `<div class="photo-placeholder">📦</div>`;
-                    
+                        ? `<img src="${product.productPhoto}" alt="${isAr ? product.nameAr : product.nameEn}" class="product-photo" style="margin-bottom: 8px;">`
+                        : `<div class="photo-placeholder" style="margin-bottom: 8px;">📦</div>`;
                     const productName = isAr ? product.nameAr : product.nameEn;
+                    const productCell = `
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                            ${productPhoto}
+                            <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${productName}</div>
+                        </div>
+                    `;
                     
-                    const packageText = product.hasPackage 
-                        ? 'Custom Package'
-                        : '';
+                    // Package column: Package info + Photo OR Design Package button
+                    let packageCell = '';
+                    if (product.hasPackage && product.packagePhoto) {
+                        packageCell = `
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                <img src="${product.packagePhoto}" alt="Custom Package" class="package-photo">
+                                <div style="font-weight: 600; color: #1a1a1a; text-align: center;">Custom Package</div>
+                            </div>
+                        `;
+                    } else {
+                        packageCell = `
+                            <div style="text-align: center;">
+                                <button onclick="designPackageForProduct(${product.id})" class="design-btn" style="width: 100%; max-width: 200px;">
+                                    ${designBtnText}
+                                </button>
+                            </div>
+                        `;
+                    }
                     
-                    const packagePhoto = product.hasPackage && product.packagePhoto
-                        ? `<img src="${product.packagePhoto}" alt="Custom Package" class="package-photo">`
-                        : `<div class="photo-placeholder"></div>`;
-                    
+                    // Source column
                     const host = hostConfig[product.host] || hostConfig.custom;
                     const sourceHtml = `
                         <div class="store-source">
@@ -4059,26 +4060,60 @@
                         </div>
                     `;
                     
-                    const restockText = isAr ? product.restockAr : product.restockEn;
-                    const restockClass = product.restockAr === 'متوفر' || product.restockEn === 'Available' 
-                        ? 'restock-available' 
-                        : 'restock-out';
-                    const actionCell = product.hasPackage 
-                        ? `<button onclick="orderPackageForProduct(${product.id})" class="design-btn">${orderBtnText}</button>`
-                        : `<button onclick="designPackageForProduct(${product.id})" class="design-btn">${orderBtnText}</button>`;
+                    // Stock & Actions column: Stock amount + Order button
+                    const stockAmount = product.stockAmount || 0;
+                    const stockDisplay = stockAmount > 0 
+                        ? `<span style="color: #28a745; font-weight: 700; font-size: 16px;">${stockAmount}</span>`
+                        : `<span style="color: #dc3545; font-weight: 700; font-size: 16px;">0</span>`;
+                    
+                    let stockActionCell = '';
+                    if (product.hasPackage) {
+                        stockActionCell = `
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                                <div style="font-size: 14px; color: #666;" data-ar="المخزون:" data-en="Stock:">${currentLang === 'ar' ? 'المخزون:' : 'Stock:'} ${stockDisplay}</div>
+                                <button onclick="orderPackageForProduct(${product.id})" class="design-btn" style="width: 100%; max-width: 200px;">
+                                    ${orderBtnText}
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        stockActionCell = `
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                                <div style="font-size: 14px; color: #666;" data-ar="المخزون:" data-en="Stock:">${currentLang === 'ar' ? 'المخزون:' : 'Stock:'} ${stockDisplay}</div>
+                                <button onclick="orderPackageForProduct(${product.id})" class="design-btn" style="width: 100%; max-width: 200px;">
+                                    ${orderBtnText}
+                                </button>
+                            </div>
+                        `;
+                    }
                 
                 return `
                     <tr>
-                        <td style="text-align: center;">${productPhoto}</td>
-                        <td>${productName}</td>
-                        <td>${packageText}</td>
-                        <td style="text-align: center;">${packagePhoto}</td>
-                        <td>${sourceHtml}</td>
-                        <td style="text-align: center;"><span class="restock-badge ${restockClass}">${restockText}</span></td>
-                        <td style="text-align: center;">${actionCell}</td>
+                        <td style="text-align: center; padding: 20px;">${productCell}</td>
+                        <td style="text-align: center; padding: 20px;">${packageCell}</td>
+                        <td style="padding: 20px;">${sourceHtml}</td>
+                        <td style="text-align: center; padding: 20px;">${stockActionCell}</td>
                     </tr>
                 `;
             }).join('');
+        }
+        
+        function orderPackageForProduct(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            // Check if product has a package
+            if (!product.hasPackage) {
+                alert(currentLang === 'ar' 
+                    ? 'يرجى تصميم غلاف أولاً لربطه بهذا المنتج'
+                    : 'Please design a package first to associate it with this product');
+                // Optionally trigger design flow
+                designPackageForProduct(productId);
+                return;
+            }
+            
+            // If package exists, show the wizard to proceed with ordering
+            designPackageForProduct(productId);
         }
         
         function designPackageForProduct(productId) {
@@ -4385,8 +4420,7 @@
                 storeId: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeId : 1,
                 storeName: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeName : 'Demo Store',
                 host: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].host : 'custom',
-                restockAr: 'متوفر',
-                restockEn: 'Available',
+                stockAmount: 0,
                 hasPackage: false
             };
             
