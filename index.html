@@ -1329,10 +1329,10 @@
                         <label data-ar="هل منتجك هش؟ هل يحتاج إلى حماية خاصة؟" data-en="Is your product fragile? Does it need special protection?">هل منتجك هش؟ هل يحتاج إلى حماية خاصة؟</label>
                         <select id="newProductFragility" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
                             <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
-                            <option value="Not fragile" data-ar="ليس هشاً" data-en="Not fragile">Not fragile</option>
-                            <option value="Somewhat fragile" data-ar="هش قليلاً" data-en="Somewhat fragile">Somewhat fragile</option>
-                            <option value="Very fragile" data-ar="هش جداً" data-en="Very fragile">Very fragile</option>
-                            <option value="Needs cushioning/protection" data-ar="يحتاج إلى وسادة/حماية" data-en="Needs cushioning/protection">Needs cushioning/protection</option>
+                            <option value="Not fragile" data-ar="ليس هشاً/قابل للكسر" data-en="Not fragile">Not fragile</option>
+                            <option value="Somewhat fragile" data-ar="هش قليلاً/قابل للكسر قليلاً" data-en="Somewhat fragile">Somewhat fragile</option>
+                            <option value="Very fragile" data-ar="هش جداً/قابل للكسر جداً" data-en="Very fragile">Very fragile</option>
+                            <option value="Needs cushioning/protection" data-ar="يحتاج إلى وسادة/حماية (قابل للكسر)" data-en="Needs cushioning/protection">Needs cushioning/protection</option>
                         </select>
                     </div>
                     
@@ -5637,20 +5637,36 @@ Return ONLY a detailed image description, no other text.`;
                     budget: '',
                     linkedProducts: []
                 };
-                document.getElementById('newProductDescription').value = '';
+                const descField = document.getElementById('newProductDescription');
+                if (descField) descField.value = '';
+                
                 const lengthField = document.getElementById('productLength');
                 const widthField = document.getElementById('productWidth');
                 const heightField = document.getElementById('productHeight');
                 if (lengthField) lengthField.value = '';
                 if (widthField) widthField.value = '';
                 if (heightField) heightField.value = '';
-                document.getElementById('newProductWeight').value = '';
-                document.getElementById('newProductFragility').value = '';
-                document.getElementById('newProductBudget').value = '';
-                document.getElementById('newProductPhotoPreview').style.display = 'none';
-                document.getElementById('newProductPhotoPlaceholder').style.display = 'block';
-                document.getElementById('linkProductStoreSelect').value = '';
-                document.getElementById('storeProductsList').style.display = 'none';
+                
+                const weightField = document.getElementById('newProductWeight');
+                if (weightField) weightField.value = '';
+                
+                const fragilityField = document.getElementById('newProductFragility');
+                if (fragilityField) fragilityField.value = '';
+                
+                const budgetField = document.getElementById('newProductBudget');
+                if (budgetField) budgetField.value = '';
+                
+                const photoPreview = document.getElementById('newProductPhotoPreview');
+                if (photoPreview) photoPreview.style.display = 'none';
+                
+                const photoPlaceholder = document.getElementById('newProductPhotoPlaceholder');
+                if (photoPlaceholder) photoPlaceholder.style.display = 'block';
+                
+                const linkStoreSelect = document.getElementById('linkProductStoreSelect');
+                if (linkStoreSelect) linkStoreSelect.value = '';
+                
+                const storeProductsList = document.getElementById('storeProductsList');
+                if (storeProductsList) storeProductsList.style.display = 'none';
                 updateLinkProductStoreSelect();
                 renderLinkedProductsTable();
             }
@@ -5889,6 +5905,9 @@ Return ONLY a detailed image description, no other text.`;
             setLanguage('ar'); // Set default language
             updateLinkProductStoreSelect(); // Initialize store select in Add Product dialog
             
+            // Pre-fetch products to warm up cache (runs asynchronously)
+            prefetchProducts();
+            
             // Update redirect URI when API URL changes
             const apiUrlInput = document.getElementById('apiUrl');
             if (apiUrlInput) {
@@ -5896,6 +5915,29 @@ Return ONLY a detailed image description, no other text.`;
                 apiUrlInput.addEventListener('change', updateRedirectUriDisplay);
             }
         });
+        
+        // Pre-fetch products on page load to ensure full inventory is cached
+        async function prefetchProducts() {
+            try {
+                console.log('[prefetchProducts] Starting product cache warmup...');
+                const response = await fetch('/api/prefetch-products', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[prefetchProducts] Cache warmup initiated:', data.message);
+                } else {
+                    console.warn('[prefetchProducts] Cache warmup failed (non-critical)');
+                }
+            } catch (error) {
+                // Non-critical - just log, don't show error to user
+                console.warn('[prefetchProducts] Cache warmup error (non-critical):', error);
+            }
+        }
     </script>
 </body>
 </html>

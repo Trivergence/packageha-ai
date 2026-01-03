@@ -414,6 +414,43 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     return Response.redirect(redirectUrl.toString(), 302);
   }
   
+  // Pre-fetch products endpoint (for frontend to warm up cache)
+  // This triggers a cache refresh in a singleton Durable Object
+  if (url.pathname === "/api/prefetch-products" && request.method === "POST") {
+    try {
+      // Use a singleton session to pre-fetch and cache products
+      const cacheId = env.PackagehaSession.idFromName("product_cache");
+      const cacheSession = env.PackagehaSession.get(cacheId);
+      
+      // Make a dummy chat request that will trigger product fetching
+      const warmupRequest = new Request(request.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          message: "_warmup_cache_",
+          reset: false 
+        })
+      });
+      
+      // Fire and forget - don't wait for response
+      cacheSession.fetch(warmupRequest).catch(err => {
+        console.error("[API] Warmup request error (non-critical):", err);
+      });
+      
+      return jsonResponse({
+        success: true,
+        message: "Product cache warmup initiated"
+      });
+    } catch (error: any) {
+      console.error("[API] Pre-fetch products error:", error);
+      // Don't fail - this is just a warmup
+      return jsonResponse({ 
+        success: true, 
+        message: "Warmup initiated (may complete in background)" 
+      });
+    }
+  }
+  
   // Unknown API endpoint
   return jsonResponse({ error: "API endpoint not found" }, 404);
 }

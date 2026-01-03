@@ -49,6 +49,13 @@ export class PackagehaSession {
             const body = await this.parseRequestBody(request);
             const userMessage = (body.message || "").trim();
 
+            // Handle cache warmup (internal)
+            if (userMessage === "_warmup_cache_") {
+                console.log("[PackagehaSession] Cache warmup requested");
+                await this.getCachedProducts(); // This will fetch and cache products
+                return this.jsonResponse({ reply: "Cache warmed up" });
+            }
+
             // Handle reset (via message keyword or explicit reset parameter)
             if (this.shouldReset(userMessage) || body.reset === true) {
                 return await this.handleReset();
@@ -610,7 +617,7 @@ export class PackagehaSession {
     private async getCachedProducts(): Promise<any[]> {
         const cacheKey = "products_cache";
         const cacheTimestampKey = "products_cache_timestamp";
-        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+        const CACHE_TTL = 30 * 60 * 1000; // 30 minutes (increased from 5 minutes for better consistency)
 
         try {
             // Check cache
@@ -618,16 +625,18 @@ export class PackagehaSession {
             const timestamp = await this.state.storage.get<number>(cacheTimestampKey);
             
             if (cached && timestamp && (Date.now() - timestamp) < CACHE_TTL) {
-                console.log("[getCachedProducts] Using cached products");
+                console.log(`[getCachedProducts] Using cached products (${cached.length} products, cached ${Math.round((Date.now() - timestamp) / 1000 / 60)} minutes ago)`);
                 return cached;
             }
 
-            // Fetch fresh products
-            console.log("[getCachedProducts] Fetching fresh products");
+            // Fetch fresh products - ensure we get ALL products
+            console.log("[getCachedProducts] Fetching fresh products (all pages)...");
             const products = await getActiveProducts(
                 this.env.SHOP_URL,
                 this.env.SHOPIFY_ACCESS_TOKEN
             );
+
+            console.log(`[getCachedProducts] Fetched ${products.length} total products`);
 
             // Cache products
             await this.state.storage.put(cacheKey, products);
@@ -636,6 +645,12 @@ export class PackagehaSession {
             return products;
         } catch (error: any) {
             console.error("[getCachedProducts] Error:", error);
+            // If cache exists but fetch failed, return cached data even if expired
+            const cached = await this.state.storage.get<any[]>(cacheKey);
+            if (cached && cached.length > 0) {
+                console.log(`[getCachedProducts] Fetch failed, using expired cache (${cached.length} products)`);
+                return cached;
+            }
             throw error;
         }
     }
