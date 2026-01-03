@@ -198,7 +198,7 @@ export class SovereignSwitch {
       }
       
       const data = await response.json();
-      // Filter models that support generateContent AND exclude Interaction-only models
+      // Filter models that support generateContent AND exclude problematic models
       const models = (data.models || [])
         .filter((m: any) => {
           const supportsGenerateContent = m.supportedGenerationMethods?.includes('generateContent');
@@ -206,18 +206,30 @@ export class SovereignSwitch {
             return false;
           }
           
-          // Exclude models that ONLY support Interactions API
-          // These models typically have "interactive" or "live" in their name
+          // Exclude problematic models:
+          // - Interaction-only models
+          // - Preview/research models (they often have restrictions)
           const modelName = (m.name || '').toLowerCase();
           const displayName = (m.displayName || '').toLowerCase();
+          
           const isInteractionOnly = modelName.includes('interactive') || 
                                     modelName.includes('interaction') ||
-                                    modelName.includes('live') ||
-                                    displayName.includes('interactive') ||
-                                    displayName.includes('live');
+                                    modelName.includes('live');
+          
+          const isPreviewOrResearch = modelName.includes('preview') ||
+                                      modelName.includes('research') ||
+                                      modelName.includes('deep-research') ||
+                                      modelName.includes('experimental') ||
+                                      displayName.includes('preview') ||
+                                      displayName.includes('research');
           
           if (isInteractionOnly) {
             console.log("[listGeminiModels] Excluding Interaction-only model:", m.name);
+            return false;
+          }
+          
+          if (isPreviewOrResearch) {
+            console.log("[listGeminiModels] Excluding preview/research model:", m.name);
             return false;
           }
           
@@ -269,48 +281,101 @@ export class SovereignSwitch {
 
   /**
    * Get best Gemini model for image generation (creative tasks)
-   * Excludes Interaction-only models
+   * Prioritizes models that support image generation (Nano Banana = Gemini 2.5 Flash Image)
+   * Excludes Interaction-only models and preview/research models
    */
   async getBestImageModel(apiKey: string): Promise<string> {
     const availableModels = await this.listGeminiModels(apiKey);
     
     if (availableModels.length === 0) {
       console.warn("[getBestImageModel] No models available, using fallback");
-      return "gemini-1.5-pro"; // Fallback
+      return "gemini-2.5-flash-image"; // Nano Banana fallback
     }
     
-    // Filter out Interaction-only models explicitly
-    const validModels = availableModels.filter(m => 
-      !m.toLowerCase().includes('interactive') && 
-      !m.toLowerCase().includes('interaction') &&
-      !m.toLowerCase().includes('live')
-    );
+    // Filter out problematic models:
+    // - Interaction-only models
+    // - Preview/research models (they often have restrictions)
+    // - Models with "deep-research", "preview", "experimental" in name
+    const validModels = availableModels.filter(m => {
+      const lower = m.toLowerCase();
+      return !lower.includes('interactive') && 
+             !lower.includes('interaction') &&
+             !lower.includes('live') &&
+             !lower.includes('preview') &&
+             !lower.includes('deep-research') &&
+             !lower.includes('research-pro') &&
+             !lower.includes('research') &&
+             !lower.includes('experimental');
+    });
+    
+    console.log("[getBestImageModel] Valid models after filtering:", validModels);
     
     if (validModels.length === 0) {
-      console.warn("[getBestImageModel] No valid models after filtering, using first available");
-      return availableModels[0];
+      console.warn("[getBestImageModel] No valid models after filtering, using fallback");
+      return "gemini-2.5-flash-image"; // Nano Banana fallback
     }
     
-    // Prefer models in this order for creative/image generation tasks:
-    // 1. gemini-1.5-pro (best quality for creative tasks)
-    // 2. gemini-1.5-flash (fast, good quality)
-    // 3. gemini-pro (fallback)
+    // Prioritize models for image generation (Nano Banana = Gemini 2.5 Flash Image):
+    // 1. Models with "2.5" and "image" or "flash" (Nano Banana / Gemini 2.5 Flash Image)
+    // 2. Models with "2.5" and "flash"
+    // 3. Models with "2.0" and "flash"
+    // 4. Models with "1.5" and "pro"
+    // 5. Models with "1.5" and "flash"
+    // 6. Other models
     
-    const pro15 = validModels.find(m => m.includes('1.5-pro') && !m.includes('interactive'));
+    // Priority 1: 2.5 Flash Image (Nano Banana)
+    const flash25Image = validModels.find(m => {
+      const lower = m.toLowerCase();
+      return (lower.includes('2.5') || lower.includes('2_5')) && 
+             (lower.includes('image') || lower.includes('flash'));
+    });
+    if (flash25Image) {
+      console.log("[SovereignSwitch] Selected 2.5 Flash Image (Nano Banana) for image generation:", flash25Image);
+      return flash25Image;
+    }
+    
+    // Priority 2: 2.5 Flash
+    const flash25 = validModels.find(m => {
+      const lower = m.toLowerCase();
+      return (lower.includes('2.5') || lower.includes('2_5')) && lower.includes('flash');
+    });
+    if (flash25) {
+      console.log("[SovereignSwitch] Selected 2.5 Flash for image generation:", flash25);
+      return flash25;
+    }
+    
+    // Priority 3: 2.0 Flash
+    const flash20 = validModels.find(m => m.includes('2.0-flash') || m.includes('2_0-flash'));
+    if (flash20) {
+      console.log("[SovereignSwitch] Selected 2.0 Flash for image generation:", flash20);
+      return flash20;
+    }
+    
+    // Priority 4: 1.5 Pro
+    const pro15 = validModels.find(m => m.includes('1.5-pro') && !m.includes('preview'));
     if (pro15) {
-      console.log("[SovereignSwitch] Selected gemini-1.5-pro for image generation:", pro15);
+      console.log("[SovereignSwitch] Selected 1.5 Pro for image generation:", pro15);
       return pro15;
     }
     
-    const flash15 = validModels.find(m => m.includes('1.5-flash') && !m.includes('interactive'));
+    // Priority 5: 1.5 Flash
+    const flash15 = validModels.find(m => m.includes('1.5-flash'));
     if (flash15) {
-      console.log("[SovereignSwitch] Selected gemini-1.5-flash for image generation:", flash15);
+      console.log("[SovereignSwitch] Selected 1.5 Flash for image generation:", flash15);
       return flash15;
     }
     
-    const pro = validModels.find(m => m.includes('pro') && !m.includes('1.5') && !m.includes('interactive'));
+    // Priority 6: Any model with "image" in name
+    const imageModel = validModels.find(m => m.toLowerCase().includes('image'));
+    if (imageModel) {
+      console.log("[SovereignSwitch] Selected image model for image generation:", imageModel);
+      return imageModel;
+    }
+    
+    // Priority 7: Any other pro model
+    const pro = validModels.find(m => m.includes('pro') && !m.includes('1.5') && !m.includes('preview'));
     if (pro) {
-      console.log("[SovereignSwitch] Selected gemini-pro for image generation:", pro);
+      console.log("[SovereignSwitch] Selected pro model for image generation:", pro);
       return pro;
     }
     
@@ -386,31 +451,63 @@ export class SovereignSwitch {
       if (errorText.includes("Interactions API") || errorText.includes("only supports Interactions")) {
         console.error("[SovereignSwitch] Model only supports Interactions API, trying fallback model");
         
-        // Try with a known working model
-        const fallbackModel = "gemini-1.5-flash";
-        const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${config.apiKey}`;
+        // Try with Nano Banana (Gemini 2.5 Flash Image) as fallback
+        // First, get list of available models to find the best image generation model
+        const availableModels = await this.listGeminiModels(config.apiKey);
         
-        try {
-          const fallbackResponse = await fetch(fallbackEndpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
-          
-          if (!fallbackResponse.ok) {
-            const fallbackErrorText = await fallbackResponse.text();
-            throw new Error(`Gemini API error (fallback also failed): ${fallbackResponse.status} - ${fallbackErrorText}`);
+        // Try to find 2.5 Flash Image (Nano Banana) first
+        const nanoBananaModel = availableModels.find(m => {
+          const lower = m.toLowerCase();
+          return (lower.includes('2.5') || lower.includes('2_5')) && 
+                 (lower.includes('image') || lower.includes('flash'));
+        });
+        
+        // Fallback models in order of preference
+        const fallbackModels = [
+          nanoBananaModel,
+          availableModels.find(m => {
+            const lower = m.toLowerCase();
+            return (lower.includes('2.5') || lower.includes('2_5')) && lower.includes('flash');
+          }),
+          availableModels.find(m => m.includes('2.0-flash')),
+          availableModels.find(m => m.includes('1.5-flash')),
+          "gemini-2.5-flash-image", // Hard-coded fallback (Nano Banana)
+          "gemini-2.0-flash-exp"
+        ].filter(m => m); // Remove undefined values
+        
+        console.log("[SovereignSwitch] Trying fallback models in order:", fallbackModels);
+        
+        for (const fallbackModel of fallbackModels) {
+          try {
+            console.log("[SovereignSwitch] Trying fallback model:", fallbackModel);
+            const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${config.apiKey}`;
+            
+            const fallbackResponse = await fetch(fallbackEndpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
+            });
+            
+            if (fallbackResponse.ok) {
+              const fallbackData = await fallbackResponse.json();
+              const fallbackResult = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              console.log("[SovereignSwitch] Fallback model succeeded:", fallbackModel, "response length:", fallbackResult.length);
+              return fallbackResult;
+            } else {
+              const fallbackErrorText = await fallbackResponse.text();
+              console.warn("[SovereignSwitch] Fallback model failed:", fallbackModel, fallbackResponse.status, fallbackErrorText);
+              // Continue to next fallback
+            }
+          } catch (fallbackError: any) {
+            console.warn("[SovereignSwitch] Fallback model error:", fallbackModel, fallbackError.message);
+            // Continue to next fallback
           }
-          
-          const fallbackData = await fallbackResponse.json();
-          const fallbackResult = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          console.log("[SovereignSwitch] Fallback model succeeded, response length:", fallbackResult.length);
-          return fallbackResult;
-        } catch (fallbackError: any) {
-          throw new Error(`Gemini API error: ${response.status} - ${errorText}. Fallback also failed: ${fallbackError.message}`);
         }
+        
+        // All fallbacks failed
+        throw new Error(`Gemini API error: ${response.status} - ${errorText}. All fallback models failed.`);
       }
       
       throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
