@@ -11,7 +11,100 @@ export { PackagehaSession };
  */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Handle CORS preflight
+    const url = new URL(request.url);
+    
+    // CRITICAL: Handle POST requests FIRST, before static asset serving can intercept them
+    // Static asset serving only supports GET/HEAD, so POST requests to paths that match
+    // static files (like "/" matching "index.html") will return 405 if intercepted
+    if (request.method === "POST") {
+      console.log("[Worker] POST request received (BEFORE static assets):", url.pathname);
+      console.log("[Worker] Full URL:", request.url);
+      
+      // Special endpoint for image generation prompts
+      if (url.pathname === "/api/generate-image-prompt") {
+        console.log("[Worker] Routing to image generation endpoint");
+        try {
+          const body = await request.json() as { prompt: string };
+          const sovereignSwitch = new SovereignSwitch(env);
+          
+          const imagePrompt = await sovereignSwitch.callAI(
+            body.prompt,
+            "You are an expert at creating detailed, professional image generation prompts for product packaging visualization. Generate highly detailed, creative descriptions suitable for AI image generation models like DALL-E, Midjourney, or Stable Diffusion. Focus on visual details, lighting, composition, and professional photography style.",
+            true // useImageModel = true
+          );
+          
+          return new Response(
+            JSON.stringify({ imagePrompt }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        } catch (error: any) {
+          console.error("[Image Prompt Generation] Error:", error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        }
+      }
+      
+      // Route all other POST requests to Durable Object session
+      console.log("[Worker] Routing POST request to Durable Object session");
+      console.log("[Worker] Request pathname:", url.pathname);
+      
+      // Use IP address for session ID (could also use user ID from auth)
+      const cfIp = request.headers.get("CF-Connecting-IP");
+      const forwardedFor = request.headers.get("X-Forwarded-For");
+      
+      let ip = "anonymous";
+      if (cfIp) {
+        ip = cfIp.trim();
+      } else if (forwardedFor) {
+        // Extract first IP and trim whitespace (handles malformed headers with spaces)
+        ip = forwardedFor.split(",")[0].trim();
+      }
+      
+      console.log("[Worker] Session IP:", ip);
+      
+      const sessionId = env.PackagehaSession.idFromName(ip);
+      const session = env.PackagehaSession.get(sessionId);
+      
+      console.log("[Worker] Forwarding request to Durable Object session:", sessionId.toString());
+      
+      try {
+        console.log("[Worker] Forwarding request to Durable Object");
+        const response = await session.fetch(request);
+        console.log("[Worker] Durable Object response status:", response.status);
+        console.log("[Worker] Durable Object response headers:", Object.fromEntries(response.headers.entries()));
+        
+        // The Durable Object already includes CORS headers in jsonResponse, but ensure they're present
+        return response;
+      } catch (error: any) {
+        console.error("[Worker] Error forwarding to Durable Object:", error);
+        return new Response(
+          JSON.stringify({ error: `Failed to process request: ${error.message}` }),
+          {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            }
+          }
+        );
+      }
+    }
+    
+    // Handle CORS preflight for other methods
     if (request.method === "OPTIONS") {
       return new Response(null, { 
         headers: {
@@ -24,7 +117,6 @@ export default {
     }
 
     // Diagnostic endpoint to check OAuth configuration
-    const url = new URL(request.url);
     if (url.pathname === "/api/salla/check-config" && request.method === "GET") {
       const redirectUri = env.SALLA_REDIRECT_URI || "";
       const clientId = env.SALLA_CLIENT_ID || "";
@@ -355,98 +447,6 @@ export default {
       } catch (error: any) {
         return new Response(
           JSON.stringify({ error: error.message }),
-          {
-            status: 500,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*"
-            }
-          }
-        );
-      }
-    }
-
-    // Route POST requests to Durable Object session
-    // IMPORTANT: This must come before any static file serving
-    if (request.method === "POST") {
-      console.log("[Worker] POST request received:", url.pathname);
-      console.log("[Worker] Full URL:", request.url);
-      console.log("[Worker] Request method:", request.method);
-      
-      // Special endpoint for image generation prompts
-      if (url.pathname === "/api/generate-image-prompt") {
-        console.log("[Worker] Routing to image generation endpoint");
-        try {
-          const body = await request.json() as { prompt: string };
-          const sovereignSwitch = new SovereignSwitch(env);
-          
-          const imagePrompt = await sovereignSwitch.callAI(
-            body.prompt,
-            "You are an expert at creating detailed, professional image generation prompts for product packaging visualization. Generate highly detailed, creative descriptions suitable for AI image generation models like DALL-E, Midjourney, or Stable Diffusion. Focus on visual details, lighting, composition, and professional photography style.",
-            true // useImageModel = true
-          );
-          
-          return new Response(
-            JSON.stringify({ imagePrompt }),
-            {
-              status: 200,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-              }
-            }
-          );
-        } catch (error: any) {
-          console.error("[Image Prompt Generation] Error:", error);
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            {
-              status: 500,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-              }
-            }
-          );
-        }
-      }
-      
-      // Route all other POST requests to Durable Object session
-      console.log("[Worker] Routing POST request to Durable Object session");
-      console.log("[Worker] Request pathname:", url.pathname);
-      console.log("[Worker] Request URL:", request.url);
-      
-      // Use IP address for session ID (could also use user ID from auth)
-      const cfIp = request.headers.get("CF-Connecting-IP");
-      const forwardedFor = request.headers.get("X-Forwarded-For");
-      
-      let ip = "anonymous";
-      if (cfIp) {
-        ip = cfIp.trim();
-      } else if (forwardedFor) {
-        // Extract first IP and trim whitespace (handles malformed headers with spaces)
-        ip = forwardedFor.split(",")[0].trim();
-      }
-      
-      console.log("[Worker] Session IP:", ip);
-      
-      const sessionId = env.PackagehaSession.idFromName(ip);
-      const session = env.PackagehaSession.get(sessionId);
-      
-      console.log("[Worker] Forwarding request to Durable Object session:", sessionId.toString());
-      
-      try {
-        console.log("[Worker] Forwarding request to Durable Object");
-        const response = await session.fetch(request);
-        console.log("[Worker] Durable Object response status:", response.status);
-        console.log("[Worker] Durable Object response headers:", Object.fromEntries(response.headers.entries()));
-        
-        // The Durable Object already includes CORS headers in jsonResponse, but ensure they're present
-        return response;
-      } catch (error: any) {
-        console.error("[Worker] Error forwarding to Durable Object:", error);
-        return new Response(
-          JSON.stringify({ error: `Failed to process request: ${error.message}` }),
           {
             status: 500,
             headers: {
