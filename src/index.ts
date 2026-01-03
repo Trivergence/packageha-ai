@@ -389,7 +389,6 @@ export default {
     // Health check / info endpoint
     if (request.method === "GET") {
       // Check if it's a models list request
-      const url = new URL(request.url);
       if (url.pathname === "/models" || url.searchParams.get("list") === "models") {
         try {
           const sovereignSwitch = new SovereignSwitch(env);
@@ -490,6 +489,7 @@ export default {
       
       // Otherwise, redirect to form (merchant can connect manually)
       return Response.redirect(new URL("/sallaTest.html", request.url).toString(), 302);
+    }
     }
 
     // Fallback: serve static files (index.html, sallaTest.html, etc.)
