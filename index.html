@@ -5581,19 +5581,20 @@ Return ONLY a detailed image description, no other text.`;
                         }
                         console.log('[selectPackageMatch] Image generation failed, using product image as fallback:', imageUrlToUse);
                     } else {
-                    // Last resort: placeholder
-                    const cacheBuster = Date.now();
-                    const packageHash = match.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                    const unsplashIds = [
-                        '1606220945770', // Packaging box
-                        '1541643600914', // Product packaging
-                        '1556228720',   // Product display
-                        '1560472354',   // Packaging design
-                        '1606220945771' // Another packaging
-                    ];
-                    const photoId = unsplashIds[packageHash % unsplashIds.length];
-                    imageUrlToUse = `https://images.unsplash.com/photo-${photoId}?w=800&h=600&fit=crop&q=80&t=${cacheBuster}`;
-                    console.log('[selectPackageMatch] Using placeholder image:', imageUrlToUse);
+                        // Last resort: placeholder
+                        const cacheBuster = Date.now();
+                        const packageHash = match.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                        const unsplashIds = [
+                            '1606220945770', // Packaging box
+                            '1541643600914', // Product packaging
+                            '1556228720',   // Product display
+                            '1560472354',   // Packaging design
+                            '1606220945771' // Another packaging
+                        ];
+                        const photoId = unsplashIds[packageHash % unsplashIds.length];
+                        imageUrlToUse = `https://images.unsplash.com/photo-${photoId}?w=800&h=600&fit=crop&q=80&t=${cacheBuster}`;
+                        console.log('[selectPackageMatch] Using placeholder image:', imageUrlToUse);
+                    }
                 }
                 
                 generatedPackageImageUrl = imageUrlToUse;
