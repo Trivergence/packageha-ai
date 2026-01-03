@@ -898,7 +898,7 @@ RULES:
    - DO NOT return perfume packages for soap products or vice versa
    - Look for semantic relationships: soap → bath products, cosmetics, personal care
    - Look for semantic relationships: perfume → fragrance, luxury, bottles, cosmetics
-4. Return at least 5-10 top matches sorted by combinedScore (highest first).
+4. Return ALL matches sorted by combinedScore (highest first). Do not limit the number of matches.
 
 REQUIRED JSON FORMAT (return exactly this structure):
 {"type":"multiple","matches":[{"id":0,"name":"Package Name","reason":"Match explanation","fitnessScore":0.8,"priceScore":0.6,"combinedScore":0.74}]}
@@ -910,10 +910,10 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
         if (isAutoSearch && productDimensionsText) {
             userPrompt += `Product Description: "${productDescription}"\n`;
             userPrompt += `Product Dimensions: ${productDimensionsText}\n\n`;
-            userPrompt += `Task: Score ALL ${products.length} packages based on how well they match the product description "${productDescription}". Return top 10 matches as JSON sorted by combinedScore (highest first).`;
+            userPrompt += `Task: Score ALL ${products.length} packages based on how well they match the product description "${productDescription}". Return ALL matches as JSON sorted by combinedScore (highest first).`;
         } else {
             userPrompt += `Search Query: "${userMessage}"\n\n`;
-            userPrompt += `Task: Score ALL ${products.length} packages that match the search query "${userMessage}". Return top 10 matches as JSON sorted by combinedScore (highest first).`;
+            userPrompt += `Task: Score ALL ${products.length} packages that match the search query "${userMessage}". Return ALL matches as JSON sorted by combinedScore (highest first).`;
         }
         
         console.log("[handleDiscovery] Full user prompt (first 1000 chars):", userPrompt.substring(0, 1000));
@@ -947,7 +947,7 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
         if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
             matches = decision.matches
                 .filter(m => m.id !== undefined && m.id >= 0 && m.id < products.length)
-                .slice(0, 10) // Limit to 10 matches
+                // Return ALL matches, not just 10
                 .map(m => {
                     const product = products[m.id!];
                     if (!product) {
@@ -1055,10 +1055,8 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
             return b.matchCount - a.matchCount;
         });
         
-        // Take top 10 matches
-        const topMatches = scoredProducts.slice(0, 10);
-        
-        const matches = topMatches.map((scored, idx) => {
+        // Return ALL matches (sorted by score)
+        const matches = scoredProducts.map((scored, idx) => {
             const product = scored.product;
             const imageUrl = product.images && product.images.length > 0 
                 ? product.images[0].src 
