@@ -23,8 +23,43 @@ export default {
       });
     }
 
-    // Handle Salla OAuth callback
+    // Diagnostic endpoint to check OAuth configuration
     const url = new URL(request.url);
+    if (url.pathname === "/api/salla/check-config" && request.method === "GET") {
+      const redirectUri = env.SALLA_REDIRECT_URI || "";
+      const clientId = env.SALLA_CLIENT_ID || "";
+      const hasSecret = !!env.SALLA_CLIENT_SECRET;
+      
+      return new Response(
+        JSON.stringify({
+          configured: {
+            redirectUri: redirectUri || "NOT SET",
+            clientId: clientId || "NOT SET",
+            hasClientSecret: hasSecret
+          },
+          expectedRedirectUri: `${new URL(request.url).origin}/api/salla/callback`,
+          instructions: {
+            step1: "Set these secrets in Cloudflare:",
+            secrets: [
+              "wrangler secret put SALLA_CLIENT_ID",
+              "wrangler secret put SALLA_CLIENT_SECRET",
+              "wrangler secret put SALLA_REDIRECT_URI"
+            ],
+            step2: "Register the redirect URI in Salla Partners Portal",
+            redirectUriToRegister: `${new URL(request.url).origin}/api/salla/callback`
+          }
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
+        }
+      );
+    }
+
+    // Handle Salla OAuth callback
     if (url.pathname === "/api/salla/callback" && request.method === "GET") {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");

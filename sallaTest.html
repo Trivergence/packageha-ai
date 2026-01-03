@@ -588,11 +588,38 @@
                     Connect Salla Store
                 </button>
                 <div id="sallaStatus" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
-                <div id="redirectUriInfo" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; font-size: 12px;">
-                    <strong>⚠️ Important:</strong> Before connecting, make sure this Redirect URI is registered in your Salla app:<br>
-                    <code id="redirectUriDisplay" style="display: block; margin-top: 8px; padding: 8px; background: white; border-radius: 4px; word-break: break-all; font-family: monospace;"></code>
-                    <div style="margin-top: 8px; color: #856404;">
-                        Go to <a href="https://portal.salla.partners/apps/357944659" target="_blank" style="color: #00d4aa;">Salla Partners Portal</a> → Your App → Add this Redirect URI
+                <div id="redirectUriInfo" style="margin-top: 15px; padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; font-size: 12px;">
+                    <strong>⚠️ CRITICAL: Register Redirect URI in Salla</strong><br>
+                    <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px;">
+                        <strong>Step 1:</strong> Copy this exact Redirect URI:<br>
+                        <code id="redirectUriDisplay" style="display: block; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; word-break: break-all; font-family: monospace; border: 1px solid #ddd; cursor: pointer;" onclick="copyRedirectUri()" title="Click to copy"></code>
+                        <button onclick="copyRedirectUri()" style="margin-top: 8px; padding: 6px 12px; background: #00d4aa; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">📋 Copy Redirect URI</button>
+                    </div>
+                    <div style="margin-top: 12px; padding: 10px; background: white; border-radius: 4px;">
+                        <strong>Step 2:</strong> Register it in Salla Partners Portal:<br>
+                        <ol style="margin: 8px 0; padding-left: 20px; color: #856404;">
+                            <li>Go to <a href="https://portal.salla.partners/apps/357944659" target="_blank" style="color: #00d4aa; font-weight: 600;">Salla Partners Portal → Your App</a></li>
+                            <li>Look for <strong>"OAuth Settings"</strong> or <strong>"Redirect URIs"</strong> section (NOT Webhooks)</li>
+                            <li>Add the Redirect URI above (must match EXACTLY, including https://)</li>
+                            <li>Save the settings</li>
+                        </ol>
+                        <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-left: 3px solid #ffc107; font-size: 11px;">
+                            <strong>Note:</strong> If you don't see "OAuth Settings" or "Redirect URIs", check:
+                            <ul style="margin: 4px 0; padding-left: 20px;">
+                                <li>App Settings → OAuth Configuration</li>
+                                <li>Or look for "Authorized Redirect URIs"</li>
+                                <li>The redirect URI is <strong>different from Webhook URL</strong></li>
+                                <li>If using "Easy Mode", you might need to switch to "Standard Mode" or register redirect URIs separately</li>
+                            </ul>
+                        </div>
+                        <div style="margin-top: 10px; padding: 8px; background: #e7f3ff; border-left: 3px solid #2196F3; font-size: 11px;">
+                            <strong>💡 Alternative:</strong> If you can't find OAuth redirect URI settings, try:
+                            <ul style="margin: 4px 0; padding-left: 20px;">
+                                <li>Check if your app uses "Easy Mode" OAuth (webhook-based)</li>
+                                <li>Look for "OAuth 2.0" or "Authorization" settings</li>
+                                <li>Contact Salla support if redirect URI field is missing</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2845,7 +2872,23 @@
             // Store state in sessionStorage
             sessionStorage.setItem('salla_oauth_state', state);
             
-            console.log('[connectSalla] OAuth URL:', authUrl);
+            // Debug information
+            console.log('=== Salla OAuth Debug Info ===');
+            console.log('[connectSalla] Base URL:', baseUrl);
+            console.log('[connectSalla] Redirect URI:', redirectUri);
+            console.log('[connectSalla] Encoded Redirect URI:', encodeURIComponent(redirectUri));
+            console.log('[connectSalla] Client ID:', clientId);
+            console.log('[connectSalla] Full OAuth URL:', authUrl);
+            console.log('================================');
+            
+            // Show alert with redirect URI for easy copying
+            const proceed = confirm(`About to connect to Salla.\n\n⚠️ CRITICAL: Make sure this Redirect URI is registered:\n\n${redirectUri}\n\n✅ Have you registered this exact URL in Salla Partners Portal?\n\n(Click OK to proceed, Cancel to register it first)`);
+            
+            if (!proceed) {
+                // Open Salla portal in new tab
+                window.open('https://portal.salla.partners/apps/357944659', '_blank');
+                return;
+            }
             
             // Open OAuth in new window or redirect
             window.location.href = authUrl;
@@ -2867,6 +2910,42 @@
             
             const redirectUri = `${baseUrl}/api/salla/callback`;
             document.getElementById('redirectUriDisplay').textContent = redirectUri;
+            // Store in a data attribute for easy copying
+            document.getElementById('redirectUriDisplay').setAttribute('data-uri', redirectUri);
+        }
+        
+        // Copy redirect URI to clipboard
+        function copyRedirectUri() {
+            const redirectUri = document.getElementById('redirectUriDisplay').getAttribute('data-uri') || 
+                               document.getElementById('redirectUriDisplay').textContent;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(redirectUri).then(() => {
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✓ Copied!';
+                    btn.style.background = '#28a745';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '#00d4aa';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    alert('Failed to copy. Please copy manually:\n\n' + redirectUri);
+                });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = redirectUri;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Redirect URI copied to clipboard!');
+                } catch (err) {
+                    alert('Please copy manually:\n\n' + redirectUri);
+                }
+                document.body.removeChild(textArea);
+            }
         }
         
         // Check for OAuth callback

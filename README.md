@@ -629,5 +629,40 @@ curl -X POST https://packageha-ai.akhodary-006.workers.dev \
 
 ---
 
+## Salla Integration Setup
+
+### OAuth Configuration
+
+**IMPORTANT**: Before using Salla integration, you must register the redirect URI in your Salla app settings.
+
+1. **Get your Redirect URI:**
+   - Format: `https://YOUR-WORKER-URL.workers.dev/api/salla/callback`
+   - Example: `https://packageha-ai.akhodary-006.workers.dev/api/salla/callback`
+
+2. **Register in Salla Partners Portal:**
+   - Go to: https://portal.salla.partners/apps/YOUR-APP-ID
+   - Navigate to **OAuth Settings** or **Redirect URIs** section
+   - Add the redirect URI (must match EXACTLY, including `https://` and no trailing slash)
+   - **Note**: This is different from Webhook URL settings
+
+3. **Set Environment Variables:**
+   ```bash
+   wrangler secret put SALLA_CLIENT_ID
+   wrangler secret put SALLA_CLIENT_SECRET
+   wrangler secret put SALLA_REDIRECT_URI
+   ```
+
+4. **Update `wrangler.toml`:**
+   ```toml
+   SALLA_REDIRECT_URI = "https://your-worker.workers.dev/api/salla/callback"
+   ```
+
+### Testing Salla Integration
+
+- Use `sallaTest.html` for Salla merchant integration testing
+- Use `test.html` for MVP Direct Sales Flow testing
+
+---
+
 **Last Updated**: 2026-01-02  
-**Status**: ✅ Direct Sales Flow production-ready, Launch Kit Flow implemented (needs testing)
+**Status**: ✅ Direct Sales Flow production-ready, Launch Kit Flow implemented (needs testing), Salla Integration ready (requires OAuth setup)
