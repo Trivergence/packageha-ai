@@ -887,6 +887,10 @@
             border: 1px solid rgba(0,0,0,0.1);
         }
         
+        html[lang="en"] .inventory-table th {
+            text-align: left;
+        }
+        
         .inventory-table th:last-child,
         .inventory-table td:last-child {
             text-align: center;
@@ -1120,14 +1124,17 @@
         
         <!-- Inventory Table Section -->
         <div id="inventorySection" class="inventory-section">
-            <h2 data-ar="📦 مخزون الأغلفة والمنتجات" data-en="📦 Package & Product Inventory">📦 مخزون الأغلفة والمنتجات</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;" data-ar="📦 مخزون الأغلفة والمنتجات" data-en="📦 My Inventory">📦 مخزون الأغلفة والمنتجات</h2>
+                <button onclick="showAddProductDialog()" class="design-btn" style="padding: 14px 28px; font-size: 15px;" data-ar="إضافة منتج" data-en="Add Product">إضافة منتج</button>
+            </div>
             <div class="inventory-table-wrapper">
                 <table id="inventoryTable" class="inventory-table">
                     <thead>
                         <tr>
-                            <th data-ar="المنتج" data-en="Product">المنتج</th>
-                            <th data-ar="الغلاف" data-en="Package">الغلاف</th>
-                            <th data-ar="المخزون والإجراءات" data-en="Stock & Actions">المخزون والإجراءات</th>
+                            <th data-ar="المنتج" data-en="Product" class="inventory-th">المنتج</th>
+                            <th data-ar="الغلاف" data-en="Package" class="inventory-th">الغلاف</th>
+                            <th data-ar="المخزون والإجراءات" data-en="Stock & Actions" class="inventory-th">المخزون والإجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -1138,9 +1145,6 @@
             <div id="noProductsMessage" class="no-products-message" style="display: none;">
                 <p data-ar="لا توجد منتجات في متجرك بعد" data-en="No products in your store yet">لا توجد منتجات في متجرك بعد</p>
                 <button onclick="startDesignFlow()" class="design-btn" data-ar="تصميم غلاف الآن" data-en="Design Package Now">تصميم غلاف الآن</button>
-            </div>
-            <div style="margin-top: 20px; text-align: center;">
-                <button onclick="showAddProductDialog()" class="design-btn" style="padding: 14px 28px; font-size: 15px;" data-ar="إضافة منتج" data-en="Add Product">إضافة منتج</button>
             </div>
         </div>
         
@@ -4366,8 +4370,10 @@
                             </div>
                         `;
                     } else {
+                        const noPreviewText = isAr ? 'لا توجد معاينة' : 'No Preview';
                         packageCell = `
-                            <div style="text-align: center;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                                <div style="color: #999; font-size: 13px; font-style: italic;">${noPreviewText}</div>
                                 <button onclick="designPackageForProduct(${product.id})" class="design-btn" style="width: 100%; max-width: 200px;">
                                     ${designBtnText}
                                 </button>
@@ -4454,9 +4460,7 @@
                 document.getElementById('packageMaterial').value = '';
                 document.querySelectorAll('input[name="packagePrintType"]').forEach(radio => radio.checked = false);
                 document.querySelectorAll('input[type="checkbox"][id^="finish"]').forEach(checkbox => checkbox.checked = false);
-                document.getElementById('fulfillmentTimeline').value = '';
-                document.getElementById('fulfillmentShippingAddress').value = '';
-                document.getElementById('fulfillmentSpecialInstructions').value = '';
+                // Fulfillment fields removed - they're now in Order Package dialog
                 
                 // Hide sections that appear after submission
                 document.getElementById('packageMatchesSection').style.display = 'none';
@@ -4705,14 +4709,11 @@
             console.log('[submitDesignPackage] ========== START ==========');
             console.log('[submitDesignPackage] Timestamp:', new Date().toISOString());
             
-            // Collect form data
+            // Collect form data (only package specs, no fulfillment - that's in Order Package dialog)
             const packageData = {
                 material: document.getElementById('packageMaterial').value,
                 printType: document.querySelector('input[name="packagePrintType"]:checked')?.value || '',
-                finishing: Array.from(document.querySelectorAll('input[type="checkbox"][id^="finish"]:checked')).map(cb => cb.value),
-                timeline: document.getElementById('fulfillmentTimeline').value,
-                shippingAddress: document.getElementById('fulfillmentShippingAddress').value.trim(),
-                specialInstructions: document.getElementById('fulfillmentSpecialInstructions').value.trim()
+                finishing: Array.from(document.querySelectorAll('input[type="checkbox"][id^="finish"]:checked')).map(cb => cb.value)
             };
             
             console.log('[submitDesignPackage] Package data collected:', JSON.stringify(packageData, null, 2));
@@ -4727,18 +4728,6 @@
             if (!packageData.printType) {
                 console.warn('[submitDesignPackage] Validation failed: Print type not selected');
                 alert(currentLang === 'ar' ? 'يرجى اختيار نوع الطباعة' : 'Please select a printing type');
-                return;
-            }
-            
-            if (!packageData.timeline) {
-                console.warn('[submitDesignPackage] Validation failed: Timeline not selected');
-                alert(currentLang === 'ar' ? 'يرجى اختيار الموعد النهائي' : 'Please select a timeline');
-                return;
-            }
-            
-            if (!packageData.shippingAddress) {
-                console.warn('[submitDesignPackage] Validation failed: Shipping address not provided');
-                alert(currentLang === 'ar' ? 'يرجى إدخال عنوان الشحن' : 'Please enter shipping address');
                 return;
             }
             
