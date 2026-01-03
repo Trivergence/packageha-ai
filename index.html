@@ -1246,33 +1246,15 @@
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead style="background: #f5f7fa;">
                                 <tr>
-                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666; width: 1px;" data-ar="الصورة" data-en="Image">Image</th>
-                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المنتج" data-en="Product">Product</th>
-                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المعلومات" data-en="Info">Info</th>
-                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المتجر" data-en="Store">Store</th>
+                                    <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #666;" data-ar="المنتج/المنتجات المرتبطة" data-en="Linked product(s)">Linked product(s)</th>
                                 </tr>
                             </thead>
                             <tbody id="storeLinkagesTableBody">
                                 <tr>
-                                    <td colspan="4" style="padding: 20px; text-align: center; color: #999;" data-ar="لا توجد روابط متجر" data-en="No store linkages">No store linkages</td>
+                                    <td style="padding: 20px; text-align: center; color: #999;" data-ar="Store connection required" data-en="Store connection required">Store connection required</td>
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
-                    
-                    <!-- Link Product From -->
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <label style="font-weight: 600; color: #333;" data-ar="ربط منتج من:" data-en="Link Product from:">ربط منتج من:</label>
-                        <select id="linkProductStoreSelect" onchange="handleLinkProductStoreChange()" style="flex: 1; min-width: 200px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
-                            <option value="" data-ar="اختر متجر..." data-en="Select store...">اختر متجر...</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Store Products List (for Salla) -->
-                    <div id="storeProductsList" style="display: none; margin-top: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #e8ecf1; border-radius: 8px; padding: 15px;">
-                        <div id="storeProductsListContent">
-                            <!-- Products will be listed here -->
-                        </div>
                     </div>
                 </div>
                 
@@ -4136,15 +4118,15 @@
                 modal.className = 'modal-overlay';
                 modal.style.display = 'none';
                 modal.innerHTML = `
-                    <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-content" style="max-width: 500px; direction: ${currentLang === 'ar' ? 'rtl' : 'ltr'};">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                            <h2 style="margin: 0; color: #1a1a1a;" data-ar="إضافة متجر مخصص" data-en="Add Custom Store">Add Custom Store</h2>
+                            <h2 style="margin: 0; color: #1a1a1a;" data-ar="إضافة متجر مخصص" data-en="Add Custom Store">${currentLang === 'ar' ? 'إضافة متجر مخصص' : 'Add Custom Store'}</h2>
                             <button onclick="closeCustomStoreDialog()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #666; line-height: 1;">&times;</button>
                         </div>
                         
                         <!-- Store Logo Upload -->
                         <div style="margin-bottom: 25px;">
-                            <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="شعار المتجر" data-en="Store Logo">Store Logo</label>
+                            <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="شعار المتجر" data-en="Store Logo">${currentLang === 'ar' ? 'شعار المتجر' : 'Store Logo'}</label>
                             <div style="border: 2px dashed #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;" 
                                  onclick="document.getElementById('customStoreLogoInput').click()"
                                  onmouseover="this.style.borderColor='#1a1a1a'"
@@ -4154,7 +4136,7 @@
                                 </div>
                                 <div id="customStoreLogoPlaceholder">
                                     <div style="font-size: 48px; margin-bottom: 10px;">🖼️</div>
-                                    <div style="color: #666;" data-ar="انقر لرفع شعار المتجر" data-en="Click to upload store logo">Click to upload store logo</div>
+                                    <div style="color: #666;" data-ar="انقر لرفع شعار المتجر" data-en="Click to upload store logo">${currentLang === 'ar' ? 'انقر لرفع شعار المتجر' : 'Click to upload store logo'}</div>
                                 </div>
                                 <input type="file" id="customStoreLogoInput" accept="image/*" style="display: none;" onchange="handleCustomStoreLogoUpload(event)">
                             </div>
@@ -4162,14 +4144,14 @@
                         
                         <!-- Store Name -->
                         <div style="margin-bottom: 25px;">
-                            <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="اسم المتجر" data-en="Store Name">Store Name</label>
-                            <input type="text" id="customStoreName" data-ar-placeholder="أدخل اسم المتجر" data-en-placeholder="Enter store name" placeholder="Enter store name" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;" data-ar="اسم المتجر" data-en="Store Name">${currentLang === 'ar' ? 'اسم المتجر' : 'Store Name'}</label>
+                            <input type="text" id="customStoreName" data-ar-placeholder="أدخل اسم المتجر" data-en-placeholder="Enter store name" placeholder="${currentLang === 'ar' ? 'أدخل اسم المتجر' : 'Enter store name'}" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; direction: ${currentLang === 'ar' ? 'rtl' : 'ltr'}; text-align: ${currentLang === 'ar' ? 'right' : 'left'};">
                         </div>
                         
                         <!-- Dialog Actions -->
                         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                            <button onclick="closeCustomStoreDialog()" style="padding: 12px 24px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="إلغاء" data-en="Cancel">Cancel</button>
-                            <button onclick="saveCustomStore()" style="padding: 12px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="حفظ" data-en="Save">Save</button>
+                            <button onclick="closeCustomStoreDialog()" style="padding: 12px 24px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="إلغاء" data-en="Cancel">${currentLang === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+                            <button onclick="saveCustomStore()" style="padding: 12px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="حفظ" data-en="Save">${currentLang === 'ar' ? 'حفظ' : 'Save'}</button>
                         </div>
                     </div>
                 `;
@@ -4181,6 +4163,9 @@
             document.getElementById('customStoreLogoPreview').style.display = 'none';
             document.getElementById('customStoreLogoPlaceholder').style.display = 'block';
             window.customStoreLogoData = null;
+            
+            // Update language and direction
+            updateLanguage();
             
             modal.style.display = 'flex';
         }
@@ -5331,21 +5316,19 @@ Return ONLY a detailed image description, no other text.`;
                 
                 return `
                     <tr>
-                        <td style="padding: 12px; width: 80px;">
-                            <img src="${productImage}" alt="${productName}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0;">
-                        </td>
                         <td style="padding: 12px;">
-                            <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">${productName}</div>
-                        </td>
-                        <td style="padding: 12px;">
-                            <div style="font-size: 13px; color: #666;">${productInfo || '-'}</div>
-                        </td>
-                        <td style="padding: 12px;">
-                            <div class="store-source" style="display: flex; align-items: center; gap: 8px;">
-                                <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; width: 24px; height: 24px; border-radius: 4px;">
-                                    ${host.icon}
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <img src="${productImage}" alt="${productName}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">${productName}</div>
+                                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;">${productInfo || '-'}</div>
+                                    <div class="store-source" style="display: flex; align-items: center; gap: 8px;">
+                                        <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; width: 24px; height: 24px; border-radius: 4px;">
+                                            ${host.icon}
+                                        </div>
+                                        <span style="font-size: 13px; color: #333;">${linked.storeName}</span>
+                                    </div>
                                 </div>
-                                <span style="font-size: 13px; color: #333;">${linked.storeName}</span>
                             </div>
                         </td>
                     </tr>

@@ -809,7 +809,7 @@ export class SovereignSwitch {
       // Check for inline data (base64 image) - this is how Gemini returns generated images
       if (part.inlineData) {
         const imageData = part.inlineData.data;
-        const mimeType = part.inlineData.mimeType || 'image/png';
+        let mimeType = part.inlineData.mimeType || 'image/png';
         
         // Validate base64 data
         if (!imageData || typeof imageData !== 'string') {
@@ -822,6 +822,12 @@ export class SovereignSwitch {
         if (!base64Regex.test(imageData)) {
           console.error("[SovereignSwitch] Invalid base64 format, first 100 chars:", imageData.substring(0, 100));
           continue;
+        }
+        
+        // Convert AVIF to PNG if needed (browser compatibility - AVIF may not be supported)
+        if (mimeType === 'image/avif' || mimeType.includes('avif')) {
+          console.log("[SovereignSwitch] Converting AVIF to PNG for browser compatibility");
+          mimeType = 'image/png';
         }
         
         console.log("[SovereignSwitch] Found valid generated image (mimeType:", mimeType, ", data length:", imageData.length, ")");
