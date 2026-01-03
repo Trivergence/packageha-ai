@@ -513,6 +513,7 @@ export default {
           );
         }
       }
+    }
 
     // Salla App Page - This endpoint can be configured in Salla app settings
     // Salla will redirect merchants here when they click on your app
