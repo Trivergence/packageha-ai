@@ -1165,40 +1165,50 @@
                 <!-- Product Details Form -->
                 <div id="productDetailsForm" style="margin-bottom: 25px;">
                     <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;" data-ar="تفاصيل المنتج" data-en="Product Details">تفاصيل المنتج</h3>
+                    
+                    <!-- Product Description -->
                     <div class="input-group" style="margin-bottom: 15px;">
-                        <label data-ar="وصف المنتج" data-en="Product Description">وصف المنتج</label>
-                        <textarea id="newProductDescription" placeholder="Describe your product..." style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                        <label data-ar="أولاً، أخبرني عن منتجك. ما هو؟ ماذا يفعل؟" data-en="First, tell me about your product. What is it? What does it do?">أولاً، أخبرني عن منتجك. ما هو؟ ماذا يفعل؟</label>
+                        <textarea id="newProductDescription" data-ar-placeholder="صف منتجك بالتفصيل..." data-en-placeholder="Describe your product in detail..." placeholder="Describe your product in detail..." style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
                     </div>
-                    <div class="dimensions-row" style="margin-bottom: 15px;">
-                        <div class="input-group">
-                            <label data-ar="الطول (سم)" data-en="Length (cm)">الطول (سم)</label>
-                            <input type="number" id="newProductLength" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
-                        </div>
-                        <div class="input-group">
-                            <label data-ar="العرض (سم)" data-en="Width (cm)">العرض (سم)</label>
-                            <input type="number" id="newProductWidth" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
-                        </div>
-                        <div class="input-group">
-                            <label data-ar="الارتفاع (سم)" data-en="Height (cm)">الارتفاع (سم)</label>
-                            <input type="number" id="newProductHeight" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
-                        </div>
-                    </div>
+                    
+                    <!-- Product Dimensions -->
                     <div class="input-group" style="margin-bottom: 15px;">
-                        <label data-ar="الوزن (جرام)" data-en="Weight (grams)">الوزن (جرام)</label>
-                        <input type="number" id="newProductWeight" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        <label data-ar="ما هي أبعاد منتجك؟ (الطول × العرض × الارتفاع بالسم أو البوصة)" data-en="What are your product dimensions? (Length x Width x Height in cm or inches)">ما هي أبعاد منتجك؟ (الطول × العرض × الارتفاع بالسم أو البوصة)</label>
+                        <input type="text" id="newProductDimensions" data-ar-placeholder="مثال: 20x15x10 سم أو 8x6x4 بوصة" data-en-placeholder="e.g., 20x15x10 cm or 8x6x4 inches" placeholder="e.g., 20x15x10 cm or 8x6x4 inches" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
                     </div>
+                    
+                    <!-- Product Weight -->
                     <div class="input-group" style="margin-bottom: 15px;">
-                        <label data-ar="الهشاشة" data-en="Fragility">الهشاشة</label>
+                        <label data-ar="ما هو الوزن التقريبي لمنتجك؟ (جرام أو أونصة)" data-en="Approximately how much does your product weigh? (grams or ounces)">ما هو الوزن التقريبي لمنتجك؟ (جرام أو أونصة)</label>
+                        <input type="text" id="newProductWeight" data-ar-placeholder="مثال: 200 جرام أو 7 أونصة" data-en-placeholder="e.g., 200 grams or 7 ounces" placeholder="e.g., 200 grams or 7 ounces" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    
+                    <!-- Fragility -->
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="هل منتجك هش؟ هل يحتاج إلى حماية خاصة؟" data-en="Is your product fragile? Does it need special protection?">هل منتجك هش؟ هل يحتاج إلى حماية خاصة؟</label>
                         <select id="newProductFragility" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
                             <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
-                            <option value="fragile" data-ar="هش" data-en="Fragile">هش</option>
-                            <option value="moderate" data-ar="متوسط" data-en="Moderate">متوسط</option>
-                            <option value="durable" data-ar="متين" data-en="Durable">متين</option>
+                            <option value="Not fragile" data-ar="ليس هشاً" data-en="Not fragile">Not fragile</option>
+                            <option value="Somewhat fragile" data-ar="هش قليلاً" data-en="Somewhat fragile">Somewhat fragile</option>
+                            <option value="Very fragile" data-ar="هش جداً" data-en="Very fragile">Very fragile</option>
+                            <option value="Needs cushioning/protection" data-ar="يحتاج إلى وسادة/حماية" data-en="Needs cushioning/protection">Needs cushioning/protection</option>
                         </select>
                     </div>
+                    
+                    <!-- Budget -->
                     <div class="input-group">
-                        <label data-ar="الميزانية (ريال)" data-en="Budget (SAR)">الميزانية (ريال)</label>
-                        <input type="number" id="newProductBudget" placeholder="0" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        <label data-ar="ما هي نطاق ميزانيتك للتغليف؟ (لكل وحدة أو الإجمالي)" data-en="What's your budget range for packaging? (per unit or total)">ما هي نطاق ميزانيتك للتغليف؟ (لكل وحدة أو الإجمالي)</label>
+                        <select id="newProductBudget" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
+                            <option value="Under 1 SAR/unit" data-ar="أقل من 1 ريال/وحدة" data-en="Under 1 SAR/unit">Under 1 SAR/unit</option>
+                            <option value="1-5 SAR/unit" data-ar="1-5 ريال/وحدة" data-en="1-5 SAR/unit">1-5 SAR/unit</option>
+                            <option value="5-10 SAR/unit" data-ar="5-10 ريال/وحدة" data-en="5-10 SAR/unit">5-10 SAR/unit</option>
+                            <option value="10-20 SAR/unit" data-ar="10-20 ريال/وحدة" data-en="10-20 SAR/unit">10-20 SAR/unit</option>
+                            <option value="20+ SAR/unit" data-ar="20+ ريال/وحدة" data-en="20+ SAR/unit">20+ SAR/unit</option>
+                            <option value="Budget flexible" data-ar="الميزانية مرنة" data-en="Budget flexible">Budget flexible</option>
+                            <option value="Will discuss" data-ar="سأناقش" data-en="Will discuss">Will discuss</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -4149,27 +4159,37 @@
             await startDesignFlow();
         }
         
+        let isRequestInProgress = false; // Flag to prevent multiple simultaneous requests
+        
         async function startDesignFlowWithProduct(productName) {
-            // Get API URL - use default if input is hidden or empty
-            const apiUrlInput = document.getElementById('apiUrl');
-            let apiUrl = 'https://packageha-ai.akhodary-006.workers.dev'; // Default URL
-            
-            if (apiUrlInput && apiUrlInput.value.trim()) {
-                apiUrl = apiUrlInput.value.trim();
+            // Prevent multiple simultaneous requests
+            if (isRequestInProgress) {
+                console.log('[startDesignFlowWithProduct] Request already in progress, skipping...');
+                return;
             }
             
-            // Ensure URL has protocol and no trailing slash
-            let finalUrl = apiUrl;
-            if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
-                finalUrl = 'https://' + finalUrl;
-            }
-            finalUrl = finalUrl.replace(/\/$/, ''); // Remove trailing slash
-            
-            console.log('[startDesignFlowWithProduct] Making POST request to:', finalUrl);
-            console.log('[startDesignFlowWithProduct] Product name:', productName);
+            isRequestInProgress = true;
             
             try {
-                // First, try to make the POST request
+                // Get API URL - use default if input is hidden or empty
+                const apiUrlInput = document.getElementById('apiUrl');
+                let apiUrl = 'https://packageha-ai.akhodary-006.workers.dev'; // Default URL
+                
+                if (apiUrlInput && apiUrlInput.value.trim()) {
+                    apiUrl = apiUrlInput.value.trim();
+                }
+                
+                // Ensure URL has protocol and no trailing slash
+                let finalUrl = apiUrl;
+                if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+                    finalUrl = 'https://' + finalUrl;
+                }
+                finalUrl = finalUrl.replace(/\/$/, ''); // Remove trailing slash
+                
+                console.log('[startDesignFlowWithProduct] Making POST request to:', finalUrl);
+                console.log('[startDesignFlowWithProduct] Product name:', productName);
+                
+                // Make the POST request
                 const response = await fetch(finalUrl, {
                     method: 'POST',
                     headers: { 
@@ -4178,27 +4198,21 @@
                     },
                     body: JSON.stringify({
                         flow: 'direct_sales',
-                        message: productName
+                        message: productName || ''
                     })
                 });
                 
                 console.log('[startDesignFlowWithProduct] Response status:', response.status);
-                console.log('[startDesignFlowWithProduct] Response headers:', Object.fromEntries(response.headers.entries()));
                 
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('[startDesignFlowWithProduct] Response error:', response.status, errorText);
                     
-                    // If 405, try using initializeFlow instead as fallback
-                    if (response.status === 405) {
-                        console.log('[startDesignFlowWithProduct] 405 error - trying initializeFlow as fallback');
-                        // Store product name in flowState for initializeFlow to use
-                        flowState.productDetails = { description: productName };
-                        initializeFlow();
-                        return;
-                    }
-                    
-                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    // Show user-friendly error message
+                    alert(currentLang === 'ar' 
+                        ? `خطأ في الاتصال بالخادم (${response.status}). يرجى التحقق من إعدادات الخادم والمحاولة مرة أخرى.`
+                        : `Server connection error (${response.status}). Please check server settings and try again.`);
+                    return;
                 }
                 
                 const data = await response.json();
@@ -4208,25 +4222,17 @@
                     handleResponse(data, { type: 'product_design_start' });
                 } else {
                     console.error('[startDesignFlowWithProduct] handleResponse function not found');
-                    // Fallback: use initializeFlow
-                    flowState.productDetails = { description: productName };
-                    initializeFlow();
+                    alert(currentLang === 'ar' 
+                        ? 'حدث خطأ في معالجة الاستجابة من الخادم.'
+                        : 'Error processing server response.');
                 }
             } catch (error) {
                 console.error('[startDesignFlowWithProduct] Error:', error);
-                
-                // Fallback: try initializeFlow if POST fails
-                console.log('[startDesignFlowWithProduct] Using initializeFlow as fallback');
-                flowState.productDetails = { description: productName };
-                
-                try {
-                    initializeFlow();
-                } catch (fallbackError) {
-                    console.error('[startDesignFlowWithProduct] Fallback also failed:', fallbackError);
-                    alert(currentLang === 'ar' 
-                        ? 'حدث خطأ في الاتصال بالخادم. يرجى التحقق من عنوان URL والمحاولة مرة أخرى.'
-                        : 'Connection error. Please check the URL and try again.');
-                }
+                alert(currentLang === 'ar' 
+                    ? 'حدث خطأ في الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت والمحاولة مرة أخرى.'
+                    : 'Connection error. Please check your internet connection and try again.');
+            } finally {
+                isRequestInProgress = false;
             }
         }
         
@@ -4241,8 +4247,8 @@
         let newProductData = {
             photo: null,
             description: '',
-            dimensions: { length: '', width: '', height: '' },
-            weight: '',
+            dimensions: '', // Single text field: "20x15x10 cm"
+            weight: '', // Text field: "200 grams"
             fragility: '',
             budget: '',
             linkedProducts: []
@@ -4256,16 +4262,14 @@
                 newProductData = {
                     photo: null,
                     description: '',
-                    dimensions: { length: '', width: '', height: '' },
+                    dimensions: '',
                     weight: '',
                     fragility: '',
                     budget: '',
                     linkedProducts: []
                 };
                 document.getElementById('newProductDescription').value = '';
-                document.getElementById('newProductLength').value = '';
-                document.getElementById('newProductWidth').value = '';
-                document.getElementById('newProductHeight').value = '';
+                document.getElementById('newProductDimensions').value = '';
                 document.getElementById('newProductWeight').value = '';
                 document.getElementById('newProductFragility').value = '';
                 document.getElementById('newProductBudget').value = '';
@@ -4436,12 +4440,10 @@
         function saveNewProduct() {
             // Collect form data
             newProductData.description = document.getElementById('newProductDescription').value.trim();
-            newProductData.dimensions.length = document.getElementById('newProductLength').value.trim();
-            newProductData.dimensions.width = document.getElementById('newProductWidth').value.trim();
-            newProductData.dimensions.height = document.getElementById('newProductHeight').value.trim();
+            newProductData.dimensions = document.getElementById('newProductDimensions').value.trim();
             newProductData.weight = document.getElementById('newProductWeight').value.trim();
             newProductData.fragility = document.getElementById('newProductFragility').value;
-            newProductData.budget = document.getElementById('newProductBudget').value.trim();
+            newProductData.budget = document.getElementById('newProductBudget').value;
             
             if (!newProductData.description) {
                 alert(currentLang === 'ar' ? 'يرجى إدخال وصف المنتج' : 'Please enter product description');
