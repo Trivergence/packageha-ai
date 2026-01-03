@@ -4450,20 +4450,36 @@
                     },
                     body: JSON.stringify({
                         flow: 'direct_sales',
-                        message: searchMessage
+                        message: searchMessage,
+                        reset: false // Don't reset the session
                     })
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('[submitDesignPackage] Response error:', response.status, errorText);
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
+                console.log('[submitDesignPackage] Response data:', data);
                 
                 // Extract package matches from response
                 if (data.productMatches && data.productMatches.length > 0) {
                     currentPackageMatches = data.productMatches;
                     displayPackageMatches(currentPackageMatches, productPhoto);
+                } else if (data.reply) {
+                    // If no matches but we got a reply, the LLM might be asking for more info
+                    console.log('[submitDesignPackage] LLM reply:', data.reply);
+                    // Still try to show matches if they exist in a different format
+                    if (data.flowState && data.flowState.productMatches) {
+                        currentPackageMatches = data.flowState.productMatches;
+                        displayPackageMatches(currentPackageMatches, productPhoto);
+                    } else {
+                        alert(currentLang === 'ar' 
+                            ? 'لم يتم العثور على أغلفة مناسبة. يرجى المحاولة مرة أخرى.'
+                            : 'No matching packages found. Please try again.');
+                    }
                 } else {
                     alert(currentLang === 'ar' 
                         ? 'لم يتم العثور على أغلفة مناسبة. يرجى المحاولة مرة أخرى.'
@@ -4524,37 +4540,110 @@
             // Get product info
             const productId = window.currentDesignProductId;
             const product = productId ? demoProducts.find(p => p.id === productId) : null;
+            const productName = product ? (currentLang === 'ar' ? product.nameAr : product.nameEn) : '';
             const productPhoto = product?.productPhoto || '';
             
             // Show loading state
             const imageSection = document.getElementById('generatedImageSection');
             const imageContainer = document.getElementById('generatedImageContainer');
             imageSection.style.display = 'block';
-            imageContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;">' + (currentLang === 'ar' ? 'جاري إنشاء التصميم...' : 'Generating design...') + '</div>';
+            imageContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;"><div style="font-size: 48px; margin-bottom: 15px;">🎨</div><div>' + (currentLang === 'ar' ? 'جاري إنشاء التصميم باستخدام الذكاء الاصطناعي...' : 'Generating design using AI...') + '</div></div>';
             imageSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             
             try {
-                // Call LLM to generate image (combining product + package + background)
-                // For now, we'll use a placeholder. In production, this would call an image generation API
-                // You can integrate with DALL-E, Midjourney, Stable Diffusion, etc.
+                // Use Google Gemini (via backend) to generate image prompt
+                const apiUrlInput = document.getElementById('apiUrl');
+                let apiUrl = 'https://packageha-ai.akhodary-006.workers.dev';
+                if (apiUrlInput && apiUrlInput.value.trim()) {
+                    apiUrl = apiUrlInput.value.trim();
+                }
                 
-                // Simulate image generation (replace with actual API call)
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                let finalUrl = apiUrl;
+                if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+                    finalUrl = 'https://' + finalUrl;
+                }
+                finalUrl = finalUrl.replace(/\/$/, '');
                 
-                // For demo, create a composite image URL or use a placeholder
-                // In production, this would be the actual generated image URL from your image generation service
-                generatedPackageImageUrl = `https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&h=600&fit=crop`; // Placeholder
+                // Build prompt for image generation
+                const imagePromptRequest = `Generate a detailed image description for a product packaging visualization.
+
+Product: ${productName}
+Package: ${match.name}
+Package Details: ${match.reason || ''}
+
+Create a detailed, professional image description that combines:
+1. The product (${productName})
+2. The selected package (${match.name})
+3. An elegant, luxurious background setting
+4. Professional product photography style
+5. High-quality lighting and composition
+
+The description should be suitable for image generation AI (like DALL-E, Midjourney, or Stable Diffusion).
+Return ONLY a detailed image description, no other text.`;
+
+                const response = await fetch(finalUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        flow: 'direct_sales',
+                        message: imagePromptRequest,
+                        reset: false
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const imagePrompt = data.reply || '';
+                
+                console.log('[selectPackageMatch] Generated image prompt:', imagePrompt);
+                
+                // For now, we'll use the prompt to create a placeholder
+                // In production, you would send this prompt to an image generation API:
+                // - DALL-E (OpenAI)
+                // - Imagen (Google Vertex AI)
+                // - Midjourney API
+                // - Stable Diffusion API
+                
+                // For demo purposes, we'll create a data URL or use a service
+                // You can integrate with actual image generation here
+                
+                // Example: If you have access to an image generation API, call it here:
+                // const imageResponse = await fetch('YOUR_IMAGE_GENERATION_API', {
+                //     method: 'POST',
+                //     body: JSON.stringify({ prompt: imagePrompt })
+                // });
+                // const imageData = await imageResponse.json();
+                // generatedPackageImageUrl = imageData.imageUrl;
+                
+                // For now, use a placeholder that represents the concept
+                // In production, replace this with actual image generation
+                generatedPackageImageUrl = `https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&h=600&fit=crop&q=80`;
                 
                 // Display generated image
                 const generatedImg = document.getElementById('generatedPackageImage');
                 generatedImg.src = generatedPackageImageUrl;
-                imageContainer.innerHTML = `<img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">`;
+                generatedImg.onload = function() {
+                    imageContainer.innerHTML = `
+                        <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;" data-ar="وصف الصورة المولدة:" data-en="Generated Image Description:">${currentLang === 'ar' ? 'وصف الصورة المولدة:' : 'Generated Image Description:'}</div>
+                            <div style="font-size: 13px; color: #333; font-style: italic;">${imagePrompt.substring(0, 200)}${imagePrompt.length > 200 ? '...' : ''}</div>
+                        </div>
+                        <img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+                    `;
+                };
                 
             } catch (error) {
                 console.error('[selectPackageMatch] Error generating image:', error);
                 alert(currentLang === 'ar' 
                     ? 'حدث خطأ أثناء إنشاء الصورة. يرجى المحاولة مرة أخرى.'
                     : 'Error generating image. Please try again.');
+                imageContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #dc3545;">' + (currentLang === 'ar' ? 'فشل إنشاء الصورة' : 'Image generation failed') + '</div>';
             }
         }
         
