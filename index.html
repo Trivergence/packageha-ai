@@ -4752,6 +4752,12 @@ Return ONLY a detailed image description, no other text.`;
                 console.log('[selectPackageMatch] Image prompt request:', imagePromptRequest);
                 console.log('[selectPackageMatch] Calling image generation endpoint:', `${finalUrl}/api/generate-image-prompt`);
                 
+                // Get product photo if available
+                const productPhotoUrl = product?.productPhoto || null;
+                
+                console.log('[selectPackageMatch] Product photo URL:', productPhotoUrl);
+                console.log('[selectPackageMatch] Package image URL:', match.imageUrl);
+                
                 const requestStartTime = Date.now();
                 const response = await fetch(`${finalUrl}/api/generate-image-prompt`, {
                     method: 'POST',
@@ -4760,7 +4766,9 @@ Return ONLY a detailed image description, no other text.`;
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        prompt: imagePromptRequest
+                        prompt: imagePromptRequest,
+                        productImageUrl: productPhotoUrl || undefined,
+                        packageImageUrl: match.imageUrl || undefined
                     })
                 });
                 
@@ -4796,55 +4804,44 @@ Return ONLY a detailed image description, no other text.`;
                 const data = await response.json();
                 console.log('[selectPackageMatch] Response data:', data);
                 
-                if (!data.imagePrompt) {
-                    console.error('[selectPackageMatch] No imagePrompt in response:', data);
-                    throw new Error(currentLang === 'ar' 
-                        ? 'لم يتم إنشاء وصف الصورة. يرجى المحاولة مرة أخرى.'
-                        : 'Image description was not generated. Please try again.');
-                }
+                const imagePrompt = data.imagePrompt || '';
+                const generatedImageUrl = data.imageUrl || null;
                 
-                const imagePrompt = data.imagePrompt;
                 console.log('[selectPackageMatch] Generated image prompt length:', imagePrompt.length);
-                console.log('[selectPackageMatch] Generated image prompt:', imagePrompt);
+                console.log('[selectPackageMatch] Generated image URL:', generatedImageUrl ? 'Yes (from Gemini)' : 'No');
                 
-                // For now, we'll use the prompt to create a placeholder
-                // In production, you would send this prompt to an image generation API:
-                // - DALL-E (OpenAI)
-                // - Imagen (Google Vertex AI)
-                // - Midjourney API
-                // - Stable Diffusion API
-                
-                // For demo purposes, we'll create a data URL or use a service
-                // You can integrate with actual image generation here
-                
-                // Example: If you have access to an image generation API, call it here:
-                // const imageResponse = await fetch('YOUR_IMAGE_GENERATION_API', {
-                //     method: 'POST',
-                //     body: JSON.stringify({ prompt: imagePrompt })
-                // });
-                // const imageData = await imageResponse.json();
-                // generatedPackageImageUrl = imageData.imageUrl;
-                
-                // Use the package's actual image if available, otherwise use a unique placeholder
-                // Add cache-busting parameter to ensure fresh image
-                const cacheBuster = Date.now();
                 let imageUrlToUse;
                 
-                if (match.imageUrl) {
-                    // Use the package's actual image with cache-busting
+                // Use the AI-generated image if available (this shows product inside package)
+                if (generatedImageUrl) {
+                    imageUrlToUse = generatedImageUrl;
+                    console.log('[selectPackageMatch] Using AI-generated image from Gemini:', imageUrlToUse.substring(0, 100) + '...');
+                } else if (productPhotoUrl) {
+                    // Fallback to product image if generation failed
+                    const cacheBuster = Date.now();
+                    try {
+                        const url = new URL(productPhotoUrl);
+                        url.searchParams.set('t', cacheBuster.toString());
+                        imageUrlToUse = url.toString();
+                    } catch (e) {
+                        imageUrlToUse = `${productPhotoUrl}${productPhotoUrl.includes('?') ? '&' : '?'}t=${cacheBuster}`;
+                    }
+                    console.log('[selectPackageMatch] Using product image as fallback:', imageUrlToUse);
+                } else if (match.imageUrl) {
+                    // Fallback to package image if product image not available
+                    const cacheBuster = Date.now();
                     try {
                         const url = new URL(match.imageUrl);
                         url.searchParams.set('t', cacheBuster.toString());
                         imageUrlToUse = url.toString();
                     } catch (e) {
-                        // If URL parsing fails, append cache buster as query param
                         imageUrlToUse = `${match.imageUrl}${match.imageUrl.includes('?') ? '&' : '?'}t=${cacheBuster}`;
                     }
-                    console.log('[selectPackageMatch] Using package image:', imageUrlToUse);
+                    console.log('[selectPackageMatch] Using package image as fallback:', imageUrlToUse);
                 } else {
-                    // Use a placeholder that's unique to this package (based on package name hash)
+                    // Last resort: placeholder
+                    const cacheBuster = Date.now();
                     const packageHash = match.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                    // Use different Unsplash photos based on package
                     const unsplashIds = [
                         '1606220945770', // Packaging box
                         '1541643600914', // Product packaging
@@ -4854,7 +4851,7 @@ Return ONLY a detailed image description, no other text.`;
                     ];
                     const photoId = unsplashIds[packageHash % unsplashIds.length];
                     imageUrlToUse = `https://images.unsplash.com/photo-${photoId}?w=800&h=600&fit=crop&q=80&t=${cacheBuster}`;
-                    console.log('[selectPackageMatch] Using placeholder image (package hash:', packageHash, '):', imageUrlToUse);
+                    console.log('[selectPackageMatch] Using placeholder image:', imageUrlToUse);
                 }
                 
                 generatedPackageImageUrl = imageUrlToUse;

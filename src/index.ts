@@ -73,18 +73,51 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     }
   }
   
-  // Image generation endpoint
+  // Image generation endpoint - generates enhanced image description using Gemini
+  // Note: Gemini doesn't generate images directly, only text descriptions
+  // The enhanced description can be used with DALL-E, Stable Diffusion, or other image generation APIs
   if (url.pathname === "/api/generate-image-prompt" && request.method === "POST") {
     console.log("[API] POST /api/generate-image-prompt");
     try {
-      const body = await request.json() as { prompt: string };
+      const body = await request.json() as { prompt: string; productImageUrl?: string; packageImageUrl?: string };
       const sovereignSwitch = new SovereignSwitch(env);
-      const imagePrompt = await sovereignSwitch.callAI(
-        body.prompt,
-        "You are an expert at creating detailed, professional image generation prompts for product packaging visualization. Generate highly detailed, creative descriptions suitable for AI image generation models like DALL-E, Midjourney, or Stable Diffusion. Focus on visual details, lighting, composition, and professional photography style.",
-        true
-      );
-      return jsonResponse({ imagePrompt });
+      
+      if (!env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is required for image generation");
+      }
+      
+      // Generate actual image using Gemini's image generation capabilities
+      let imageUrl: string | null = null;
+      let imagePrompt: string = body.prompt;
+      
+      try {
+        // Try to generate actual image using Gemini's image generation model
+        imageUrl = await sovereignSwitch.generateImage(
+          body.prompt,
+          env.GEMINI_API_KEY,
+          body.productImageUrl,
+          body.packageImageUrl
+        );
+        console.log("[API] Successfully generated image, URL length:", imageUrl.length);
+      } catch (error: any) {
+        // If image generation fails, enhance the prompt with text-only call
+        console.log("[API] Image generation failed, enhancing prompt:", error.message);
+        try {
+          imagePrompt = await sovereignSwitch.callAI(
+            `Enhance this image generation prompt to be more detailed and specific for showing a product inside its package: ${body.prompt}`,
+            "You are an expert at creating detailed, professional image generation prompts for product packaging visualization. Generate highly detailed, creative descriptions suitable for AI image generation models like DALL-E, Midjourney, or Stable Diffusion. Focus on visual details, lighting, composition, and professional photography style. The image should clearly show the product inside or with the package.",
+            true
+          );
+        } catch (promptError: any) {
+          console.error("[API] Failed to enhance prompt:", promptError);
+          imagePrompt = body.prompt; // Fallback to original prompt
+        }
+      }
+      
+      return jsonResponse({ 
+        imagePrompt: imagePrompt, // Return the prompt for display
+        imageUrl: imageUrl || undefined // Return the generated image URL if available
+      });
     } catch (error: any) {
       console.error("[API] Image generation error:", error);
       return jsonResponse({ error: error.message }, 500);

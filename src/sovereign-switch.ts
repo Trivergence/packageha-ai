@@ -689,6 +689,150 @@ export class SovereignSwitch {
   }
 
   /**
+   * Generate an actual image using Gemini's image generation capabilities
+   * This method creates a visual representation showing the product inside the package
+   */
+  async generateImage(
+    prompt: string,
+    apiKey: string,
+    productImageUrl?: string,
+    packageImageUrl?: string
+  ): Promise<string> {
+    console.log("[SovereignSwitch] generateImage called with prompt length:", prompt.length);
+    console.log("[SovereignSwitch] Product image URL:", productImageUrl);
+    console.log("[SovereignSwitch] Package image URL:", packageImageUrl);
+    
+    // Use the best image generation model
+    const model = await this.getBestImageModel(apiKey);
+    console.log("[SovereignSwitch] Using image generation model:", model);
+    
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    
+    // Build multimodal prompt with images if available
+    const parts: any[] = [];
+    
+    // Add product image if available
+    if (productImageUrl) {
+      try {
+        const productImageResponse = await fetch(productImageUrl);
+        const productImageBuffer = await productImageResponse.arrayBuffer();
+        const productImageBase64 = btoa(String.fromCharCode(...new Uint8Array(productImageBuffer)));
+        const productImageMimeType = productImageResponse.headers.get('content-type') || 'image/jpeg';
+        
+        parts.push({
+          inlineData: {
+            mimeType: productImageMimeType,
+            data: productImageBase64
+          }
+        });
+        console.log("[SovereignSwitch] Added product image to prompt");
+      } catch (error: any) {
+        console.warn("[SovereignSwitch] Failed to load product image:", error.message);
+      }
+    }
+    
+    // Add package image if available
+    if (packageImageUrl) {
+      try {
+        const packageImageResponse = await fetch(packageImageUrl);
+        const packageImageBuffer = await packageImageResponse.arrayBuffer();
+        const packageImageBase64 = btoa(String.fromCharCode(...new Uint8Array(packageImageBuffer)));
+        const packageImageMimeType = packageImageResponse.headers.get('content-type') || 'image/jpeg';
+        
+        parts.push({
+          inlineData: {
+            mimeType: packageImageMimeType,
+            data: packageImageBase64
+          }
+        });
+        console.log("[SovereignSwitch] Added package image to prompt");
+      } catch (error: any) {
+        console.warn("[SovereignSwitch] Failed to load package image:", error.message);
+      }
+    }
+    
+    // Add text prompt - explicitly request image generation
+    parts.push({
+      text: `Generate an image showing: ${prompt}\n\nCreate a high-quality, professional product photography image that clearly shows the product inside or with the package. The image should be realistic, well-lit, and suitable for e-commerce and marketing purposes.`
+    });
+    
+    const payload = {
+      contents: [{
+        parts: parts
+      }],
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 2048,
+        topP: 0.95,
+        topK: 40
+      }
+    };
+    
+    console.log("[SovereignSwitch] Sending image generation request with", parts.length, "parts");
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[SovereignSwitch] Image generation error:", response.status, errorText);
+      throw new Error(`Image generation failed: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log("[SovereignSwitch] Image generation response keys:", Object.keys(data));
+    console.log("[SovereignSwitch] Full response (first 2000 chars):", JSON.stringify(data).substring(0, 2000));
+    
+    // Check for image data in the response
+    const candidate = data.candidates?.[0];
+    if (!candidate) {
+      throw new Error("No candidate in response: " + JSON.stringify(data).substring(0, 500));
+    }
+    
+    if (!candidate.content?.parts) {
+      throw new Error("No parts in candidate content: " + JSON.stringify(candidate).substring(0, 500));
+    }
+    
+    console.log("[SovereignSwitch] Number of parts in response:", candidate.content.parts.length);
+    
+    // Look for image data in the response parts
+    for (let i = 0; i < candidate.content.parts.length; i++) {
+      const part = candidate.content.parts[i];
+      console.log(`[SovereignSwitch] Part ${i} keys:`, Object.keys(part));
+      
+      // Check for inline data (base64 image) - this is how Gemini returns generated images
+      if (part.inlineData) {
+        const imageData = part.inlineData.data;
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        console.log("[SovereignSwitch] Found generated image in response (mimeType:", mimeType, ", data length:", imageData?.length || 0, ")");
+        // Return as data URL
+        return `data:${mimeType};base64,${imageData}`;
+      }
+      
+      // Check for image URL (if Gemini returns URLs)
+      if (part.url) {
+        console.log("[SovereignSwitch] Found image URL in response:", part.url);
+        return part.url;
+      }
+    }
+    
+    // If no image found, check for text (might be an error message or description)
+    const textResponse = candidate.content.parts.find((p: any) => p.text)?.text;
+    if (textResponse) {
+      console.log("[SovereignSwitch] Model returned text instead of image:", textResponse.substring(0, 200));
+      // Some image models might return text descriptions - log this for debugging
+      throw new Error(`Model returned text instead of image: ${textResponse.substring(0, 100)}`);
+    }
+    
+    throw new Error("No image data found in response. Response structure: " + JSON.stringify(data).substring(0, 1000));
+  }
+
+  /**
    * Get current mode for logging/debugging
    */
   getMode(): SovereignMode {
