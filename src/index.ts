@@ -367,8 +367,11 @@ export default {
     }
 
     // Route POST requests to Durable Object session
+    // IMPORTANT: This must come before any static file serving
     if (request.method === "POST") {
       console.log("[Worker] POST request received:", url.pathname);
+      console.log("[Worker] Full URL:", request.url);
+      console.log("[Worker] Request method:", request.method);
       
       // Special endpoint for image generation prompts
       if (url.pathname === "/api/generate-image-prompt") {
@@ -433,8 +436,12 @@ export default {
       console.log("[Worker] Forwarding request to Durable Object session:", sessionId.toString());
       
       try {
+        console.log("[Worker] Forwarding request to Durable Object");
         const response = await session.fetch(request);
         console.log("[Worker] Durable Object response status:", response.status);
+        console.log("[Worker] Durable Object response headers:", Object.fromEntries(response.headers.entries()));
+        
+        // The Durable Object already includes CORS headers in jsonResponse, but ensure they're present
         return response;
       } catch (error: any) {
         console.error("[Worker] Error forwarding to Durable Object:", error);
