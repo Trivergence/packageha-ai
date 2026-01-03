@@ -335,11 +335,16 @@
             min-width: 200px;
             z-index: 10000;
             display: none;
+            visibility: hidden;
+            opacity: 0;
             overflow: hidden;
+            transition: opacity 0.2s ease;
         }
         
         .connect-menu.visible {
             display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
         
         .connect-menu-item {
@@ -1188,10 +1193,10 @@
                 <div id="storesList" class="stores-list">
                     <!-- Connected stores will be rendered here -->
                     <div style="position: relative;" onclick="event.stopPropagation();">
-                        <button onclick="toggleConnectMenu()" class="connect-store-btn">
-                            <span>+</span>
-                            <span data-ar="ربط متجر" data-en="Connect Store">ربط متجر</span>
-                        </button>
+                    <button class="connect-store-btn" data-connect-button-static="true">
+                        <span>+</span>
+                        <span data-ar="ربط متجر" data-en="Connect Store">ربط متجر</span>
+                    </button>
                         <div id="connectMenu" class="connect-menu">
                             <div class="connect-menu-item" onclick="connectStore('salla')">
                                 <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛍️</div>
@@ -4264,8 +4269,10 @@
             
             // Attach event listener to the newly created button
             const connectButton = storesList.querySelector('[data-connect-button="true"]');
+            console.log('[renderStores] Looking for button, found:', connectButton);
             if (connectButton) {
                 connectButton.addEventListener('click', function(e) {
+                    console.log('[renderStores] Button clicked!', e);
                     e.stopPropagation();
                     e.preventDefault();
                     toggleConnectMenu(e);
@@ -4273,6 +4280,7 @@
                 console.log('[renderStores] Event listener attached to connect button');
             } else {
                 console.error('[renderStores] Connect button not found!');
+                console.error('[renderStores] storesList HTML:', storesList.innerHTML.substring(0, 500));
             }
         }
         
@@ -4280,15 +4288,24 @@
         let menuJustOpened = false;
         
         function toggleConnectMenu(event) {
+            console.log('[toggleConnectMenu] Called', event);
             if (event) {
                 event.stopPropagation();
                 event.preventDefault();
             }
             
             const menu = document.getElementById('connectMenu');
+            console.log('[toggleConnectMenu] Menu found:', menu);
             if (menu) {
                 const isVisible = menu.classList.contains('visible');
+                console.log('[toggleConnectMenu] Currently visible:', isVisible);
+                console.log('[toggleConnectMenu] Menu style before:', window.getComputedStyle(menu).display);
+                
                 menu.classList.toggle('visible');
+                const nowVisible = menu.classList.contains('visible');
+                console.log('[toggleConnectMenu] Now visible:', nowVisible);
+                console.log('[toggleConnectMenu] Menu style after:', window.getComputedStyle(menu).display);
+                console.log('[toggleConnectMenu] Menu classes:', menu.className);
                 
                 if (!isVisible) {
                     // Menu just opened - set flag to prevent immediate closing
@@ -4297,6 +4314,8 @@
                         menuJustOpened = false;
                     }, 100);
                 }
+            } else {
+                console.error('[toggleConnectMenu] Menu element not found!');
             }
         }
         
@@ -6201,13 +6220,15 @@ Return ONLY a detailed image description, no other text.`;
             updateLinkProductStoreSelect(); // Initialize store select in Add Product dialog
             
             // Attach event listener to static connect button (if it exists before renderStores replaces it)
-            const staticConnectButton = document.querySelector('.connect-store-btn');
-            if (staticConnectButton && !staticConnectButton.hasAttribute('data-connect-button')) {
+            const staticConnectButton = document.querySelector('[data-connect-button-static="true"]');
+            if (staticConnectButton) {
                 staticConnectButton.addEventListener('click', function(e) {
+                    console.log('[DOMContentLoaded] Static button clicked!', e);
                     e.stopPropagation();
                     e.preventDefault();
                     toggleConnectMenu(e);
                 });
+                console.log('[DOMContentLoaded] Event listener attached to static connect button');
             }
             
             // Pre-fetch products to warm up cache (runs asynchronously)
