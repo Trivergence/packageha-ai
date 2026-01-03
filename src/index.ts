@@ -328,13 +328,23 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
       
       if (!response.ok) {
         const errorText = await response.text();
+        
+        // Check if product is no longer available (404 or 422 with specific error)
+        if (response.status === 404 || (response.status === 422 && errorText.includes('no longer available'))) {
+          throw new Error(`Product with ID ${body.productId} is no longer available.`);
+        }
+        
         throw new Error(`Shopify API Error ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
       const product = data.product;
       
-      if (!product || !product.variants || product.variants.length === 0) {
+      if (!product) {
+        throw new Error(`Product ${body.productId} is no longer available.`);
+      }
+      
+      if (!product.variants || product.variants.length === 0) {
         throw new Error(`Product ${body.productId} has no variants`);
       }
       

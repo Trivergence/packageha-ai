@@ -1033,6 +1033,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             transition: all 0.3s ease;
             border: 2px solid transparent;
+            text-align: center;
         }
         
         .step-card:hover {
@@ -1064,19 +1065,11 @@
             font-size: 16px;
             font-weight: 600;
             color: #1a1a1a;
+            text-align: center;
         }
         
         .step-arrow {
-            font-size: 24px;
-            color: #999;
-            margin-top: 60px;
             display: none;
-        }
-        
-        @media (min-width: 768px) {
-            .step-arrow {
-                display: block;
-            }
         }
         
         @media (max-width: 767px) {
@@ -1250,16 +1243,12 @@
                         <div class="step-title" data-ar="أضف منتج" data-en="Add Product">أضف منتج</div>
                     </div>
                     
-                    <span class="step-arrow">→</span>
-                    
                     <!-- Step 2: Design Package -->
                     <div class="step-card">
                         <span class="step-number">2</span>
                         <span class="step-icon">🎨</span>
                         <div class="step-title" data-ar="صمم الغلاف" data-en="Design Package">صمم الغلاف</div>
                     </div>
-                    
-                    <span class="step-arrow">→</span>
                     
                     <!-- Step 3: Order Prints -->
                     <div class="step-card">
@@ -4728,11 +4717,12 @@
             submitBtn.textContent = currentLang === 'ar' ? 'جاري المعالجة...' : 'Processing...';
             
             try {
-                // First, get the variant ID from the product ID if we don't have it
-                let variantId = product.packageVariantId;
+                // Always refresh variant ID to ensure it's still available
+                // This prevents errors if the product was deleted or made unavailable
+                let variantId = null;
                 
-                if (!variantId && product.packageId) {
-                    console.log('[submitOrder] Fetching variant ID for product:', product.packageId);
+                if (product.packageId) {
+                    console.log('[submitOrder] Validating and fetching variant ID for product:', product.packageId);
                     const variantResponse = await fetch('/api/get-variant-id', {
                         method: 'POST',
                         headers: {
@@ -4745,6 +4735,15 @@
                     
                     if (!variantResponse.ok) {
                         const errorData = await variantResponse.json();
+                        const errorMsg = errorData.error || 'Failed to get variant ID';
+                        
+                        // Check if product is no longer available
+                        if (errorMsg.includes('no longer available') || errorMsg.includes('not found') || variantResponse.status === 404) {
+                            throw new Error(currentLang === 'ar' 
+                                ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
+                                : 'The selected package is no longer available. Please select a different package.');
+                        }
+                        
                         throw new Error(errorData.error || 'Failed to get variant ID');
                     }
                     
@@ -4752,14 +4751,20 @@
                     variantId = variantData.variantId;
                     console.log('[submitOrder] Got variant ID:', variantId);
                     
+                    if (!variantId) {
+                        throw new Error(currentLang === 'ar' 
+                            ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
+                            : 'The selected package is no longer available. Please select a different package.');
+                    }
+                    
                     // Store it for future use
                     product.packageVariantId = variantId;
                 }
                 
                 if (!variantId) {
                     throw new Error(currentLang === 'ar' 
-                        ? 'لم يتم العثور على معرف المتغير للغلاف'
-                        : 'Variant ID not found for package');
+                        ? 'لم يتم العثور على معرف المتغير للغلاف. يرجى اختيار غلاف آخر.'
+                        : 'Variant ID not found for package. Please select a different package.');
                 }
                 
                 // Call API to create draft order
@@ -4777,7 +4782,22 @@
                 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to create order');
+                    const errorMsg = errorData.error || 'Failed to create order';
+                    
+                    // Check for specific Shopify errors
+                    if (errorMsg.includes('no longer available') || errorMsg.includes('is no longer available')) {
+                        throw new Error(currentLang === 'ar' 
+                            ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
+                            : 'The selected package is no longer available. Please select a different package.');
+                    }
+                    
+                    if (errorMsg.includes('422') || errorMsg.includes('Product with ID')) {
+                        throw new Error(currentLang === 'ar' 
+                            ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
+                            : 'The selected package is no longer available. Please select a different package.');
+                    }
+                    
+                    throw new Error(errorMsg);
                 }
                 
                 const data = await response.json();
@@ -4823,22 +4843,34 @@
                 // Parse error message for better user experience
                 let errorMessage = error.message || 'Unknown error';
                 
-                // Check if it's a Shopify API error
-                if (errorMessage.includes('Shopify API Error')) {
+                // Check if it's a "no longer available" error
+                let isUnavailableError = false;
+                if (errorMessage.includes('no longer available') || 
+                    errorMessage.includes('لم يعد متاحاً') ||
+                    errorMessage.includes('is no longer available') ||
+                    (errorMessage.includes('Product with ID') && errorMessage.includes('422'))) {
+                    isUnavailableError = true;
+                    errorMessage = currentLang === 'ar' 
+                        ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
+                        : 'The selected package is no longer available. Please select a different package.';
+                } else if (errorMessage.includes('Shopify API Error')) {
                     // Try to extract a more user-friendly message
-                    if (errorMessage.includes('no longer available')) {
-                        errorMessage = currentLang === 'ar' 
-                            ? 'المنتج المحدد لم يعد متاحاً. يرجى اختيار غلاف آخر.'
-                            : 'The selected product is no longer available. Please select a different package.';
-                    } else if (errorMessage.includes('422')) {
+                    if (errorMessage.includes('422')) {
                         errorMessage = currentLang === 'ar' 
                             ? 'خطأ في بيانات الطلب. يرجى المحاولة مرة أخرى أو اختيار غلاف آخر.'
                             : 'Invalid order data. Please try again or select a different package.';
+                        isUnavailableError = true; // 422 often means product unavailable
                     } else {
                         errorMessage = currentLang === 'ar' 
                             ? 'حدث خطأ في الاتصال بـ Shopify. يرجى المحاولة مرة أخرى.'
                             : 'Error connecting to Shopify. Please try again.';
                     }
+                }
+                
+                // Clear cached variant ID if product is unavailable
+                if (isUnavailableError && product) {
+                    product.packageVariantId = null;
+                    console.log('[submitOrder] Cleared cached variant ID due to unavailable product');
                 }
                 
                 alert(currentLang === 'ar' 
