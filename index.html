@@ -1010,8 +1010,97 @@
         .no-products-message p {
             color: #666;
             font-size: 18px;
-            margin-bottom: 25px;
+            margin-bottom: 40px;
             font-weight: 500;
+        }
+        
+        .steps-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .step-card {
+            flex: 0 0 auto;
+            min-width: 180px;
+            max-width: 220px;
+            background: white;
+            border-radius: 16px;
+            padding: 30px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .step-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            border-color: #1a1a1a;
+        }
+        
+        .step-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 28px;
+            margin-bottom: 12px;
+        }
+        
+        .step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        
+        .step-description {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .step-arrow {
+            font-size: 24px;
+            color: #999;
+            margin-top: 60px;
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .step-arrow {
+                display: block;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .steps-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+            
+            .step-card {
+                max-width: 100%;
+                width: 100%;
+            }
+            
+            .step-arrow {
+                display: none;
+            }
         }
         
         @media (max-width: 768px) {
@@ -1158,6 +1247,38 @@
             </div>
             <div id="noProductsMessage" class="no-products-message" style="display: none;">
                 <p data-ar="لا توجد منتجات في متجرك بعد" data-en="No products in your store yet">لا توجد منتجات في متجرك بعد</p>
+                
+                <!-- 3 Steps Guide -->
+                <div class="steps-container">
+                    <!-- Step 1: Add Product -->
+                    <div class="step-card">
+                        <span class="step-number">1</span>
+                        <span class="step-icon">📦</span>
+                        <div class="step-title" data-ar="أضف منتج" data-en="Add Product">أضف منتج</div>
+                        <div class="step-description" data-ar="أدخل معلومات منتجك" data-en="Enter your product details">أدخل معلومات منتجك</div>
+                    </div>
+                    
+                    <span class="step-arrow">→</span>
+                    
+                    <!-- Step 2: Design Package -->
+                    <div class="step-card">
+                        <span class="step-number">2</span>
+                        <span class="step-icon">🎨</span>
+                        <div class="step-title" data-ar="صمم الغلاف" data-en="Design Package">صمم الغلاف</div>
+                        <div class="step-description" data-ar="اختر غلافاً مناسباً وتصميمه" data-en="Choose and design a suitable package">اختر غلافاً مناسباً وتصميمه</div>
+                    </div>
+                    
+                    <span class="step-arrow">→</span>
+                    
+                    <!-- Step 3: Order Prints -->
+                    <div class="step-card">
+                        <span class="step-number">3</span>
+                        <span class="step-icon">🛒</span>
+                        <div class="step-title" data-ar="اطلب الطباعة" data-en="Order Prints">اطلب الطباعة</div>
+                        <div class="step-description" data-ar="احصل على طباعة احترافية" data-en="Get professional printing">احصل على طباعة احترافية</div>
+                    </div>
+                </div>
+                
                 <button onclick="startDesignFlow()" class="design-btn" data-ar="تصميم غلاف الآن" data-en="Design Package Now">تصميم غلاف الآن</button>
             </div>
         </div>
