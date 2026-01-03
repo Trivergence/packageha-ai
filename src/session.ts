@@ -427,6 +427,56 @@ export class PackagehaSession {
         userMessage: string, 
         memory: Memory
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[]; isAutoSearch?: boolean }> {
+        // DETECT PACKAGE REQUIREMENTS IN MESSAGE
+        // If message contains "Package Requirements:" or package specs, automatically trigger discovery
+        const hasPackageRequirements = userMessage && (
+            userMessage.includes("Package Requirements:") ||
+            userMessage.includes("Material:") ||
+            userMessage.includes("Printing:") ||
+            userMessage.includes("Finishing:")
+        );
+        
+        if (hasPackageRequirements) {
+            console.log("[handleDirectSalesFlow] Package requirements detected in message - triggering auto-discovery");
+            
+            // Extract product info from message if present
+            const productMatch = userMessage.match(/Product:\s*(.+?)(?:\n|$)/i);
+            const photoMatch = userMessage.match(/Product Photo:\s*(.+?)(?:\n|$)/i);
+            
+            if (productMatch) {
+                memory.clipboard['product_description'] = productMatch[1].trim();
+            }
+            if (photoMatch) {
+                memory.clipboard['product_image_url'] = photoMatch[1].trim();
+            }
+            
+            // Extract package requirements and store in clipboard
+            const materialMatch = userMessage.match(/Material:\s*(.+?)(?:\n|$)/i);
+            const printingMatch = userMessage.match(/Printing:\s*(.+?)(?:\n|$)/i);
+            const finishingMatch = userMessage.match(/Finishing:\s*(.+?)(?:\n|$)/i);
+            
+            if (materialMatch) {
+                memory.clipboard['material'] = materialMatch[1].trim();
+            }
+            if (printingMatch) {
+                memory.clipboard['print'] = printingMatch[1].trim();
+            }
+            if (finishingMatch) {
+                memory.clipboard['finishing'] = finishingMatch[1].trim();
+            }
+            
+            // Mark as auto-search so handleDiscovery includes product context
+            memory.clipboard['_autoSearch'] = 'true';
+            
+            // Set step to package discovery and trigger search
+            memory.step = "select_package_discovery";
+            memory.questionIndex = 0;
+            
+            // Use the full message as search query (it contains all the context)
+            // This will trigger auto-search in handlePackageSelection
+            return await this.handlePackageSelection(userMessage, memory);
+        }
+        
         // CRITICAL: Check if this is a package edit request
         // Detect by: message starts with "edit package:" OR (packageId exists AND we're ahead in flow AND message matches product description)
         const isEditMessage = userMessage && userMessage.toLowerCase().startsWith("edit package:");
@@ -1493,15 +1543,22 @@ export class PackagehaSession {
             }
             
             memory.step = "select_package_discovery";
-            // Pass isAutoSearch=false to exclude product context and focus on user query only
-            const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER, false);
+            
+            // Check if this is an auto-search (package requirements detected)
+            const isAutoSearch = memory.clipboard?.['_autoSearch'] === 'true';
+            if (isAutoSearch) {
+                console.log("[handlePackageSelection] Auto-search detected - including product context");
+                delete memory.clipboard['_autoSearch']; // Clear flag after use
+            }
+            
+            // Pass isAutoSearch flag to include/exclude product context
+            const result = await this.handleDiscovery(userMessage, memory, SALES_CHARTER, isAutoSearch);
             
             // If discovery returned productMatches (multiple matches), return them immediately
-            // This is a user-initiated search, so ensure isAutoSearch is NOT set
             if (result.productMatches && result.productMatches.length > 0) {
                 return {
                     ...result,
-                    isAutoSearch: false // Explicitly mark as user search
+                    isAutoSearch: isAutoSearch // Preserve the auto-search flag
                 };
             }
             
