@@ -198,48 +198,50 @@ export class SovereignSwitch {
       }
       
       const data = await response.json();
-      // Filter models that support generateContent AND exclude problematic models
-      const models = (data.models || [])
-        .filter((m: any) => {
-          const supportsGenerateContent = m.supportedGenerationMethods?.includes('generateContent');
-          if (!supportsGenerateContent) {
-            return false;
-          }
-          
-          // Exclude problematic models:
-          // - Interaction-only models
-          // - Preview/research models (they often have restrictions)
-          const modelName = (m.name || '').toLowerCase();
-          const displayName = (m.displayName || '').toLowerCase();
-          
-          const isInteractionOnly = modelName.includes('interactive') || 
-                                    modelName.includes('interaction') ||
-                                    modelName.includes('live');
-          
-          const isPreviewOrResearch = modelName.includes('preview') ||
-                                      modelName.includes('research') ||
-                                      modelName.includes('deep-research') ||
-                                      modelName.includes('experimental') ||
-                                      displayName.includes('preview') ||
-                                      displayName.includes('research');
-          
-          if (isInteractionOnly) {
-            console.log("[listGeminiModels] Excluding Interaction-only model:", m.name);
-            return false;
-          }
-          
-          if (isPreviewOrResearch) {
-            console.log("[listGeminiModels] Excluding preview/research model:", m.name);
-            return false;
-          }
-          
-          return true;
-        })
-        .map((m: any) => m.name.replace('models/', ''))
-        .sort();
+      // First, get all models that support generateContent
+      const allValidModels = (data.models || [])
+        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m: any) => ({
+          name: m.name.replace('models/', ''),
+          fullName: m.name,
+          displayName: m.displayName || ''
+        }));
       
-      console.log("[listGeminiModels] Available models (after filtering):", models);
-      return models;
+      // Try strict filtering first (exclude problematic models)
+      const strictFiltered = allValidModels.filter((m: any) => {
+        const modelName = m.name.toLowerCase();
+        const displayName = (m.displayName || '').toLowerCase();
+        
+        // Exclude Interaction-only models (these definitely don't work)
+        const isInteractionOnly = modelName.includes('interactive') || 
+                                  modelName.includes('interaction') ||
+                                  modelName.includes('live');
+        
+        if (isInteractionOnly) {
+          console.log("[listGeminiModels] Excluding Interaction-only model:", m.name);
+          return false;
+        }
+        
+        // Exclude preview/research models (they often have restrictions)
+        const isPreviewOrResearch = modelName.includes('preview') ||
+                                    modelName.includes('deep-research') ||
+                                    modelName.includes('experimental');
+        
+        if (isPreviewOrResearch) {
+          console.log("[listGeminiModels] Excluding preview/research model:", m.name);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // If strict filtering left us with models, use those
+      // Otherwise, fall back to all valid models (less strict)
+      const modelsToReturn = strictFiltered.length > 0 ? strictFiltered : allValidModels;
+      const modelNames = modelsToReturn.map(m => m.name).sort();
+      
+      console.log("[listGeminiModels] Available models (after filtering):", modelNames);
+      return modelNames;
     } catch (error: any) {
       console.error("[listGeminiModels] Error:", error);
       return [];
@@ -248,7 +250,7 @@ export class SovereignSwitch {
 
   /**
    * Get a working Gemini model for TEXT tasks (package matching, conversations)
-   * Prioritizes text-optimized models, avoids image-specific models
+   * Simple, reliable model selection - prioritizes common working models
    */
   async getWorkingGeminiModel(apiKey: string, preferredModel?: string): Promise<string> {
     // First, try to list available models
@@ -264,60 +266,21 @@ export class SovereignSwitch {
       return preferredModel;
     }
     
-    // Filter out image-specific models for text tasks
-    const textModels = availableModels.filter(m => {
-      const lower = m.toLowerCase();
-      // Exclude image-specific models
-      return !lower.includes('image') && 
-             !lower.includes('nano') && 
-             !lower.includes('banana');
-    });
-    
-    // Use text models if available, otherwise fall back to all models
-    const modelsToUse = textModels.length > 0 ? textModels : availableModels;
-    
-    // Priority order for TEXT tasks:
-    // 1. gemini-1.5-flash (fast, good for text)
-    // 2. gemini-1.5-pro (best quality for text)
-    // 3. gemini-pro (reliable fallback)
-    // 4. Any flash model (fast)
-    // 5. Any 1.5 model (newer)
-    // 6. First available
-    
-    const flash15 = modelsToUse.find(m => m.includes('1.5-flash') && !m.includes('image'));
-    if (flash15) {
-      console.log("[getWorkingGeminiModel] Selected 1.5-flash for text:", flash15);
-      return flash15;
+    // Simple priority order - use first available that matches
+    // Prefer models with "flash" in the name (faster, cheaper)
+    const flashModels = availableModels.filter(m => m.toLowerCase().includes('flash'));
+    if (flashModels.length > 0) {
+      return flashModels[0];
     }
     
-    const pro15 = modelsToUse.find(m => m.includes('1.5-pro') && !m.includes('image') && !m.includes('preview'));
-    if (pro15) {
-      console.log("[getWorkingGeminiModel] Selected 1.5-pro for text:", pro15);
-      return pro15;
+    // Prefer models with "1.5" in the name (newer)
+    const v15Models = availableModels.filter(m => m.includes('1.5'));
+    if (v15Models.length > 0) {
+      return v15Models[0];
     }
     
-    const pro = modelsToUse.find(m => m.includes('pro') && !m.includes('1.5') && !m.includes('image') && !m.includes('preview'));
-    if (pro) {
-      console.log("[getWorkingGeminiModel] Selected pro for text:", pro);
-      return pro;
-    }
-    
-    // Any flash model (but not image-specific)
-    const flash = modelsToUse.find(m => m.toLowerCase().includes('flash') && !m.toLowerCase().includes('image'));
-    if (flash) {
-      console.log("[getWorkingGeminiModel] Selected flash for text:", flash);
-      return flash;
-    }
-    
-    // Any 1.5 model
-    const v15 = modelsToUse.find(m => m.includes('1.5') && !m.includes('image'));
-    if (v15) {
-      console.log("[getWorkingGeminiModel] Selected 1.5 for text:", v15);
-      return v15;
-    }
-    
-    console.log("[getWorkingGeminiModel] Using first available model for text:", modelsToUse[0]);
-    return modelsToUse[0];
+    // Fallback to first available model
+    return availableModels[0];
   }
 
   /**
