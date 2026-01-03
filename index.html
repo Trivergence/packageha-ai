@@ -211,6 +211,7 @@
             justify-content: center;
             gap: 8px;
             min-width: 200px;
+            height: 100%;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
         
@@ -229,6 +230,7 @@
             gap: 20px;
             flex-wrap: wrap;
             margin-top: 20px;
+            align-items: stretch;
         }
         
         .store-card {
@@ -4233,7 +4235,7 @@
             
             // Add Connect Store button
             storesHtml += `
-                <div style="position: relative;" onclick="event.stopPropagation();">
+                <div style="position: relative; display: flex; align-items: stretch;" onclick="event.stopPropagation();">
                     <button onclick="toggleConnectMenu()" class="connect-store-btn">
                         <span>+</span>
                         <span data-ar="ربط متجر" data-en="Connect Store">${currentLang === 'ar' ? 'ربط متجر' : 'Connect Store'}</span>
