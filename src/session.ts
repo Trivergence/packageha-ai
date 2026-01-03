@@ -877,7 +877,12 @@ CRITICAL: Return ONLY valid JSON. No explanations, no markdown, just JSON.
 RULES:
 1. BE INCLUSIVE: Include ALL packages. Only exclude if clearly wrong category (e.g., "food container" for "electronics").
 2. Score by: Fitness (70%) = keyword match between product description and package name, Price (30%) = lower is better.
-3. IMPORTANT: Match based on the ACTUAL product description provided. If product is "soap", prioritize soap-related packages, not perfume packages.
+3. CRITICAL MATCHING RULE: Match based EXACTLY on the product description provided. 
+   - If product is "soap", prioritize packages with "soap", "bath", "cosmetic", "personal care" keywords
+   - If product is "perfume", prioritize packages with "perfume", "fragrance", "bottle", "cosmetic" keywords
+   - DO NOT return perfume packages for soap products or vice versa
+   - Look for semantic relationships: soap → bath products, cosmetics, personal care
+   - Look for semantic relationships: perfume → fragrance, luxury, bottles, cosmetics
 4. Return at least 5-10 top matches sorted by combinedScore (highest first).
 
 REQUIRED JSON FORMAT (return exactly this structure):
@@ -909,13 +914,15 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
         
         if (decision.type === "chat") {
             // If we got a chat response but have products, return them anyway as fallback
-            console.log("[handleDiscovery] Got chat response, using fallback - returning all products");
+            console.log("[handleDiscovery] Got chat response, using keyword-based fallback matching");
+            console.log("[handleDiscovery] Product description for fallback:", productDescription);
             return this.createFallbackMatches(products, productDescription, memory);
         }
 
         if (decision.type === "none") {
             // Even if LLM says none, return fallback matches
-            console.log("[handleDiscovery] Got 'none' response, using fallback - returning all products");
+            console.log("[handleDiscovery] Got 'none' response, using keyword-based fallback matching");
+            console.log("[handleDiscovery] Product description for fallback:", productDescription);
             return this.createFallbackMatches(products, productDescription, memory);
         }
 
@@ -973,10 +980,71 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
     }
 
     /**
-     * Fallback: Return all products as matches when LLM fails
+     * Fallback: Return products with basic keyword matching when LLM fails
      */
     private createFallbackMatches(products: any[], productDescription: string, memory: Memory): { reply: string; productMatches: any[] } {
-        const matches = products.slice(0, 10).map((product, index) => {
+        // Extract keywords from product description for basic matching
+        const description = (productDescription || '').toLowerCase().trim();
+        const keywords = description.split(/\s+/).filter(w => w.length > 2); // Filter out short words
+        
+        console.log("[createFallbackMatches] Product description:", description);
+        console.log("[createFallbackMatches] Extracted keywords:", keywords);
+        console.log("[createFallbackMatches] Total products to match:", products.length);
+        
+        // Score products based on keyword matching
+        const scoredProducts = products.map((product, index) => {
+            const title = (product.title || '').toLowerCase();
+            const cleanTitle = title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
+            
+            // Calculate fitness score based on keyword matches
+            let fitnessScore = 0.1; // Base score
+            let matchCount = 0;
+            
+            if (keywords.length > 0) {
+                for (const keyword of keywords) {
+                    if (cleanTitle.includes(keyword)) {
+                        matchCount++;
+                        fitnessScore += 0.3; // Increase score for each keyword match
+                    }
+                }
+                // Normalize fitness score (max 1.0)
+                fitnessScore = Math.min(1.0, fitnessScore);
+            } else {
+                // If no keywords, give all products equal low score
+                fitnessScore = 0.1;
+            }
+            
+            // Price score (lower price = higher score, normalized)
+            const price = parseFloat(product.variants?.[0]?.price || '999999');
+            const maxPrice = 2000; // Assume max reasonable price
+            const priceScore = Math.max(0.1, 1.0 - (price / maxPrice));
+            
+            // Combined score: 70% fitness, 30% price
+            const combinedScore = (fitnessScore * 0.7) + (priceScore * 0.3);
+            
+            return {
+                product,
+                index,
+                fitnessScore,
+                priceScore,
+                combinedScore,
+                matchCount
+            };
+        });
+        
+        // Sort by combined score (highest first), then by match count
+        scoredProducts.sort((a, b) => {
+            if (b.combinedScore !== a.combinedScore) {
+                return b.combinedScore - a.combinedScore;
+            }
+            return b.matchCount - a.matchCount;
+        });
+        
+        // Take top 10 matches
+        const topMatches = scoredProducts.slice(0, 10);
+        
+        const matches = topMatches.map((scored, idx) => {
+            const product = scored.product;
             const imageUrl = product.images && product.images.length > 0 
                 ? product.images[0].src 
                 : null;
@@ -984,16 +1052,22 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
                 ? product.variants[0].price
                 : null;
             
+            // Generate reason based on match quality
+            let reason = "Available package option";
+            if (scored.matchCount > 0) {
+                reason = `Matches your product (${scored.matchCount} keyword${scored.matchCount > 1 ? 's' : ''} found)`;
+            }
+            
             return {
-                id: index,
+                id: scored.index,
                 packageId: product.id,
                 name: product.title,
-                reason: "Available package option",
+                reason: reason,
                 imageUrl: imageUrl,
                 price: price,
-                fitnessScore: 0.5,
-                priceScore: 0.5,
-                combinedScore: 0.5
+                fitnessScore: Math.round(scored.fitnessScore * 100) / 100,
+                priceScore: Math.round(scored.priceScore * 100) / 100,
+                combinedScore: Math.round(scored.combinedScore * 100) / 100
             };
         });
 
@@ -1002,8 +1076,15 @@ If inventory is empty, return: {"type":"none","reason":"No packages available"}`
         }
         memory.pendingMatches = matches;
 
+        const matchNote = description ? ` based on "${description}"` : '';
+        
+        console.log("[createFallbackMatches] Top matches found:", matches.length);
+        if (matches.length > 0) {
+            console.log("[createFallbackMatches] Best match:", matches[0].name, "score:", matches[0].combinedScore);
+        }
+        
         return {
-            reply: `I found ${matches.length} available packages.`,
+            reply: `I found ${matches.length} available packages${matchNote}. They are sorted by relevance.`,
             productMatches: matches
         };
     }
@@ -1891,6 +1972,12 @@ Timestamp: ${new Date().toISOString()}
             console.error("[getAIDecision] Error type:", error.constructor.name);
             console.error("[getAIDecision] Error message:", error.message);
             console.error("[getAIDecision] Error stack:", error.stack);
+            
+            // If error is due to empty response, log it specifically
+            if (error.message && error.message.includes("empty response")) {
+                console.error("[getAIDecision] Gemini returned empty response - will use keyword-based fallback matching");
+            }
+            
             return { 
                 type: "chat", 
                 reply: "I'm having trouble processing that. Could you rephrase your request?" 

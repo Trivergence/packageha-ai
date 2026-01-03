@@ -588,8 +588,47 @@ export class SovereignSwitch {
     }
 
     const data = await response.json();
-    const result = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    let result = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     console.log("[SovereignSwitch] Gemini response length:", result.length);
+    
+    // If response is empty, retry once with a different model
+    if (!result || result.trim().length === 0) {
+      console.warn("[SovereignSwitch] Empty response from Gemini, attempting retry with fallback model");
+      
+      try {
+        // Try with a fallback model
+        const fallbackModel = await this.getWorkingGeminiModel(config.apiKey, "gemini-2.5-flash");
+        if (fallbackModel !== model) {
+          console.log("[SovereignSwitch] Retrying with fallback model:", fallbackModel);
+          const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${config.apiKey}`;
+          
+          const retryResponse = await fetch(fallbackEndpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+          
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            result = retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            console.log("[SovereignSwitch] Retry response length:", result.length);
+            
+            if (result && result.trim().length > 0) {
+              console.log("[SovereignSwitch] Retry succeeded with fallback model");
+              return result;
+            }
+          }
+        }
+      } catch (retryError: any) {
+        console.warn("[SovereignSwitch] Retry failed:", retryError.message);
+      }
+      
+      // If retry also failed, throw error instead of returning empty string
+      throw new Error("Gemini API returned empty response after retry");
+    }
+    
     return result;
   }
 
