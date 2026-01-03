@@ -58,8 +58,35 @@ The frontend now:
 ## Current Status
 
 ✅ Webhook handler added (`/api/salla/webhook`)
-✅ App page checks for access token in headers
+✅ App page auto-initiates OAuth if opened from Salla
 ✅ Frontend skips OAuth if already connected
+
+## How It Works Now
+
+### When Merchant Opens App from Salla:
+
+1. **Merchant clicks app in Salla dashboard**
+2. **Salla redirects to:** `https://packageha-ai.akhodary-006.workers.dev/app`
+3. **Our endpoint detects:**
+   - Referrer is from Salla (`salla.sa` or `s.salla.sa`)
+   - No access token present
+4. **Auto-initiates OAuth:**
+   - Redirects to Salla OAuth page
+   - Merchant authorizes (one-time)
+   - Redirects back with access token
+   - Token is used automatically
+
+### Result:
+- **First time:** Merchant authorizes once
+- **Subsequent times:** Token is stored/used automatically (if we implement token storage)
+
+## Important Note
+
+**Custom Mode OAuth Limitation:**
+- Salla doesn't automatically pass tokens when opening the app
+- We auto-initiate OAuth if opened from Salla
+- This is a one-time authorization per merchant
+- After first auth, token should be stored for reuse
 
 ## Next Steps
 

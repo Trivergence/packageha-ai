@@ -438,13 +438,17 @@ export default {
 
     // Salla App Page - This endpoint can be configured in Salla app settings
     // Salla will redirect merchants here when they click on your app
-    // When app is opened from Salla, it may include merchant context in headers or query params
+    // In Custom Mode OAuth, Salla doesn't automatically pass tokens, so we need to:
+    // 1. Check if coming from Salla (via referrer or query param)
+    // 2. If yes, auto-initiate OAuth flow
+    // 3. If no, show normal page
     if (url.pathname === "/app" || url.pathname === "/app/") {
-      // Check for access token from various sources:
-      // 1. Query parameter (from OAuth callback)
-      // 2. Authorization header (from Salla app context)
-      // 3. X-Salla-Access-Token header (Salla may send this)
-      // 4. X-Salla-Store-Id header (to identify the store)
+      const referer = request.headers.get("Referer") || "";
+      const fromSalla = url.searchParams.get("from_salla") === "true" || 
+                       referer.includes("salla.sa") || 
+                       referer.includes("s.salla.sa");
+      
+      // Check for access token (from OAuth callback or headers)
       const accessToken = url.searchParams.get("access_token") || 
                          request.headers.get("Authorization")?.replace("Bearer ", "") ||
                          request.headers.get("X-Salla-Access-Token") ||
@@ -454,20 +458,38 @@ export default {
                      request.headers.get("X-Salla-Store-Id") ||
                      request.headers.get("x-salla-store-id");
 
-      // Redirect to the design form
-      const redirectUrl = new URL("/sallaTest.html", request.url);
-      
-      // If we have access token, pass it along (merchant is already connected)
+      // If we have access token, redirect with it (merchant already connected)
       if (accessToken) {
+        const redirectUrl = new URL("/sallaTest.html", request.url);
         redirectUrl.searchParams.set("access_token", accessToken);
-        redirectUrl.searchParams.set("connected", "true"); // Flag to skip OAuth flow
+        redirectUrl.searchParams.set("connected", "true");
+        if (storeId) {
+          redirectUrl.searchParams.set("store_id", storeId);
+        }
+        return Response.redirect(redirectUrl.toString(), 302);
       }
       
-      if (storeId) {
-        redirectUrl.searchParams.set("store_id", storeId);
+      // If coming from Salla but no token, auto-initiate OAuth
+      if (fromSalla) {
+        const clientId = env.SALLA_CLIENT_ID || "";
+        const redirectUri = env.SALLA_REDIRECT_URI || "";
+        
+        if (clientId && redirectUri) {
+          // Generate state
+          const state = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('') + Date.now().toString(36);
+          
+          // Build OAuth URL
+          const authUrl = `https://accounts.salla.sa/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=offline_access&state=${state}`;
+          
+          // Redirect to OAuth (merchant will authorize and come back)
+          return Response.redirect(authUrl, 302);
+        }
       }
       
-      return Response.redirect(redirectUrl.toString(), 302);
+      // Otherwise, redirect to form (merchant can connect manually)
+      return Response.redirect(new URL("/sallaTest.html", request.url).toString(), 302);
     }
 
     // Fallback: serve static files (index.html, sallaTest.html, etc.)
