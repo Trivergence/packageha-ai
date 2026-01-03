@@ -24,7 +24,7 @@ export default {
         } 
       });
     }
-    
+
     // All API routes use /api/ prefix to avoid conflicts with static assets
     if (url.pathname.startsWith("/api/")) {
       return handleApiRequest(request, env, url);
@@ -46,18 +46,18 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   if (url.pathname === "/api/chat" && request.method === "POST") {
     console.log("[API] POST /api/chat");
     
-    const cfIp = request.headers.get("CF-Connecting-IP");
-    const forwardedFor = request.headers.get("X-Forwarded-For");
-    let ip = "anonymous";
-    if (cfIp) {
-      ip = cfIp.trim();
-    } else if (forwardedFor) {
-      ip = forwardedFor.split(",")[0].trim();
-    }
-    
-    const sessionId = env.PackagehaSession.idFromName(ip);
-    const session = env.PackagehaSession.get(sessionId);
-    
+      const cfIp = request.headers.get("CF-Connecting-IP");
+      const forwardedFor = request.headers.get("X-Forwarded-For");
+      let ip = "anonymous";
+      if (cfIp) {
+        ip = cfIp.trim();
+      } else if (forwardedFor) {
+        ip = forwardedFor.split(",")[0].trim();
+      }
+      
+      const sessionId = env.PackagehaSession.idFromName(ip);
+      const session = env.PackagehaSession.get(sessionId);
+      
     try {
       const response = await session.fetch(request);
       const headers = new Headers(response.headers);
@@ -113,6 +113,14 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
           // Basic validation - check if it looks like valid base64
           if (base64Data.length < 100) {
             throw new Error("Image data too short, likely invalid");
+          }
+          
+          // Check if base64 data is too large (browsers have limits around 2MB for data URLs)
+          // Base64 is ~33% larger than binary, so ~1.5MB base64 = ~1MB binary
+          const MAX_BASE64_SIZE = 1.5 * 1024 * 1024; // 1.5MB
+          if (base64Data.length > MAX_BASE64_SIZE) {
+            console.warn(`[API] Generated image too large (${(base64Data.length / 1024 / 1024).toFixed(2)}MB), rejecting to avoid browser limits`);
+            throw new Error(`Generated image too large (${(base64Data.length / 1024 / 1024).toFixed(2)}MB). Please request a smaller image.`);
           }
           
           // Force PNG format for browser compatibility (convert from AVIF if needed)
@@ -284,11 +292,11 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   
   // Models list endpoint
   if (url.pathname === "/api/models" && request.method === "GET") {
-    try {
-      const sovereignSwitch = new SovereignSwitch(env);
-      if (env.GEMINI_API_KEY) {
-        const models = await sovereignSwitch.listGeminiModels(env.GEMINI_API_KEY);
-        const selected = await sovereignSwitch.getWorkingGeminiModel(env.GEMINI_API_KEY);
+        try {
+          const sovereignSwitch = new SovereignSwitch(env);
+          if (env.GEMINI_API_KEY) {
+            const models = await sovereignSwitch.listGeminiModels(env.GEMINI_API_KEY);
+            const selected = await sovereignSwitch.getWorkingGeminiModel(env.GEMINI_API_KEY);
         let bestImageModel = selected;
         const proModels = models.filter(m => m.includes('1.5-pro') || m.includes('pro'));
         const flashModels = models.filter(m => m.includes('1.5-flash') || m.includes('flash'));
@@ -320,7 +328,7 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
       
       const response = await fetch(url, {
         method: "GET",
-        headers: {
+                headers: { 
           "X-Shopify-Access-Token": env.SHOPIFY_ACCESS_TOKEN,
           "Content-Type": "application/json"
         }
@@ -355,7 +363,7 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
         variantId: variantId,
         productTitle: product.title
       });
-    } catch (error: any) {
+        } catch (error: any) {
       console.error("[API] Get variant ID error:", error);
       return jsonResponse({ error: error.message }, 500);
     }
@@ -461,9 +469,9 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
 function jsonResponse(data: any, status: number = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
-    }
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
   });
-}
+        }

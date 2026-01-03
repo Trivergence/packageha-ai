@@ -768,9 +768,9 @@ export class SovereignSwitch {
       }
     }
     
-    // Add text prompt - explicitly request image generation
+    // Add text prompt - explicitly request image generation with smaller size to avoid base64 limits
     parts.push({
-      text: `Generate an image showing: ${prompt}\n\nCreate a high-quality, professional product photography image that clearly shows the product inside or with the package. The image should be realistic, well-lit, and suitable for e-commerce and marketing purposes.`
+      text: `Generate a compact, optimized image showing: ${prompt}\n\nCreate a professional product photography image (preferably 512x512 or 640x480 pixels, optimized for web) that clearly shows the product inside or with the package. The image should be realistic, well-lit, and suitable for e-commerce. Keep file size small and optimized.`
     });
     
     const payload = {

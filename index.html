@@ -5509,34 +5509,40 @@ Return ONLY a detailed image description, no other text.`;
                 console.log('[selectPackageMatch] Generated image URL:', generatedImageUrl ? 'Yes (from Gemini)' : 'No');
                 
                 let imageUrlToUse;
+                let imageGenerationFailed = false;
                 
                 // Use the AI-generated image if available (this shows product inside package)
                 if (generatedImageUrl) {
                     imageUrlToUse = generatedImageUrl;
                     console.log('[selectPackageMatch] Using AI-generated image from Gemini:', imageUrlToUse.substring(0, 100) + '...');
-                } else if (productPhotoUrl) {
-                    // Fallback to product image if generation failed
-                    const cacheBuster = Date.now();
-                    try {
-                        const url = new URL(productPhotoUrl);
-                        url.searchParams.set('t', cacheBuster.toString());
-                        imageUrlToUse = url.toString();
-                    } catch (e) {
-                        imageUrlToUse = `${productPhotoUrl}${productPhotoUrl.includes('?') ? '&' : '?'}t=${cacheBuster}`;
-                    }
-                    console.log('[selectPackageMatch] Using product image as fallback:', imageUrlToUse);
-                } else if (match.imageUrl) {
-                    // Fallback to package image if product image not available
-                    const cacheBuster = Date.now();
-                    try {
-                        const url = new URL(match.imageUrl);
-                        url.searchParams.set('t', cacheBuster.toString());
-                        imageUrlToUse = url.toString();
-                    } catch (e) {
-                        imageUrlToUse = `${match.imageUrl}${match.imageUrl.includes('?') ? '&' : '?'}t=${cacheBuster}`;
-                    }
-                    console.log('[selectPackageMatch] Using package image as fallback:', imageUrlToUse);
                 } else {
+                    // Image generation failed - use fallback
+                    imageGenerationFailed = true;
+                    
+                    // Priority: package photo > product photo > placeholder
+                    if (match.imageUrl) {
+                        // Fallback to package photo (preferred)
+                        const cacheBuster = Date.now();
+                        try {
+                            const url = new URL(match.imageUrl);
+                            url.searchParams.set('t', cacheBuster.toString());
+                            imageUrlToUse = url.toString();
+                        } catch (e) {
+                            imageUrlToUse = `${match.imageUrl}${match.imageUrl.includes('?') ? '&' : '?'}t=${cacheBuster}`;
+                        }
+                        console.log('[selectPackageMatch] Image generation failed, using package photo as fallback:', imageUrlToUse);
+                    } else if (productPhotoUrl) {
+                        // Fallback to product image if package photo not available
+                        const cacheBuster = Date.now();
+                        try {
+                            const url = new URL(productPhotoUrl);
+                            url.searchParams.set('t', cacheBuster.toString());
+                            imageUrlToUse = url.toString();
+                        } catch (e) {
+                            imageUrlToUse = `${productPhotoUrl}${productPhotoUrl.includes('?') ? '&' : '?'}t=${cacheBuster}`;
+                        }
+                        console.log('[selectPackageMatch] Image generation failed, using product image as fallback:', imageUrlToUse);
+                    } else {
                     // Last resort: placeholder
                     const cacheBuster = Date.now();
                     const packageHash = match.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -5607,12 +5613,23 @@ Return ONLY a detailed image description, no other text.`;
                     console.error('[selectPackageMatch] Invalid image URL, using fallback');
                     // Use a safe placeholder
                     imageUrlToUse = 'https://via.placeholder.com/800x600?text=Image+Generation+Failed';
+                    imageGenerationFailed = true;
                 }
                 
-                // Add description and image
-                const imageHtml = imageUrlToUse 
-                    ? `<img id="generatedPackageImage" src="${imageUrlToUse}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);" onerror="console.error('Image load error'); this.style.display='none'; const errorDiv = document.createElement('div'); errorDiv.style.cssText='padding: 40px; text-align: center; color: #dc3545; background: #fff3cd; border-radius: 8px;'; errorDiv.innerHTML='<div style=\\'font-size: 18px; margin-bottom: 10px;\\'>⚠️</div><div>${currentLang === 'ar' ? 'فشل تحميل الصورة' : 'Image failed to load'}</div>'; this.parentElement.appendChild(errorDiv);">`
-                    : `<div style="padding: 40px; text-align: center; color: #dc3545; background: #fff3cd; border-radius: 8px;"><div style="font-size: 18px; margin-bottom: 10px;">⚠️</div><div>${currentLang === 'ar' ? 'فشل تحميل الصورة' : 'Image failed to load'}</div></div>`;
+                // Build image HTML with fallback message if generation failed
+                let imageHtml = '';
+                if (imageUrlToUse) {
+                    const fallbackMessage = imageGenerationFailed 
+                        ? `<div style="margin-bottom: 10px; padding: 12px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107; font-size: 13px; color: #856404;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">⚠️ ${currentLang === 'ar' ? 'فشل إنشاء الصورة المخصصة' : 'Custom image generation failed'}</div>
+                            <div style="font-size: 12px; color: #856404;">${currentLang === 'ar' ? 'يتم عرض صورة الغلاف الافتراضية' : 'Showing default package photo'}</div>
+                        </div>`
+                        : '';
+                    
+                    imageHtml = `${fallbackMessage}<img id="generatedPackageImage" src="${imageUrlToUse}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);" onerror="console.error('Image load error'); this.style.display='none'; const errorDiv = document.createElement('div'); errorDiv.style.cssText='padding: 40px; text-align: center; color: #dc3545; background: #fff3cd; border-radius: 8px;'; errorDiv.innerHTML='<div style=\\'font-size: 18px; margin-bottom: 10px;\\'>⚠️</div><div>${currentLang === 'ar' ? 'فشل تحميل الصورة' : 'Image failed to load'}</div>'; this.parentElement.appendChild(errorDiv);">`;
+                } else {
+                    imageHtml = `<div style="padding: 40px; text-align: center; color: #dc3545; background: #fff3cd; border-radius: 8px;"><div style="font-size: 18px; margin-bottom: 10px;">⚠️</div><div>${currentLang === 'ar' ? 'فشل تحميل الصورة' : 'Image failed to load'}</div></div>`;
+                }
                 
                 imageContainer.innerHTML = `
                     <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
