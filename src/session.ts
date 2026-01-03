@@ -427,54 +427,36 @@ export class PackagehaSession {
         userMessage: string, 
         memory: Memory
     ): Promise<{ reply: string; memoryReset?: boolean; draftOrder?: any; productMatches?: any[]; isAutoSearch?: boolean }> {
-        // DETECT PACKAGE REQUIREMENTS IN MESSAGE
-        // If message contains "Package Requirements:" or package specs, automatically trigger discovery
-        const hasPackageRequirements = userMessage && (
-            userMessage.includes("Package Requirements:") ||
-            userMessage.includes("Material:") ||
-            userMessage.includes("Printing:") ||
-            userMessage.includes("Finishing:")
-        );
+        // Extract product info from message (Product: and Product Dimensions:)
+        // This is for the new dimension-based matching system (NO package requirements)
+        const productMatch = userMessage.match(/Product:\s*(.+?)(?:\n|$)/i);
+        const dimensionsMatch = userMessage.match(/Product Dimensions:\s*(.+?)(?:\n|$)/i);
         
-        if (hasPackageRequirements) {
-            console.log("[handleDirectSalesFlow] Package requirements detected in message - triggering auto-discovery");
+        if (productMatch || dimensionsMatch) {
+            console.log("[handleDirectSalesFlow] Product info detected in message - triggering dimension-based matching");
             
-            // Extract product info from message if present
-            const productMatch = userMessage.match(/Product:\s*(.+?)(?:\n|$)/i);
-            const photoMatch = userMessage.match(/Product Photo:\s*(.+?)(?:\n|$)/i);
-            
+            // Extract product description
             if (productMatch) {
                 memory.clipboard['product_description'] = productMatch[1].trim();
-            }
-            if (photoMatch) {
-                memory.clipboard['product_image_url'] = photoMatch[1].trim();
+                console.log("[handleDirectSalesFlow] Extracted product description:", memory.clipboard['product_description']);
             }
             
-            // Extract package requirements and store in clipboard
-            const materialMatch = userMessage.match(/Material:\s*(.+?)(?:\n|$)/i);
-            const printingMatch = userMessage.match(/Printing:\s*(.+?)(?:\n|$)/i);
-            const finishingMatch = userMessage.match(/Finishing:\s*(.+?)(?:\n|$)/i);
-            
-            if (materialMatch) {
-                memory.clipboard['material'] = materialMatch[1].trim();
-            }
-            if (printingMatch) {
-                memory.clipboard['print'] = printingMatch[1].trim();
-            }
-            if (finishingMatch) {
-                memory.clipboard['finishing'] = finishingMatch[1].trim();
+            // Extract product dimensions
+            if (dimensionsMatch) {
+                memory.clipboard['product_dimensions'] = dimensionsMatch[1].trim();
+                console.log("[handleDirectSalesFlow] Extracted product dimensions:", memory.clipboard['product_dimensions']);
             }
             
-            // Mark as auto-search so handleDiscovery includes product context
+            // Mark as auto-search so handleDiscovery uses dimension-based matching
             memory.clipboard['_autoSearch'] = 'true';
             
             // Set step to package discovery and trigger search
             memory.step = "select_package_discovery";
             memory.questionIndex = 0;
             
-            // Use the full message as search query (it contains all the context)
-            // This will trigger auto-search in handlePackageSelection
-            return await this.handlePackageSelection(userMessage, memory);
+            // Trigger discovery with product description (dimension filtering will happen automatically)
+            const productDescription = memory.clipboard['product_description'] || '';
+            return await this.handlePackageSelection(productDescription, memory);
         }
         
         // CRITICAL: Check if this is a package edit request
@@ -658,6 +640,99 @@ export class PackagehaSession {
         }
     }
 
+    /**
+     * Parse dimensions from text (e.g., "20x15x10 cm" or "8x6x4 inches")
+     * Returns {length, width, height} in cm, or null if parsing fails
+     */
+    private parseDimensions(dimensionText: string): { length: number; width: number; height: number } | null {
+        if (!dimensionText) return null;
+        
+        // Extract numbers and units
+        const match = dimensionText.match(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(cm|inches?|in)?/i);
+        if (!match) return null;
+        
+        let length = parseFloat(match[1]);
+        let width = parseFloat(match[2]);
+        let height = parseFloat(match[3]);
+        const unit = (match[4] || '').toLowerCase();
+        
+        // Convert inches to cm if needed
+        if (unit.includes('inch') || unit === 'in') {
+            length *= 2.54;
+            width *= 2.54;
+            height *= 2.54;
+        }
+        
+        // Sort dimensions: length >= width >= height
+        const dims = [length, width, height].sort((a, b) => b - a);
+        
+        return {
+            length: dims[0],
+            width: dims[1],
+            height: dims[2]
+        };
+    }
+
+    /**
+     * Check if package dimensions can fit product dimensions
+     * Package must be bigger in all dimensions
+     */
+    private canPackageFitProduct(packageDims: { length: number; width: number; height: number } | null, 
+                                  productDims: { length: number; width: number; height: number } | null): boolean {
+        if (!packageDims || !productDims) return true; // If dimensions unknown, allow match
+        
+        // Package must be bigger in all dimensions (with small tolerance for measurement errors)
+        const tolerance = 0.5; // 0.5cm tolerance
+        return packageDims.length >= (productDims.length - tolerance) &&
+               packageDims.width >= (productDims.width - tolerance) &&
+               packageDims.height >= (productDims.height - tolerance);
+    }
+
+    /**
+     * Calculate keyword match score between product description and package description
+     * Returns score from 0 to 1
+     */
+    private calculateKeywordMatchScore(productDescription: string, packageDescription: string): number {
+        if (!productDescription || !packageDescription) return 0;
+        
+        // Normalize text
+        const normalize = (text: string) => text.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w.length > 2); // Filter out very short words
+        
+        const productWords = new Set(normalize(productDescription));
+        const packageWords = new Set(normalize(packageDescription));
+        
+        if (productWords.size === 0) return 0;
+        
+        // Count matching words
+        let matches = 0;
+        for (const word of productWords) {
+            if (packageWords.has(word)) {
+                matches++;
+            }
+        }
+        
+        // Score is ratio of matching words
+        return matches / productWords.size;
+    }
+
+    /**
+     * Calculate price score (lower price = higher score)
+     * Returns score from 0 to 1
+     */
+    private calculatePriceScore(price: string | null, maxPrice: number): number {
+        if (!price) return 0.5; // Neutral score if price unknown
+        
+        const priceValue = parseFloat(price);
+        if (isNaN(priceValue) || maxPrice === 0) return 0.5;
+        
+        // Lower price = higher score (inverted)
+        // Normalize to 0-1 range
+        return Math.max(0, 1 - (priceValue / maxPrice));
+    }
+
     private async handleDiscovery(userMessage: string, memory: Memory, charter: any, isAutoSearch: boolean = false): Promise<{ reply: string; productMatches?: any[] }> {
         // Fetch packages from Shopify first (needed for both selection and search)
         let products;
@@ -770,203 +845,125 @@ export class PackagehaSession {
             return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
         }
 
-        // Prepare inventory context - include full product names (including Arabic) for better AI reasoning
+        // NEW MATCHING LOGIC: LLM-based dimension reasoning + Scoring
+        console.log("[handleDiscovery] ========== NEW MATCHING LOGIC (LLM-based) ==========");
+        
+        // Extract product information from memory
+        const productDescription = memory.clipboard?.product_description || userMessage.split('\n')[0] || '';
+        const productDimensionsText = memory.clipboard?.product_dimensions || '';
+        
+        console.log("[handleDiscovery] Product description:", productDescription);
+        console.log("[handleDiscovery] Product dimensions text:", productDimensionsText);
+        console.log("[handleDiscovery] isAutoSearch:", isAutoSearch);
+        
+        // Prepare inventory context
         const inventoryList = products.map((p, index) => {
             const cleanTitle = p.title.replace(/TEST\s?-\s?|rs-/gi, "").trim();
-            return `ID ${index}: ${cleanTitle}`;
+            const price = p.variants?.[0]?.price || 'N/A';
+            return `ID ${index}: ${cleanTitle} (Price: ${price} SAR)`;
         }).join("\n");
+        
+        // Build AI prompt for dimension-based matching + scoring
+        let systemPrompt = `You are a packaging expert. Your task is to:
+1. FILTER packages by dimensions: Only include packages that can fit the product (package dimensions must be larger than product dimensions). If a package has no dimension information, INCLUDE it anyway (it will be scored in step 2).
+2. SCORE the filtered packages based on:
+   a) Fitness (70% weight): How well the package description matches keywords in the product description
+   b) Price (30% weight): Lower price = higher score
 
-        // Build AI prompt with Charter - request multiple matches if available
-        const systemPrompt = buildCharterPrompt("discovery", charter);
+Return ONLY a JSON object with this structure:
+{
+  "type": "multiple",
+  "matches": [
+    {
+      "id": <package_index>,
+      "name": "<package_name>",
+      "reason": "Brief explanation of why it fits (dimensions) and match quality",
+      "fitnessScore": <0.0 to 1.0>,
+      "priceScore": <0.0 to 1.0>,
+      "combinedScore": <0.0 to 1.0>
+    }
+  ]
+}
+
+If no packages fit dimensions, return: { "type": "none", "reason": "..." }`;
+
+        let userPrompt = `Inventory:\n${inventoryList}\n\n`;
         
-        // Include product details context ONLY for auto-search (when matching product specifications)
-        // For user-initiated searches, focus ONLY on the user's query
-        let productContext = '';
-        let promptInstructions = '';
-        
-        if (isAutoSearch && memory.clipboard && Object.keys(memory.clipboard).length > 0) {
-            // AUTO-SEARCH: Include product information for intelligent matching
-            const contextParts = [];
-            if (memory.clipboard.product_description) {
-                contextParts.push(`Product Description: ${memory.clipboard.product_description}`);
-            }
-            if (memory.clipboard.product_dimensions) {
-                contextParts.push(`Product Dimensions: ${memory.clipboard.product_dimensions}`);
-            }
-            if (memory.clipboard.product_weight) {
-                contextParts.push(`Product Weight: ${memory.clipboard.product_weight}`);
-            }
-            if (memory.clipboard.fragility) {
-                contextParts.push(`Fragility Level: ${memory.clipboard.fragility}`);
-            }
-            if (memory.clipboard.budget) {
-                contextParts.push(`Budget: ${memory.clipboard.budget}`);
-            }
-            // Include package specs if they exist (for re-searching after edit)
-            if (memory.clipboard.material) {
-                contextParts.push(`Preferred Material: ${memory.clipboard.material}`);
-            }
-            if (memory.clipboard.print) {
-                contextParts.push(`Printing Requirements: ${memory.clipboard.print}`);
-            }
-            if (contextParts.length > 0) {
-                productContext = `\n\nCOMPLETE PRODUCT INFORMATION:\n${contextParts.join('\n')}\n\nAnalyze ALL this information to find packages that best fit the product's specifications. Consider dimensions, weight, fragility, material preferences, and budget. Return ALL suitable packages (not just one) with a brief explanation of why each package fits the product's needs.`;
-                promptInstructions = `\n\nIMPORTANT: Analyze the complete product information and return ALL packages that can fit the product's specifications. For each match, provide a brief statement explaining why it fits (e.g., "Fits dimensions", "Suitable material for fragile items", "Matches budget", etc.).`;
-            }
+        if (isAutoSearch && productDimensionsText) {
+            userPrompt += `Product Information:\n`;
+            userPrompt += `Product Description: ${productDescription}\n`;
+            userPrompt += `Product Dimensions: ${productDimensionsText}\n\n`;
+            userPrompt += `Task: Filter packages that can fit these dimensions (package must be larger in all dimensions). If a package has no dimension data, include it anyway. Then score all filtered packages by keyword matching (70%) and price (30%). Return the top matches sorted by combined score.`;
         } else {
-            // USER SEARCH: Focus ONLY on the user's query, ignore product information
-            promptInstructions = `\n\nIMPORTANT: Focus ONLY on the user's search query "${userMessage}". Find packages that match what the user is looking for based on their query words. Do NOT consider any product information from previous steps. Return ALL packages that match the user's query with a brief explanation of why each package matches the search terms.`;
+            // User-initiated search - just keyword matching, no dimension filtering
+            userPrompt += `User Query: "${userMessage}"\n\n`;
+            userPrompt += `Task: Find packages that match the user's query based on keyword matching. Score by keyword relevance (70%) and price (30%). Return matches sorted by combined score.`;
         }
         
-        const userPrompt = `Inventory:\n${inventoryList}\n\nUser Input: "${userMessage}"${productContext}${promptInstructions}\n\nReturn JSON:\n- If multiple suitable matches: { "type": "multiple", "matches": [{"id": <index>, "name": "<product_name>", "reason": "Brief explanation of why this package matches..."}, ...] }\n- If single match: { "type": "found", "id": <index>, "reason": "Brief explanation..." }\n- If chatting: { "type": "chat", "reply": "..." }\n- If no match: { "type": "none", "reason": "..." }`;
-
-        // LOG PROMPTS FOR DEBUGGING
-        console.log("[handleDiscovery] ========== PROMPT ANALYSIS ==========");
-        console.log("[handleDiscovery] isAutoSearch:", isAutoSearch);
-        console.log("[handleDiscovery] userMessage length:", userMessage.length);
-        console.log("[handleDiscovery] userMessage preview:", userMessage.substring(0, 200));
-        console.log("[handleDiscovery] inventoryList length:", inventoryList.length);
-        console.log("[handleDiscovery] inventoryList preview:", inventoryList.substring(0, 500));
-        console.log("[handleDiscovery] productContext length:", productContext.length);
-        console.log("[handleDiscovery] productContext:", productContext);
-        console.log("[handleDiscovery] promptInstructions:", promptInstructions);
-        console.log("[handleDiscovery] systemPrompt length:", systemPrompt.length);
-        console.log("[handleDiscovery] systemPrompt:", systemPrompt);
-        console.log("[handleDiscovery] userPrompt length:", userPrompt.length);
-        console.log("[handleDiscovery] userPrompt:", userPrompt);
-        console.log("[handleDiscovery] =====================================");
-
+        console.log("[handleDiscovery] System prompt length:", systemPrompt.length);
+        console.log("[handleDiscovery] User prompt length:", userPrompt.length);
+        
         // Get AI decision
         const decision = await this.getAIDecision(userPrompt, systemPrompt);
-
+        
         // Process decision
         if (decision.type === "chat") {
             return { reply: decision.reply || "I focus on packaging solutions. What are you looking for?" };
         }
 
         if (decision.type === "none") {
-            // Smart fallback: suggest simpler search terms or show popular packages
-            const fallbackMessage = "I couldn't find an exact match for that. Let me suggest some options:\n\n" +
-                "• Try a simpler search like 'box', 'bag', or 'packaging'\n" +
-                "• Or describe what you're looking for in different words\n" +
-                "• You can also browse our catalog by searching for 'show all packages'\n\n" +
-                "What type of packaging are you looking for?";
-            return { reply: fallbackMessage };
+            return { 
+                reply: "No packages found that can fit your product dimensions. Please check your product dimensions or consider custom packaging." 
+            };
         }
 
-        // Handle multiple matches - return for user selection
-        // IMPORTANT: Always return multiple matches if available, even if AI suggests single match
-        // This allows user to see all suitable options
+        // Handle multiple matches
         let matches: any[] = [];
         
         if (decision.type === "multiple" && decision.matches && decision.matches.length > 0) {
             matches = decision.matches
                 .filter(m => m.id !== undefined && products[m.id])
-                .slice(0, 10) // Increased limit to 10 matches for better selection
+                .slice(0, 10) // Limit to 10 matches
                 .map(m => {
                     const product = products[m.id!];
-                    // Get first image URL if available
                     const imageUrl = product.images && product.images.length > 0 
                         ? product.images[0].src 
                         : null;
-                    // Get price from first variant
                     const price = product.variants && product.variants.length > 0
                         ? product.variants[0].price
                         : null;
                     
                     return {
                         id: m.id!,
-                        packageId: product.id, // Packageha's package ID
+                        packageId: product.id,
                         name: product.title,
                         reason: m.reason || "Suitable for your product",
                         imageUrl: imageUrl,
-                        price: price
+                        price: price,
+                        fitnessScore: m.fitnessScore || 0,
+                        priceScore: m.priceScore || 0,
+                        combinedScore: m.combinedScore || 0
                     };
                 });
-        } else if (decision.type === "found" && decision.id !== undefined) {
-            // Convert single match to multiple matches format for consistency
-            const product = products[decision.id];
-            if (product) {
-                const imageUrl = product.images && product.images.length > 0 
-                    ? product.images[0].src 
-                    : null;
-                const price = product.variants && product.variants.length > 0
-                    ? product.variants[0].price
-                    : null;
-                
-                matches = [{
-                    id: decision.id,
-                    packageId: product.id,
-                    name: product.title,
-                    reason: decision.reason || "Suitable for your product",
-                    imageUrl: imageUrl,
-                    price: price
-                }];
-            }
         }
         
         if (matches.length > 0) {
-
-            // Keep the current step (select_package_discovery) instead of resetting to select_product
-            // Only set to select_product if we're in the old flow
+            // Keep the current step
             if (memory.step !== "select_package_discovery" && memory.step !== "select_package") {
                 memory.step = "select_product";
             }
             memory.pendingMatches = matches;
 
-            const matchesList = matches.map((m, i) => `${i + 1}. **${m.name}** - ${m.reason}`).join("\n");
             return {
-                reply: `I found ${matches.length} matching packages:\n\n${matchesList}\n\nPlease select a package by number (1-${matches.length}) or describe what you need more specifically.`,
+                reply: `I found ${matches.length} matching packages. They are sorted by relevance and price.`,
                 productMatches: matches
             };
         }
-
-        // Handle single match
-        const selectedPackageIndex = decision.id;
-
-        if (selectedPackageIndex !== undefined && products[selectedPackageIndex]) {
-            const packageProduct = products[selectedPackageIndex];
-            if (!packageProduct) {
-                return { reply: "I found a match but couldn't load the package details. Please try again." };
-            }
-
-            // Store package info (Packageha's package, not client's product)
-            memory.packageName = packageProduct.title;
-            memory.packageId = packageProduct.id;
-            memory.variants = packageProduct.variants.map((v: any) => ({
-                id: v.id,
-                title: v.title,
-                price: v.price,
-            }));
-
-            // Auto-skip variant selection if only one variant
-            if (memory.variants.length === 1) {
-                memory.selectedVariantId = memory.variants[0].id;
-                memory.selectedVariantName = "Default";
-                // For direct_sales flow, use select_package_specs instead of consultation
-                if (memory.flow === "direct_sales") {
-                    const result = this.transitionToPackageSpecs(memory);
-                    return { reply: `Found **${packageProduct.title}**.\n\n${result.reply}` };
-                } else {
-                    // Legacy flow
-                    memory.step = "consultation";
-                    memory.questionIndex = 0;
-                    return { reply: `Found **${packageProduct.title}**.\n\nLet's get your project details.\n\n${charter.consultation.steps[0].question}` };
-                }
-            }
-
-            // Ask for variant selection
-            // For direct_sales flow, use select_package_variant instead of ask_variant
-            if (memory.flow === "direct_sales") {
-                memory.step = "select_package_variant";
-            } else {
-                memory.step = "ask_variant";
-            }
-            const options = memory.variants.map(v => v.title).join(", ");
-            return { reply: `Found **${packageProduct.title}**.\n\nWhich type are you interested in?\n\nOptions: ${options}` };
-        }
-
-        return { reply: "I'm not sure how to help with that. What packaging solution are you looking for?" };
+        
+        // Fallback
+        return { 
+            reply: "No suitable packages found. Please try adjusting your search criteria." 
+        };
     }
 
     private async handleVariantSelection(

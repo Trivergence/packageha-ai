@@ -1181,10 +1181,23 @@
                         <textarea id="newProductDescription" data-ar-placeholder="صف منتجك بالتفصيل..." data-en-placeholder="Describe your product in detail..." placeholder="Describe your product in detail..." style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
                     </div>
                     
-                    <!-- Product Dimensions -->
+                    <!-- Product Dimensions - 3 separate fields -->
                     <div class="input-group" style="margin-bottom: 15px;">
-                        <label data-ar="ما هي أبعاد منتجك؟ (الطول × العرض × الارتفاع بالسم أو البوصة)" data-en="What are your product dimensions? (Length x Width x Height in cm or inches)">ما هي أبعاد منتجك؟ (الطول × العرض × الارتفاع بالسم أو البوصة)</label>
-                        <input type="text" id="newProductDimensions" data-ar-placeholder="مثال: 20x15x10 سم أو 8x6x4 بوصة" data-en-placeholder="e.g., 20x15x10 cm or 8x6x4 inches" placeholder="e.g., 20x15x10 cm or 8x6x4 inches" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="أبعاد منتجك (بالسم)" data-en="Product Dimensions (in cm)">أبعاد منتجك (بالسم)</label>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                            <div>
+                                <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #666; font-size: 12px;" data-ar="الطول (L)" data-en="Length (L)">Length (L)</label>
+                                <input type="number" id="productLength" step="0.1" min="0" data-ar-placeholder="سم" data-en-placeholder="cm" placeholder="cm" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #666; font-size: 12px;" data-ar="العرض (W)" data-en="Width (W)">Width (W)</label>
+                                <input type="number" id="productWidth" step="0.1" min="0" data-ar-placeholder="سم" data-en-placeholder="cm" placeholder="cm" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #666; font-size: 12px;" data-ar="الارتفاع (H)" data-en="Height (H)">Height (H)</label>
+                                <input type="number" id="productHeight" step="0.1" min="0" data-ar-placeholder="سم" data-en-placeholder="cm" placeholder="cm" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Product Weight -->
@@ -4421,22 +4434,22 @@
             console.log('[submitDesignPackage] Product name:', productName);
             console.log('[submitDesignPackage] Product photo:', productPhoto ? 'Yes' : 'No');
             
-            // Build product description for LLM
+            // Build product description (only product name for keyword matching)
             let productDescription = productName;
-            if (product) {
-                productDescription += `\nProduct Photo: ${productPhoto}`;
-            }
             
-            // Build package requirements message
-            let packageRequirements = `Package Requirements:\n`;
-            packageRequirements += `Material: ${packageData.material}\n`;
-            packageRequirements += `Printing: ${packageData.printType}\n`;
-            if (packageData.finishing.length > 0) {
-                packageRequirements += `Finishing: ${packageData.finishing.join(', ')}\n`;
-            }
+            // Get product dimensions from form fields (3 separate inputs)
+            const length = parseFloat(document.getElementById('productLength')?.value || '0');
+            const width = parseFloat(document.getElementById('productWidth')?.value || '0');
+            const height = parseFloat(document.getElementById('productHeight')?.value || '0');
             
-            const searchMessage = `${productDescription}\n\n${packageRequirements}`;
-            console.log('[submitDesignPackage] Search message prepared:', searchMessage);
+            // Build search message - ONLY product description and dimensions
+            // NO package requirements (material, printing, finishing) - those come AFTER package selection
+            let searchMessage = `Product: ${productDescription}`;
+            if (length > 0 && width > 0 && height > 0) {
+                searchMessage += `\nProduct Dimensions: Length ${length} cm × Width ${width} cm × Height ${height} cm`;
+            }
+            console.log('[submitDesignPackage] Search message prepared (product only):', searchMessage);
+            console.log('[submitDesignPackage] Product dimensions:', { length, width, height });
             
             // Show loading state
             const startBtn = document.getElementById('startDesignBtn');
@@ -4561,6 +4574,7 @@
         let currentPackageMatches = [];
         let selectedPackageMatch = null;
         let generatedPackageImageUrl = null;
+        let currentSortBy = 'combined'; // 'combined', 'fitness', 'price'
         
         function displayPackageMatches(matches, productPhoto) {
             const matchesSection = document.getElementById('packageMatchesSection');
@@ -4570,7 +4584,27 @@
             matchesSection.style.display = 'block';
             startBtn.style.display = 'none';
             
-            matchesContainer.innerHTML = matches.map((match, index) => {
+            // Store matches for sorting
+            currentPackageMatches = matches;
+            
+            // Add sort-by controls
+            const sortControls = `
+                <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 15px; padding: 15px; background: #f8f9fa; border-radius: 10px; flex-wrap: wrap;">
+                    <span style="font-weight: 600; color: #333;" data-ar="ترتيب حسب:" data-en="Sort by:">${currentLang === 'ar' ? 'ترتيب حسب:' : 'Sort by:'}</span>
+                    <button onclick="sortMatches('combined')" id="sortCombined" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'combined' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'combined' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'combined' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;" data-ar="الأفضل" data-en="Best Match">${currentLang === 'ar' ? 'الأفضل' : 'Best Match'}</button>
+                    <button onclick="sortMatches('fitness')" id="sortFitness" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'fitness' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'fitness' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'fitness' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;" data-ar="التطابق" data-en="Relevance">${currentLang === 'ar' ? 'التطابق' : 'Relevance'}</button>
+                    <button onclick="sortMatches('price')" id="sortPrice" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'price' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'price' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'price' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;" data-ar="السعر" data-en="Price">${currentLang === 'ar' ? 'السعر' : 'Price'}</button>
+                </div>
+            `;
+            
+            // Render matches
+            const matchesHtml = renderMatches(matches);
+            
+            matchesContainer.innerHTML = sortControls + matchesHtml;
+        }
+        
+        function renderMatches(matches) {
+            return matches.map((match, index) => {
                 const imageHtml = match.imageUrl 
                     ? `<img src="${match.imageUrl}" alt="${match.name}" style="width: 100%; height: 180px; object-fit: cover; border-radius: 10px; margin-bottom: 12px;">`
                     : '<div style="width: 100%; height: 180px; background: linear-gradient(135deg, #f5f7fa 0%, #e0e5ec 100%); border-radius: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 14px;">No Image</div>';
@@ -4579,15 +4613,65 @@
                     ? `<div style="font-size: 18px; font-weight: 700; color: #FFC107; margin-top: 10px;">${parseFloat(match.price).toFixed(2)} SAR</div>`
                     : '';
                 
+                // Show score info if available
+                const scoreInfo = match.fitnessScore !== undefined 
+                    ? `<div style="font-size: 11px; color: #999; margin-top: 5px;">Relevance: ${(match.fitnessScore * 100).toFixed(0)}%</div>`
+                    : '';
+                
                 return `
                     <div class="option-card" onclick="selectPackageMatch(${index})" style="cursor: pointer; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; background: white; transition: all 0.3s; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);" onmouseover="this.style.borderColor='#FFC107'; this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 25px rgba(0, 0, 0, 0.15)'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 10px rgba(0, 0, 0, 0.05)'">
                         ${imageHtml}
                         <div style="font-weight: 700; margin-bottom: 8px; font-size: 16px; color: #1a1a1a;">${match.name}</div>
                         <div style="font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.5;">${match.reason || ''}</div>
+                        ${scoreInfo}
                         ${priceHtml}
                     </div>
                 `;
             }).join('');
+        }
+        
+        function sortMatches(sortBy) {
+            if (!currentPackageMatches || currentPackageMatches.length === 0) return;
+            
+            currentSortBy = sortBy;
+            
+            // Sort matches
+            const sorted = [...currentPackageMatches].sort((a, b) => {
+                if (sortBy === 'fitness') {
+                    return (b.fitnessScore || 0) - (a.fitnessScore || 0);
+                } else if (sortBy === 'price') {
+                    const priceA = parseFloat(a.price || '999999');
+                    const priceB = parseFloat(b.price || '999999');
+                    return priceA - priceB;
+                } else { // combined
+                    return (b.combinedScore || 0) - (a.combinedScore || 0);
+                }
+            });
+            
+            // Update display
+            const matchesContainer = document.getElementById('packageMatchesContainer');
+            const sortControls = matchesContainer.innerHTML.split('</div>')[0] + '</div>';
+            matchesContainer.innerHTML = sortControls + renderMatches(sorted);
+            
+            // Update currentPackageMatches to reflect new order
+            currentPackageMatches = sorted;
+            
+            // Update button styles
+            ['combined', 'fitness', 'price'].forEach(btn => {
+                const button = document.getElementById(`sort${btn.charAt(0).toUpperCase() + btn.slice(1)}`);
+                if (button) {
+                    if (btn === sortBy) {
+                        button.style.borderColor = '#FFC107';
+                        button.style.background = '#FFC107';
+                        button.style.color = '#1a1a1a';
+                    } else {
+                        button.style.borderColor = '#e0e0e0';
+                        button.style.background = 'white';
+                        button.style.color = '#666';
+                    }
+                }
+            });
+        }
             
             // Scroll to matches section
             matchesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

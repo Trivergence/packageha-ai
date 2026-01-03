@@ -89,7 +89,14 @@ export interface Variant {
 export interface AIDecision {
   type: "found" | "multiple" | "none" | "chat";
   id?: number;
-  matches?: Array<{ id: number; name: string; reason: string }>;
+  matches?: Array<{ 
+    id: number; 
+    name: string; 
+    reason: string;
+    fitnessScore?: number;
+    priceScore?: number;
+    combinedScore?: number;
+  }>;
   reason?: string;
   reply?: string;
 }
