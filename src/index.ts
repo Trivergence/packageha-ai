@@ -306,6 +306,35 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     }
   }
   
+  // Create draft order endpoint
+  if (url.pathname === "/api/create-draft-order" && request.method === "POST") {
+    try {
+      const body = await request.json() as { variantId: number; quantity: number; note: string };
+      
+      if (!body.variantId || !body.quantity) {
+        return jsonResponse({ error: "variantId and quantity are required" }, 400);
+      }
+      
+      const { createDraftOrder } = await import("./shopify");
+      const result = await createDraftOrder(
+        env.SHOP_URL,
+        env.SHOPIFY_ACCESS_TOKEN,
+        body.variantId,
+        body.quantity,
+        body.note || ""
+      );
+      
+      return jsonResponse({
+        draftOrderId: result.draftOrderId,
+        adminUrl: result.adminUrl,
+        invoiceUrl: result.invoiceUrl
+      });
+    } catch (error: any) {
+      console.error("[API] Create draft order error:", error);
+      return jsonResponse({ error: error.message }, 500);
+    }
+  }
+  
   // Salla app page redirect
   if (url.pathname === "/app" || url.pathname === "/app/") {
     const accessToken = request.headers.get("X-Salla-Access-Token") || url.searchParams.get("access_token");

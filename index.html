@@ -1354,39 +1354,6 @@
                     </div>
                 </div>
                 
-                <!-- Fulfillment Specs Section -->
-                <div id="fulfillmentSpecsForm" style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);">
-                    <h3 style="margin-bottom: 20px; color: #1a1a1a; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 24px;">🚚</span>
-                        <span data-ar="مواصفات التنفيذ" data-en="Fulfillment Specifications">مواصفات التنفيذ</span>
-                    </h3>
-                    
-                    <!-- Timeline -->
-                    <div class="input-group" style="margin-bottom: 20px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="متى هو الموعد النهائي للتسليم؟" data-en="When is your deadline for delivery?">متى هو الموعد النهائي للتسليم؟</label>
-                        <select id="fulfillmentTimeline" style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; background: white; transition: all 0.3s; cursor: pointer;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'">
-                            <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
-                            <option value="1-2 weeks" data-ar="1-2 أسابيع" data-en="1-2 weeks">1-2 weeks</option>
-                            <option value="2-4 weeks" data-ar="2-4 أسابيع" data-en="2-4 weeks">2-4 weeks</option>
-                            <option value="1-2 months" data-ar="1-2 أشهر" data-en="1-2 months">1-2 months</option>
-                            <option value="2-3 months" data-ar="2-3 أشهر" data-en="2-3 months">2-3 months</option>
-                            <option value="3+ months" data-ar="3+ أشهر" data-en="3+ months">3+ months</option>
-                            <option value="Flexible" data-ar="مرن" data-en="Flexible">Flexible</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Shipping Address with Google Maps Autocomplete -->
-                    <div class="input-group" style="margin-bottom: 20px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="أين يجب أن نسلم الطلب؟ (يرجى تقديم عنوان الشحن أو المدينة/المنطقة)" data-en="Where should we deliver the order? (Please provide shipping address or city/region)">أين يجب أن نسلم الطلب؟ (يرجى تقديم عنوان الشحن أو المدينة/المنطقة)</label>
-                        <input type="text" id="fulfillmentShippingAddress" data-ar-placeholder="ابدأ الكتابة للبحث عن عنوان..." data-en-placeholder="Start typing to search for address..." placeholder="Start typing to search for address..." style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-family: inherit; transition: all 0.3s;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'">
-                    </div>
-                    
-                    <!-- Special Instructions -->
-                    <div class="input-group">
-                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="أي تعليمات تنفيذ خاصة أو متطلبات؟ (اختياري - اكتب 'لا شيء' للتخطي)" data-en="Any special fulfillment instructions or requirements? (optional - type 'none' to skip)">أي تعليمات تنفيذ خاصة أو متطلبات؟ (اختياري - اكتب 'لا شيء' للتخطي)</label>
-                        <textarea id="fulfillmentSpecialInstructions" data-ar-placeholder="أدخل أي تعليمات خاصة أو اكتب 'لا شيء'..." data-en-placeholder="Enter any special instructions or type 'none'..." placeholder="Enter any special instructions or type 'none'..." style="width: 100%; min-height: 100px; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-family: inherit; resize: vertical; transition: all 0.3s;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'"></textarea>
-                    </div>
-                </div>
                 
                 <!-- Package Matches Section (hidden initially) -->
                 <div id="packageMatchesSection" style="display: none; margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1;">
@@ -1417,6 +1384,81 @@
                 <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1; display: flex; gap: 12px; justify-content: flex-end;">
                     <button onclick="closeDesignPackageDialog()" style="padding: 14px 28px; background: #e0e0e0; color: #333; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.3s;" onmouseover="this.style.background='#d0d0d0'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#e0e0e0'; this.style.transform='translateY(0)'" data-ar="إلغاء" data-en="Cancel">إلغاء</button>
                     <button id="startDesignBtn" onclick="submitDesignPackage()" style="padding: 14px 32px; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: #FFC107; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(0, 0, 0, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.2)'" data-ar="بدء التصميم" data-en="Start Design">بدء التصميم</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Order Package Dialog -->
+        <div id="orderPackageModal" class="modal-overlay" style="display: none; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px);">
+            <div class="modal-content" style="max-width: 900px; background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e8ecf1;">
+                    <h2 style="margin: 0; color: #1a1a1a; font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;" data-ar="طلب غلاف" data-en="Order Package">طلب غلاف</h2>
+                    <button onclick="closeOrderPackageDialog()" style="background: none; border: none; font-size: 32px; cursor: pointer; color: #999; line-height: 1; transition: color 0.2s; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" onmouseover="this.style.color='#1a1a1a'; this.style.background='#f0f0f0'" onmouseout="this.style.color='#999'; this.style.background='transparent'">&times;</button>
+                </div>
+                
+                <!-- Product & Package Info Section -->
+                <div id="orderProductInfo" style="margin-bottom: 30px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);">
+                    <h3 style="margin-bottom: 20px; color: #1a1a1a; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">📦</span>
+                        <span data-ar="معلومات المنتج والغلاف" data-en="Product & Package Information">معلومات المنتج والغلاف</span>
+                    </h3>
+                    <div id="orderProductDetails" style="color: #666; line-height: 1.8;">
+                        <!-- Product and package info will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Fulfillment Specs Section -->
+                <div id="orderFulfillmentSpecsForm" style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);">
+                    <h3 style="margin-bottom: 20px; color: #1a1a1a; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">🚚</span>
+                        <span data-ar="مواصفات التنفيذ" data-en="Fulfillment Specifications">مواصفات التنفيذ</span>
+                    </h3>
+                    
+                    <!-- Quantity -->
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="كم عدد الوحدات التي تريد طلبها؟" data-en="How many units would you like to order?">كم عدد الوحدات التي تريد طلبها؟</label>
+                        <input type="number" id="orderQuantity" min="1" value="1" style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-family: inherit; transition: all 0.3s;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'">
+                    </div>
+                    
+                    <!-- Timeline -->
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="متى هو الموعد النهائي للتسليم؟" data-en="When is your deadline for delivery?">متى هو الموعد النهائي للتسليم؟</label>
+                        <select id="orderFulfillmentTimeline" style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; background: white; transition: all 0.3s; cursor: pointer;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'">
+                            <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
+                            <option value="1-2 weeks" data-ar="1-2 أسابيع" data-en="1-2 weeks">1-2 weeks</option>
+                            <option value="2-4 weeks" data-ar="2-4 أسابيع" data-en="2-4 weeks">2-4 weeks</option>
+                            <option value="1-2 months" data-ar="1-2 أشهر" data-en="1-2 months">1-2 months</option>
+                            <option value="2-3 months" data-ar="2-3 أشهر" data-en="2-3 months">2-3 months</option>
+                            <option value="3+ months" data-ar="3+ أشهر" data-en="3+ months">3+ months</option>
+                            <option value="Flexible" data-ar="مرن" data-en="Flexible">Flexible</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Shipping Address with Google Maps Autocomplete -->
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="أين يجب أن نسلم الطلب؟ (يرجى تقديم عنوان الشحن أو المدينة/المنطقة)" data-en="Where should we deliver the order? (Please provide shipping address or city/region)">أين يجب أن نسلم الطلب؟ (يرجى تقديم عنوان الشحن أو المدينة/المنطقة)</label>
+                        <input type="text" id="orderFulfillmentShippingAddress" data-ar-placeholder="ابدأ الكتابة للبحث عن عنوان..." data-en-placeholder="Start typing to search for address..." placeholder="Start typing to search for address..." style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-family: inherit; transition: all 0.3s;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'">
+                    </div>
+                    
+                    <!-- Special Instructions -->
+                    <div class="input-group">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333; font-size: 14px;" data-ar="أي تعليمات تنفيذ خاصة أو متطلبات؟ (اختياري - اكتب 'لا شيء' للتخطي)" data-en="Any special fulfillment instructions or requirements? (optional - type 'none' to skip)">أي تعليمات تنفيذ خاصة أو متطلبات؟ (اختياري - اكتب 'لا شيء' للتخطي)</label>
+                        <textarea id="orderFulfillmentSpecialInstructions" data-ar-placeholder="أدخل أي تعليمات خاصة أو اكتب 'لا شيء'..." data-en-placeholder="Enter any special instructions or type 'none'..." placeholder="Enter any special instructions or type 'none'..." style="width: 100%; min-height: 100px; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-family: inherit; resize: vertical; transition: all 0.3s;" onfocus="this.style.borderColor='#FFC107'; this.style.boxShadow='0 0 0 3px rgba(255, 193, 7, 0.1)'" onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none'"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Order Result Section (hidden initially) -->
+                <div id="orderResultSection" style="display: none; margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); text-align: center;">
+                    <h3 style="margin-bottom: 20px; color: #28a745; font-size: 18px; font-weight: 700;" data-ar="تم إنشاء الطلب بنجاح!" data-en="Order Created Successfully!">تم إنشاء الطلب بنجاح!</h3>
+                    <div id="orderResultLinks" style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                        <!-- Order links will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Dialog Actions -->
+                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1; display: flex; gap: 12px; justify-content: flex-end;">
+                    <button onclick="closeOrderPackageDialog()" style="padding: 14px 28px; background: #e0e0e0; color: #333; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.3s;" onmouseover="this.style.background='#d0d0d0'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#e0e0e0'; this.style.transform='translateY(0)'" data-ar="إلغاء" data-en="Cancel">إلغاء</button>
+                    <button id="submitOrderBtn" onclick="submitOrder()" style="padding: 14px 32px; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: #FFC107; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(0, 0, 0, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.2)'" data-ar="إرسال الطلب" data-en="Submit Order">إرسال الطلب</button>
                 </div>
             </div>
         </div>
@@ -4473,6 +4515,192 @@
             }
         }
         
+        function showOrderPackageDialog(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            // Store product ID for later use
+            window.currentOrderProductId = productId;
+            
+            const modal = document.getElementById('orderPackageModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                
+                // Populate product info
+                const productDetailsDiv = document.getElementById('orderProductDetails');
+                if (productDetailsDiv) {
+                    const productName = currentLang === 'ar' ? product.nameAr : product.nameEn;
+                    const packageName = currentLang === 'ar' ? (product.packageAr || product.packageEn) : (product.packageEn || product.packageAr);
+                    productDetailsDiv.innerHTML = `
+                        <div style="margin-bottom: 15px;">
+                            <strong data-ar="المنتج:" data-en="Product:">${currentLang === 'ar' ? 'المنتج:' : 'Product:'}</strong> ${productName}
+                        </div>
+                        <div>
+                            <strong data-ar="الغلاف:" data-en="Package:">${currentLang === 'ar' ? 'الغلاف:' : 'Package:'}</strong> ${packageName}
+                        </div>
+                    `;
+                }
+                
+                // Reset form
+                document.getElementById('orderQuantity').value = '1';
+                document.getElementById('orderFulfillmentTimeline').value = '';
+                document.getElementById('orderFulfillmentShippingAddress').value = '';
+                document.getElementById('orderFulfillmentSpecialInstructions').value = '';
+                
+                // Hide result section
+                document.getElementById('orderResultSection').style.display = 'none';
+                document.getElementById('submitOrderBtn').style.display = 'block';
+                
+                // Initialize Google Maps autocomplete for shipping address
+                setTimeout(() => {
+                    initOrderShippingAddressAutocomplete();
+                }, 100);
+            }
+        }
+        
+        function closeOrderPackageDialog() {
+            const modal = document.getElementById('orderPackageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        async function initOrderShippingAddressAutocomplete() {
+            const addressInput = document.getElementById('orderFulfillmentShippingAddress');
+            if (!addressInput) return;
+            
+            // Wait for Google Maps to load
+            if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+                console.warn('Google Maps API not loaded yet');
+                return;
+            }
+            
+            try {
+                const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+                    types: ['address'],
+                    componentRestrictions: { country: ['sa', 'ae', 'kw', 'bh', 'om', 'qa'] } // GCC countries
+                });
+                
+                autocomplete.addListener('place_changed', () => {
+                    const place = autocomplete.getPlace();
+                    if (place.formatted_address) {
+                        addressInput.value = place.formatted_address;
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing address autocomplete:', error);
+            }
+        }
+        
+        async function submitOrder() {
+            const productId = window.currentOrderProductId;
+            if (!productId) {
+                alert(currentLang === 'ar' ? 'خطأ: لم يتم العثور على المنتج' : 'Error: Product not found');
+                return;
+            }
+            
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product || !product.hasPackage) {
+                alert(currentLang === 'ar' ? 'يرجى التأكد من أن المنتج لديه غلاف مرتبط' : 'Please ensure the product has a linked package');
+                return;
+            }
+            
+            // Collect form data
+            const quantity = parseInt(document.getElementById('orderQuantity').value) || 1;
+            const timeline = document.getElementById('orderFulfillmentTimeline').value;
+            const shippingAddress = document.getElementById('orderFulfillmentShippingAddress').value;
+            const specialInstructions = document.getElementById('orderFulfillmentSpecialInstructions').value;
+            
+            // Validate required fields
+            if (!timeline || !shippingAddress) {
+                alert(currentLang === 'ar' 
+                    ? 'يرجى ملء جميع الحقول المطلوبة (الموعد النهائي وعنوان الشحن)'
+                    : 'Please fill in all required fields (timeline and shipping address)');
+                return;
+            }
+            
+            // Build note with fulfillment information
+            const noteParts = [];
+            noteParts.push(`Product: ${currentLang === 'ar' ? product.nameAr : product.nameEn}`);
+            noteParts.push(`Package: ${currentLang === 'ar' ? (product.packageAr || product.packageEn) : (product.packageEn || product.packageAr)}`);
+            noteParts.push(`Timeline: ${timeline}`);
+            noteParts.push(`Shipping Address: ${shippingAddress}`);
+            if (specialInstructions && specialInstructions.trim() && specialInstructions.trim().toLowerCase() !== 'none') {
+                noteParts.push(`Special Instructions: ${specialInstructions}`);
+            }
+            const note = noteParts.join('\n');
+            
+            // Disable submit button
+            const submitBtn = document.getElementById('submitOrderBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = currentLang === 'ar' ? 'جاري المعالجة...' : 'Processing...';
+            
+            try {
+                // Call API to create draft order
+                const response = await fetch('/api/create-draft-order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        variantId: product.packageVariantId || product.packageId, // Use variant ID if available, fallback to package ID
+                        quantity: quantity,
+                        note: note
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create order');
+                }
+                
+                const data = await response.json();
+                
+                // Show success message with links
+                const resultSection = document.getElementById('orderResultSection');
+                const resultLinks = document.getElementById('orderResultLinks');
+                
+                if (resultSection && resultLinks) {
+                    resultLinks.innerHTML = '';
+                    
+                    if (data.adminUrl) {
+                        const adminLink = document.createElement('a');
+                        adminLink.href = data.adminUrl;
+                        adminLink.target = '_blank';
+                        adminLink.style.cssText = 'display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: #FFC107; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 16px; text-decoration: none; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);';
+                        adminLink.textContent = currentLang === 'ar' ? 'فتح الطلب في Shopify' : 'Open Order in Shopify';
+                        adminLink.onmouseover = function() { this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)'; };
+                        adminLink.onmouseout = function() { this.style.transform = 'translateY(0)'; this.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)'; };
+                        resultLinks.appendChild(adminLink);
+                    }
+                    
+                    if (data.invoiceUrl) {
+                        const invoiceLink = document.createElement('a');
+                        invoiceLink.href = data.invoiceUrl;
+                        invoiceLink.target = '_blank';
+                        invoiceLink.style.cssText = 'display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 16px; text-decoration: none; transition: all 0.3s; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);';
+                        invoiceLink.textContent = currentLang === 'ar' ? 'فتح نموذج الدفع' : 'Open Payment Form';
+                        invoiceLink.onmouseover = function() { this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)'; };
+                        invoiceLink.onmouseout = function() { this.style.transform = 'translateY(0)'; this.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)'; };
+                        resultLinks.appendChild(invoiceLink);
+                    }
+                    
+                    resultSection.style.display = 'block';
+                    submitBtn.style.display = 'none';
+                    
+                    // Scroll to result section
+                    resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            } catch (error) {
+                console.error('Error creating order:', error);
+                alert(currentLang === 'ar' 
+                    ? `خطأ في إنشاء الطلب: ${error.message}`
+                    : `Error creating order: ${error.message}`);
+                submitBtn.disabled = false;
+                submitBtn.textContent = currentLang === 'ar' ? 'إرسال الطلب' : 'Submit Order';
+            }
+        }
+        
         async function submitDesignPackage() {
             console.log('[submitDesignPackage] ========== START ==========');
             console.log('[submitDesignPackage] Timestamp:', new Date().toISOString());
@@ -5015,6 +5243,8 @@ Return ONLY a detailed image description, no other text.`;
             product.packageAr = selectedPackageMatch.name;
             product.packageEn = selectedPackageMatch.name;
             product.packagePhoto = generatedPackageImageUrl;
+            product.packageId = selectedPackageMatch.packageId; // Store Shopify package ID
+            product.packageVariantId = selectedPackageMatch.packageId; // For now, use packageId as variantId (will need to get actual variant ID later)
             
             // Update inventory table
             renderInventoryTable();
