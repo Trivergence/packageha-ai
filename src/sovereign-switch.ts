@@ -95,8 +95,11 @@ export class SovereignSwitch {
 
   /**
    * Execute AI call through the appropriate provider
+   * @param prompt - The user prompt
+   * @param systemPrompt - Optional system prompt
+   * @param useImageModel - If true, uses best model for image generation (creative tasks)
    */
-  async callAI(prompt: string, systemPrompt?: string): Promise<string> {
+  async callAI(prompt: string, systemPrompt?: string, useImageModel: boolean = false): Promise<string> {
     const config = this.getAIConfig();
 
     try {
@@ -108,7 +111,7 @@ export class SovereignSwitch {
           return await this.callOpenAI(prompt, systemPrompt, config);
 
         case "gemini":
-          return await this.callGemini(prompt, systemPrompt, config);
+          return await this.callGemini(prompt, systemPrompt, config, useImageModel);
 
         case "vertex":
           return await this.callVertexAI(prompt, systemPrompt, config);
@@ -241,17 +244,63 @@ export class SovereignSwitch {
     return availableModels[0];
   }
 
+  /**
+   * Get best Gemini model for image generation (creative tasks)
+   */
+  async getBestImageModel(apiKey: string): Promise<string> {
+    const availableModels = await this.listGeminiModels(apiKey);
+    
+    if (availableModels.length === 0) {
+      return "gemini-1.5-pro"; // Fallback
+    }
+    
+    // Prefer models in this order for creative/image generation tasks:
+    // 1. gemini-1.5-pro (best quality for creative tasks)
+    // 2. gemini-1.5-flash (fast, good quality)
+    // 3. gemini-pro (fallback)
+    
+    const pro15 = availableModels.find(m => m.includes('1.5-pro'));
+    if (pro15) {
+      console.log("[SovereignSwitch] Selected gemini-1.5-pro for image generation");
+      return pro15;
+    }
+    
+    const flash15 = availableModels.find(m => m.includes('1.5-flash'));
+    if (flash15) {
+      console.log("[SovereignSwitch] Selected gemini-1.5-flash for image generation");
+      return flash15;
+    }
+    
+    const pro = availableModels.find(m => m.includes('pro') && !m.includes('1.5'));
+    if (pro) {
+      console.log("[SovereignSwitch] Selected gemini-pro for image generation");
+      return pro;
+    }
+    
+    console.log("[SovereignSwitch] Using first available model for image generation:", availableModels[0]);
+    return availableModels[0];
+  }
+
   private async callGemini(
     prompt: string,
     systemPrompt: string | undefined,
-    config: AIConfig
+    config: AIConfig,
+    useImageModel: boolean = false
   ): Promise<string> {
     if (!config.apiKey) {
       throw new Error("Gemini API key is required");
     }
     
-    // Get a working model (automatically selects from available models)
-    const model = config.model || await this.getWorkingGeminiModel(config.apiKey);
+    // Get appropriate model (best for image generation if requested, otherwise working model)
+    let model: string;
+    if (useImageModel) {
+      model = await this.getBestImageModel(config.apiKey);
+      console.log("[SovereignSwitch] Using image-optimized model:", model);
+    } else {
+      model = config.model || await this.getWorkingGeminiModel(config.apiKey);
+      console.log("[SovereignSwitch] Using standard model:", model);
+    }
+    
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
     // Combine system prompt and user prompt for Gemini
@@ -260,17 +309,29 @@ export class SovereignSwitch {
       fullPrompt = `${systemPrompt}\n\n${prompt}`;
     }
 
+    // Higher temperature and more tokens for creative/image generation tasks
+    const generationConfig = useImageModel ? {
+      temperature: 0.9, // Higher creativity for image prompts
+      maxOutputTokens: 2048, // More tokens for detailed descriptions
+      topP: 0.95,
+      topK: 40
+    } : {
+      temperature: 0.7,
+      maxOutputTokens: 1024,
+    };
+
     const payload = {
       contents: [{
         parts: [{
           text: fullPrompt
         }]
       }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,
-      }
+      generationConfig
     };
+
+    console.log("[SovereignSwitch] Calling Gemini API with model:", model);
+    console.log("[SovereignSwitch] Prompt length:", fullPrompt.length);
+    console.log("[SovereignSwitch] Generation config:", generationConfig);
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -282,11 +343,14 @@ export class SovereignSwitch {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("[SovereignSwitch] Gemini API error:", response.status, errorText);
       throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const result = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    console.log("[SovereignSwitch] Gemini response length:", result.length);
+    return result;
   }
 
   private async callVertexAI(

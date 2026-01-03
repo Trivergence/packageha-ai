@@ -4369,6 +4369,9 @@
         }
         
         async function submitDesignPackage() {
+            console.log('[submitDesignPackage] ========== START ==========');
+            console.log('[submitDesignPackage] Timestamp:', new Date().toISOString());
+            
             // Collect form data
             const packageData = {
                 material: document.getElementById('packageMaterial').value,
@@ -4379,32 +4382,44 @@
                 specialInstructions: document.getElementById('fulfillmentSpecialInstructions').value.trim()
             };
             
+            console.log('[submitDesignPackage] Package data collected:', JSON.stringify(packageData, null, 2));
+            
             // Validate required fields
             if (!packageData.material) {
+                console.warn('[submitDesignPackage] Validation failed: Material not selected');
                 alert(currentLang === 'ar' ? 'يرجى اختيار المادة' : 'Please select a material');
                 return;
             }
             
             if (!packageData.printType) {
+                console.warn('[submitDesignPackage] Validation failed: Print type not selected');
                 alert(currentLang === 'ar' ? 'يرجى اختيار نوع الطباعة' : 'Please select a printing type');
                 return;
             }
             
             if (!packageData.timeline) {
+                console.warn('[submitDesignPackage] Validation failed: Timeline not selected');
                 alert(currentLang === 'ar' ? 'يرجى اختيار الموعد النهائي' : 'Please select a timeline');
                 return;
             }
             
             if (!packageData.shippingAddress) {
+                console.warn('[submitDesignPackage] Validation failed: Shipping address not provided');
                 alert(currentLang === 'ar' ? 'يرجى إدخال عنوان الشحن' : 'Please enter shipping address');
                 return;
             }
             
+            console.log('[submitDesignPackage] All validations passed');
+            
             // Get product info
             const productId = window.currentDesignProductId;
+            console.log('[submitDesignPackage] Product ID:', productId);
             const product = productId ? demoProducts.find(p => p.id === productId) : null;
+            console.log('[submitDesignPackage] Product found:', product ? 'Yes' : 'No', product);
             const productName = product ? (currentLang === 'ar' ? product.nameAr : product.nameEn) : '';
             const productPhoto = product?.productPhoto || '';
+            console.log('[submitDesignPackage] Product name:', productName);
+            console.log('[submitDesignPackage] Product photo:', productPhoto ? 'Yes' : 'No');
             
             // Build product description for LLM
             let productDescription = productName;
@@ -4419,6 +4434,9 @@
             if (packageData.finishing.length > 0) {
                 packageRequirements += `Finishing: ${packageData.finishing.join(', ')}\n`;
             }
+            
+            const searchMessage = `${productDescription}\n\n${packageRequirements}`;
+            console.log('[submitDesignPackage] Search message prepared:', searchMessage);
             
             // Show loading state
             const startBtn = document.getElementById('startDesignBtn');
@@ -4440,7 +4458,15 @@
                 }
                 finalUrl = finalUrl.replace(/\/$/, '');
                 
-                const searchMessage = `${productDescription}\n\n${packageRequirements}`;
+                console.log('[submitDesignPackage] API URL:', finalUrl);
+                console.log('[submitDesignPackage] Request body:', JSON.stringify({
+                    flow: 'direct_sales',
+                    message: searchMessage,
+                    reset: false
+                }, null, 2));
+                
+                const requestStartTime = Date.now();
+                console.log('[submitDesignPackage] Sending POST request...');
                 
                 const response = await fetch(finalUrl, {
                     method: 'POST',
@@ -4451,48 +4477,83 @@
                     body: JSON.stringify({
                         flow: 'direct_sales',
                         message: searchMessage,
-                        reset: false // Don't reset the session
+                        reset: false
                     })
                 });
                 
+                const requestDuration = Date.now() - requestStartTime;
+                console.log('[submitDesignPackage] Response received after', requestDuration, 'ms');
+                console.log('[submitDesignPackage] Response status:', response.status);
+                console.log('[submitDesignPackage] Response status text:', response.statusText);
+                console.log('[submitDesignPackage] Response headers:', Object.fromEntries(response.headers.entries()));
+                console.log('[submitDesignPackage] Response OK:', response.ok);
+                
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('[submitDesignPackage] Response error:', response.status, errorText);
+                    console.error('[submitDesignPackage] Response error details:');
+                    console.error('[submitDesignPackage] Status:', response.status);
+                    console.error('[submitDesignPackage] Status text:', response.statusText);
+                    console.error('[submitDesignPackage] Error body:', errorText);
                     throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
                 
-                const data = await response.json();
-                console.log('[submitDesignPackage] Response data:', data);
+                const responseText = await response.text();
+                console.log('[submitDesignPackage] Response text (raw):', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                    console.log('[submitDesignPackage] Response data (parsed):', JSON.stringify(data, null, 2));
+                } catch (parseError) {
+                    console.error('[submitDesignPackage] JSON parse error:', parseError);
+                    console.error('[submitDesignPackage] Response text that failed to parse:', responseText);
+                    throw new Error('Invalid JSON response from server');
+                }
                 
                 // Extract package matches from response
+                console.log('[submitDesignPackage] Checking for productMatches...');
+                console.log('[submitDesignPackage] data.productMatches:', data.productMatches);
+                console.log('[submitDesignPackage] data.flowState:', data.flowState);
+                console.log('[submitDesignPackage] data.reply:', data.reply);
+                
                 if (data.productMatches && data.productMatches.length > 0) {
+                    console.log('[submitDesignPackage] Found', data.productMatches.length, 'package matches');
                     currentPackageMatches = data.productMatches;
                     displayPackageMatches(currentPackageMatches, productPhoto);
                 } else if (data.reply) {
+                    console.log('[submitDesignPackage] No productMatches, but got reply:', data.reply);
                     // If no matches but we got a reply, the LLM might be asking for more info
-                    console.log('[submitDesignPackage] LLM reply:', data.reply);
-                    // Still try to show matches if they exist in a different format
                     if (data.flowState && data.flowState.productMatches) {
+                        console.log('[submitDesignPackage] Found matches in flowState:', data.flowState.productMatches.length);
                         currentPackageMatches = data.flowState.productMatches;
                         displayPackageMatches(currentPackageMatches, productPhoto);
                     } else {
+                        console.warn('[submitDesignPackage] No matches found in response');
                         alert(currentLang === 'ar' 
                             ? 'لم يتم العثور على أغلفة مناسبة. يرجى المحاولة مرة أخرى.'
                             : 'No matching packages found. Please try again.');
                     }
                 } else {
+                    console.warn('[submitDesignPackage] No matches and no reply in response');
                     alert(currentLang === 'ar' 
                         ? 'لم يتم العثور على أغلفة مناسبة. يرجى المحاولة مرة أخرى.'
                         : 'No matching packages found. Please try again.');
                 }
+                
+                console.log('[submitDesignPackage] ========== SUCCESS ==========');
             } catch (error) {
-                console.error('[submitDesignPackage] Error:', error);
+                console.error('[submitDesignPackage] ========== ERROR ==========');
+                console.error('[submitDesignPackage] Error type:', error.constructor.name);
+                console.error('[submitDesignPackage] Error message:', error.message);
+                console.error('[submitDesignPackage] Error stack:', error.stack);
+                console.error('[submitDesignPackage] Full error object:', error);
                 alert(currentLang === 'ar' 
                     ? 'حدث خطأ أثناء البحث عن الأغلفة. يرجى المحاولة مرة أخرى.'
                     : 'Error searching for packages. Please try again.');
             } finally {
                 startBtn.disabled = false;
                 startBtn.innerHTML = originalBtnText;
+                console.log('[submitDesignPackage] ========== END ==========');
             }
         }
         
@@ -4532,16 +4593,26 @@
         }
         
         async function selectPackageMatch(index) {
-            const match = currentPackageMatches[index];
-            if (!match) return;
+            console.log('[selectPackageMatch] ========== START ==========');
+            console.log('[selectPackageMatch] Index:', index);
             
+            const match = currentPackageMatches[index];
+            if (!match) {
+                console.warn('[selectPackageMatch] No match found at index:', index);
+                return;
+            }
+            
+            console.log('[selectPackageMatch] Selected match:', match);
             selectedPackageMatch = match;
             
             // Get product info
             const productId = window.currentDesignProductId;
+            console.log('[selectPackageMatch] Product ID:', productId);
             const product = productId ? demoProducts.find(p => p.id === productId) : null;
             const productName = product ? (currentLang === 'ar' ? product.nameAr : product.nameEn) : '';
             const productPhoto = product?.productPhoto || '';
+            console.log('[selectPackageMatch] Product name:', productName);
+            console.log('[selectPackageMatch] Product photo:', productPhoto ? 'Yes' : 'No');
             
             // Show loading state
             const imageSection = document.getElementById('generatedImageSection');
@@ -4581,26 +4652,37 @@ Create a detailed, professional image description that combines:
 The description should be suitable for image generation AI (like DALL-E, Midjourney, or Stable Diffusion).
 Return ONLY a detailed image description, no other text.`;
 
-                const response = await fetch(finalUrl, {
+                console.log('[selectPackageMatch] Image prompt request:', imagePromptRequest);
+                console.log('[selectPackageMatch] Calling image generation endpoint:', `${finalUrl}/api/generate-image-prompt`);
+                
+                const requestStartTime = Date.now();
+                const response = await fetch(`${finalUrl}/api/generate-image-prompt`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        flow: 'direct_sales',
-                        message: imagePromptRequest,
-                        reset: false
+                        prompt: imagePromptRequest
                     })
                 });
                 
+                const requestDuration = Date.now() - requestStartTime;
+                console.log('[selectPackageMatch] Response received after', requestDuration, 'ms');
+                console.log('[selectPackageMatch] Response status:', response.status);
+                console.log('[selectPackageMatch] Response OK:', response.ok);
+                
                 if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('[selectPackageMatch] Response error:', response.status, errorText);
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
-                const imagePrompt = data.reply || '';
+                console.log('[selectPackageMatch] Response data:', data);
                 
+                const imagePrompt = data.imagePrompt || '';
+                console.log('[selectPackageMatch] Generated image prompt length:', imagePrompt.length);
                 console.log('[selectPackageMatch] Generated image prompt:', imagePrompt);
                 
                 // For now, we'll use the prompt to create a placeholder
@@ -4631,19 +4713,24 @@ Return ONLY a detailed image description, no other text.`;
                 generatedImg.onload = function() {
                     imageContainer.innerHTML = `
                         <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;" data-ar="وصف الصورة المولدة:" data-en="Generated Image Description:">${currentLang === 'ar' ? 'وصف الصورة المولدة:' : 'Generated Image Description:'}</div>
-                            <div style="font-size: 13px; color: #333; font-style: italic;">${imagePrompt.substring(0, 200)}${imagePrompt.length > 200 ? '...' : ''}</div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;" data-ar="وصف الصورة المولدة (بواسطة Gemini):" data-en="Generated Image Description (by Gemini):">${currentLang === 'ar' ? 'وصف الصورة المولدة (بواسطة Gemini):' : 'Generated Image Description (by Gemini):'}</div>
+                            <div style="font-size: 13px; color: #333; font-style: italic; line-height: 1.6;">${imagePrompt.substring(0, 300)}${imagePrompt.length > 300 ? '...' : ''}</div>
                         </div>
                         <img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
                     `;
                 };
                 
             } catch (error) {
-                console.error('[selectPackageMatch] Error generating image:', error);
+                console.error('[selectPackageMatch] ========== ERROR ==========');
+                console.error('[selectPackageMatch] Error type:', error.constructor.name);
+                console.error('[selectPackageMatch] Error message:', error.message);
+                console.error('[selectPackageMatch] Error stack:', error.stack);
                 alert(currentLang === 'ar' 
                     ? 'حدث خطأ أثناء إنشاء الصورة. يرجى المحاولة مرة أخرى.'
                     : 'Error generating image. Please try again.');
                 imageContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #dc3545;">' + (currentLang === 'ar' ? 'فشل إنشاء الصورة' : 'Image generation failed') + '</div>';
+            } finally {
+                console.log('[selectPackageMatch] ========== END ==========');
             }
         }
         

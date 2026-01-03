@@ -368,6 +368,43 @@ export default {
 
     // Route POST requests to Durable Object session
     if (request.method === "POST") {
+      // Special endpoint for image generation prompts
+      if (url.pathname === "/api/generate-image-prompt") {
+        try {
+          const body = await request.json() as { prompt: string };
+          const sovereignSwitch = new SovereignSwitch(env);
+          
+          const imagePrompt = await sovereignSwitch.callAI(
+            body.prompt,
+            "You are an expert at creating detailed, professional image generation prompts for product packaging visualization. Generate highly detailed, creative descriptions suitable for AI image generation models like DALL-E, Midjourney, or Stable Diffusion. Focus on visual details, lighting, composition, and professional photography style.",
+            true // useImageModel = true
+          );
+          
+          return new Response(
+            JSON.stringify({ imagePrompt }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        } catch (error: any) {
+          console.error("[Image Prompt Generation] Error:", error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        }
+      }
+      
       // Use IP address for session ID (could also use user ID from auth)
       const cfIp = request.headers.get("CF-Connecting-IP");
       const forwardedFor = request.headers.get("X-Forwarded-For");
@@ -395,15 +432,29 @@ export default {
           if (env.GEMINI_API_KEY) {
             const models = await sovereignSwitch.listGeminiModels(env.GEMINI_API_KEY);
             const selected = await sovereignSwitch.getWorkingGeminiModel(env.GEMINI_API_KEY);
+            
+            // Find best model for image generation (creative tasks)
+            // Prefer: gemini-1.5-pro > gemini-1.5-flash > gemini-pro
+            let bestImageModel = selected;
+            const proModels = models.filter(m => m.includes('1.5-pro') || m.includes('pro'));
+            const flashModels = models.filter(m => m.includes('1.5-flash') || m.includes('flash'));
+            
+            if (proModels.length > 0) {
+              bestImageModel = proModels.find(m => m.includes('1.5-pro')) || proModels[0];
+            } else if (flashModels.length > 0) {
+              bestImageModel = flashModels.find(m => m.includes('1.5-flash')) || flashModels[0];
+            }
+            
             return new Response(
               JSON.stringify({ 
                 provider: "gemini",
                 models: models,
-                selected: selected
-              }), 
-              { 
+                selected: selected,
+                bestImageModel: bestImageModel
+              }),
+              {
                 status: 200,
-                headers: { 
+                headers: {
                   "Content-Type": "application/json",
                   "Access-Control-Allow-Origin": "*"
                 }
