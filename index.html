@@ -1405,10 +1405,15 @@
                 
                 <!-- Package Matches Section (hidden initially) -->
                 <div id="packageMatchesSection" style="display: none; margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1;">
-                    <h3 style="margin-bottom: 20px; color: #1a1a1a; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 24px;">🎯</span>
-                        <span data-ar="الأغلفة المناسبة" data-en="Matching Packages">الأغلفة المناسبة</span>
-                    </h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #1a1a1a; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">🎯</span>
+                            <span data-ar="الأغلفة المناسبة" data-en="Matching Packages">الأغلفة المناسبة</span>
+                        </h3>
+                        <div id="sortControlsContainer" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <!-- Sort controls will be inserted here -->
+                        </div>
+                    </div>
                     <div id="packageMatchesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
                         <!-- Package match cards will be rendered here -->
                     </div>
@@ -4587,20 +4592,20 @@
             // Store matches for sorting
             currentPackageMatches = matches;
             
-            // Add sort-by controls
-            const sortControls = `
-                <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 15px; padding: 15px; background: #f8f9fa; border-radius: 10px; flex-wrap: wrap;">
-                    <span style="font-weight: 600; color: #333;" data-ar="ترتيب حسب:" data-en="Sort by:">${currentLang === 'ar' ? 'ترتيب حسب:' : 'Sort by:'}</span>
-                    <button onclick="sortMatches('combined')" id="sortCombined" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'combined' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'combined' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'combined' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;" data-ar="الأفضل" data-en="Best Match">${currentLang === 'ar' ? 'الأفضل' : 'Best Match'}</button>
-                    <button onclick="sortMatches('fitness')" id="sortFitness" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'fitness' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'fitness' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'fitness' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;" data-ar="التطابق" data-en="Relevance">${currentLang === 'ar' ? 'التطابق' : 'Relevance'}</button>
-                    <button onclick="sortMatches('price')" id="sortPrice" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'price' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'price' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'price' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;" data-ar="السعر" data-en="Price">${currentLang === 'ar' ? 'السعر' : 'Price'}</button>
-                </div>
-            `;
+            // Add sort-by controls to the header container
+            const sortControlsContainer = document.getElementById('sortControlsContainer');
+            if (sortControlsContainer) {
+                sortControlsContainer.innerHTML = `
+                    <span style="font-weight: 600; color: #666; font-size: 14px;" data-ar="ترتيب حسب:" data-en="Sort by:">${currentLang === 'ar' ? 'ترتيب حسب:' : 'Sort by:'}</span>
+                    <button onclick="sortMatches('combined')" id="sortCombined" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'combined' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'combined' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'combined' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 14px;" data-ar="الأفضل" data-en="Best Match">${currentLang === 'ar' ? 'الأفضل' : 'Best Match'}</button>
+                    <button onclick="sortMatches('fitness')" id="sortFitness" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'fitness' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'fitness' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'fitness' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 14px;" data-ar="التطابق" data-en="Relevance">${currentLang === 'ar' ? 'التطابق' : 'Relevance'}</button>
+                    <button onclick="sortMatches('price')" id="sortPrice" style="padding: 8px 16px; border: 2px solid ${currentSortBy === 'price' ? '#FFC107' : '#e0e0e0'}; background: ${currentSortBy === 'price' ? '#FFC107' : 'white'}; color: ${currentSortBy === 'price' ? '#1a1a1a' : '#666'}; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 14px;" data-ar="السعر" data-en="Price">${currentLang === 'ar' ? 'السعر' : 'Price'}</button>
+                `;
+            }
             
             // Render matches
             const matchesHtml = renderMatches(matches);
-            
-            matchesContainer.innerHTML = sortControls + matchesHtml;
+            matchesContainer.innerHTML = matchesHtml;
             
             // Scroll to matches section
             matchesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -4651,10 +4656,9 @@
                 }
             });
             
-            // Update display
+            // Update display - keep sort controls in header, only update matches
             const matchesContainer = document.getElementById('packageMatchesContainer');
-            const sortControls = matchesContainer.innerHTML.split('</div>')[0] + '</div>';
-            matchesContainer.innerHTML = sortControls + renderMatches(sorted);
+            matchesContainer.innerHTML = renderMatches(sorted);
             
             // Update currentPackageMatches to reflect new order
             currentPackageMatches = sorted;
@@ -4698,9 +4702,18 @@
             console.log('[selectPackageMatch] Product name:', productName);
             console.log('[selectPackageMatch] Product photo:', productPhoto ? 'Yes' : 'No');
             
-            // Show loading state
+            // Show loading state - clear any previous images first
             const imageSection = document.getElementById('generatedImageSection');
             const imageContainer = document.getElementById('generatedImageContainer');
+            const generatedImage = document.getElementById('generatedPackageImage');
+            
+            // Clear any previous image to prevent caching issues
+            if (generatedImage) {
+                generatedImage.src = '';
+                generatedImage.removeAttribute('src');
+            }
+            generatedPackageImageUrl = null; // Clear cached URL
+            
             imageSection.style.display = 'block';
             imageContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;"><div style="font-size: 48px; margin-bottom: 15px;">🎨</div><div>' + (currentLang === 'ar' ? 'جاري إنشاء التصميم باستخدام الذكاء الاصطناعي...' : 'Generating design using AI...') + '</div></div>';
             imageSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -4814,16 +4827,24 @@ Return ONLY a detailed image description, no other text.`;
                 
                 // For now, use a placeholder that represents the concept
                 // In production, replace this with actual image generation
-                generatedPackageImageUrl = `https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&h=600&fit=crop&q=80`;
+                // Add cache-busting parameter to ensure fresh image
+                const cacheBuster = Date.now();
+                generatedPackageImageUrl = `https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&h=600&fit=crop&q=80&t=${cacheBuster}`;
                 
                 // Display generated image - update container directly instead of trying to set src on non-existent element
+                // Clear container first to prevent showing old images
+                imageContainer.innerHTML = '';
+                
+                // Add description and image
                 imageContainer.innerHTML = `
                     <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #FFC107;">
                         <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;" data-ar="وصف الصورة المولدة (بواسطة Gemini):" data-en="Generated Image Description (by Gemini):">${currentLang === 'ar' ? 'وصف الصورة المولدة (بواسطة Gemini):' : 'Generated Image Description (by Gemini):'}</div>
                         <div style="font-size: 13px; color: #333; font-style: italic; line-height: 1.6;">${imagePrompt.substring(0, 300)}${imagePrompt.length > 300 ? '...' : ''}</div>
                     </div>
-                    <img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+                    <img id="generatedPackageImage" src="${generatedPackageImageUrl}" alt="Generated Package Design" style="max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);" onerror="this.style.display='none'; this.parentElement.innerHTML+='<div style=\\'padding: 40px; text-align: center; color: #dc3545;\\'>Image failed to load</div>'">
                 `;
+                
+                console.log('[selectPackageMatch] Image URL set:', generatedPackageImageUrl);
                 
             } catch (error) {
                 console.error('[selectPackageMatch] ========== ERROR ==========');
