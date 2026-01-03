@@ -588,6 +588,13 @@
                     Connect Salla Store
                 </button>
                 <div id="sallaStatus" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+                <div id="redirectUriInfo" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; font-size: 12px;">
+                    <strong>⚠️ Important:</strong> Before connecting, make sure this Redirect URI is registered in your Salla app:<br>
+                    <code id="redirectUriDisplay" style="display: block; margin-top: 8px; padding: 8px; background: white; border-radius: 4px; word-break: break-all; font-family: monospace;"></code>
+                    <div style="margin-top: 8px; color: #856404;">
+                        Go to <a href="https://portal.salla.partners/apps/357944659" target="_blank" style="color: #00d4aa;">Salla Partners Portal</a> → Your App → Add this Redirect URI
+                    </div>
+                </div>
             </div>
             
             <div id="productInputSection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
@@ -2802,19 +2809,64 @@
         // Salla Integration Functions
         function connectSalla() {
             const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                alert('Please enter your Worker URL first');
+                return;
+            }
+            
+            // Ensure API URL has protocol
+            let baseUrl = apiUrl;
+            if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                baseUrl = 'https://' + baseUrl;
+            }
+            
+            // Remove trailing slash if present
+            baseUrl = baseUrl.replace(/\/$/, '');
+            
             // Get Salla OAuth URL - in production, this should come from your backend
-            // For now, we'll use a placeholder - you'll need to configure this
+            // IMPORTANT: This Client ID must match your Salla app
             const clientId = '0154f184-9ad8-4d2f-97c2-6beaf2334ed6'; // From your Salla app
-            const redirectUri = encodeURIComponent(`${apiUrl}/api/salla/callback`);
+            
+            // Construct redirect URI - MUST match exactly what's registered in Salla Partners portal
+            // Format: https://your-worker.workers.dev/api/salla/callback
+            const redirectUri = `${baseUrl}/api/salla/callback`;
+            
+            // IMPORTANT: The redirect_uri must be EXACTLY registered in your Salla app settings
+            // Go to: https://portal.salla.partners/apps/357944659
+            // Add this exact URL to your app's redirect URIs: ${redirectUri}
+            console.log('[connectSalla] Redirect URI:', redirectUri);
+            console.log('[connectSalla] Make sure this URL is registered in your Salla app settings!');
+            
             const state = Math.random().toString(36).substring(7);
             
-            const authUrl = `https://accounts.salla.sa/oauth2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=offline_access&state=${state}`;
+            // Build OAuth URL with properly encoded redirect_uri
+            const authUrl = `https://accounts.salla.sa/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=offline_access&state=${state}`;
             
             // Store state in sessionStorage
             sessionStorage.setItem('salla_oauth_state', state);
             
+            console.log('[connectSalla] OAuth URL:', authUrl);
+            
             // Open OAuth in new window or redirect
             window.location.href = authUrl;
+        }
+        
+        // Update redirect URI display
+        function updateRedirectUriDisplay() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                document.getElementById('redirectUriDisplay').textContent = 'Enter Worker URL above';
+                return;
+            }
+            
+            let baseUrl = apiUrl;
+            if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                baseUrl = 'https://' + baseUrl;
+            }
+            baseUrl = baseUrl.replace(/\/$/, '');
+            
+            const redirectUri = `${baseUrl}/api/salla/callback`;
+            document.getElementById('redirectUriDisplay').textContent = redirectUri;
         }
         
         // Check for OAuth callback
@@ -3105,9 +3157,17 @@
         
         // Initialize
         initializeFlow();
-        // Check for Salla callback on page load
+        // Check for Salla callback on page load and update redirect URI display
         window.addEventListener('DOMContentLoaded', function() {
             checkSallaCallback();
+            updateRedirectUriDisplay();
+            
+            // Update redirect URI when API URL changes
+            const apiUrlInput = document.getElementById('apiUrl');
+            if (apiUrlInput) {
+                apiUrlInput.addEventListener('input', updateRedirectUriDisplay);
+                apiUrlInput.addEventListener('change', updateRedirectUriDisplay);
+            }
         });
     </script>
 </body>

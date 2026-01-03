@@ -74,10 +74,35 @@ export default {
           expires_in?: number;
         };
 
-        // Redirect to frontend with token (in production, use secure cookie or session)
-        const frontendUrl = new URL(redirectUri);
-        frontendUrl.searchParams.set("access_token", tokenData.access_token || "");
-        frontendUrl.searchParams.set("state", state || "");
+        // Redirect to frontend with token
+        // The redirectUri should point back to sallaTest.html
+        // Try to construct frontend URL from redirectUri (replace callback with sallaTest.html)
+        let frontendUrl: URL;
+        try {
+          // Try to use redirectUri as base and replace the callback path
+          const baseUrl = new URL(redirectUri);
+          baseUrl.pathname = '/sallaTest.html';
+          baseUrl.searchParams.set("access_token", tokenData.access_token || "");
+          baseUrl.searchParams.set("state", state || "");
+          frontendUrl = baseUrl;
+        } catch (e) {
+          // Fallback: return token in JSON (for testing)
+          return new Response(
+            JSON.stringify({ 
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+              expires_in: tokenData.expires_in,
+              message: "OAuth successful! Copy the access_token and use it in your app."
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            }
+          );
+        }
 
         return Response.redirect(frontendUrl.toString(), 302);
 
