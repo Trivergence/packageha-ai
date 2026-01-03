@@ -845,8 +845,8 @@ export class PackagehaSession {
             return { reply: "I'm having trouble accessing the package catalog. Please try again later." };
         }
 
-        // NEW MATCHING LOGIC: LLM-based dimension reasoning + Scoring
-        console.log("[handleDiscovery] ========== NEW MATCHING LOGIC (LLM-based) ==========");
+        // NEW MATCHING LOGIC: Inclusive scoring only (no dimension filtering)
+        console.log("[handleDiscovery] ========== NEW MATCHING LOGIC (Inclusive Scoring) ==========");
         
         // Extract product information from memory
         const productDescription = memory.clipboard?.product_description || userMessage.split('\n')[0] || '';
@@ -855,6 +855,7 @@ export class PackagehaSession {
         console.log("[handleDiscovery] Product description:", productDescription);
         console.log("[handleDiscovery] Product dimensions text:", productDimensionsText);
         console.log("[handleDiscovery] isAutoSearch:", isAutoSearch);
+        console.log("[handleDiscovery] Total products available:", products.length);
         
         // Prepare inventory context
         const inventoryList = products.map((p, index) => {
@@ -863,10 +864,13 @@ export class PackagehaSession {
             return `ID ${index}: ${cleanTitle} (Price: ${price} SAR)`;
         }).join("\n");
         
-        // Build AI prompt for dimension-based matching + scoring
-        let systemPrompt = `You are a packaging expert. Your task is to:
-1. FILTER packages by dimensions: Only include packages that can fit the product (package dimensions must be larger than product dimensions). If a package has no dimension information, INCLUDE it anyway (it will be scored in step 2).
-2. SCORE the filtered packages based on:
+        // Build AI prompt for inclusive scoring (no filtering, only reject with clear reason)
+        let systemPrompt = `You are a packaging expert. Your task is to SCORE all packages and return the best matches.
+
+IMPORTANT RULES:
+1. BE INCLUSIVE: Include ALL packages unless there is a CLEAR, OBVIOUS reason to reject them (e.g., package is clearly for a completely different product category like "food containers" when searching for "electronics packaging").
+2. DO NOT filter by dimensions - include packages even if dimensions are unknown or seem small.
+3. SCORE all included packages based on:
    a) Fitness (70% weight): How well the package description matches keywords in the product description
    b) Price (30% weight): Lower price = higher score
 
@@ -877,7 +881,7 @@ Return ONLY a JSON object with this structure:
     {
       "id": <package_index>,
       "name": "<package_name>",
-      "reason": "Brief explanation of why it fits (dimensions) and match quality",
+      "reason": "Brief explanation of match quality",
       "fitnessScore": <0.0 to 1.0>,
       "priceScore": <0.0 to 1.0>,
       "combinedScore": <0.0 to 1.0>
@@ -885,7 +889,7 @@ Return ONLY a JSON object with this structure:
   ]
 }
 
-If no packages fit dimensions, return: { "type": "none", "reason": "..." }`;
+Only return "none" if there are literally NO packages in the inventory. Otherwise, return at least the top 5-10 matches.`;
 
         let userPrompt = `Inventory:\n${inventoryList}\n\n`;
         
@@ -893,11 +897,11 @@ If no packages fit dimensions, return: { "type": "none", "reason": "..." }`;
             userPrompt += `Product Information:\n`;
             userPrompt += `Product Description: ${productDescription}\n`;
             userPrompt += `Product Dimensions: ${productDimensionsText}\n\n`;
-            userPrompt += `Task: Filter packages that can fit these dimensions (package must be larger in all dimensions). If a package has no dimension data, include it anyway. Then score all filtered packages by keyword matching (70%) and price (30%). Return the top matches sorted by combined score.`;
+            userPrompt += `Task: Score ALL packages by keyword matching (70%) and price (30%). Include packages even if dimensions are unknown. Only exclude packages with a CLEAR reason (e.g., completely wrong product category). Return the top matches sorted by combined score.`;
         } else {
-            // User-initiated search - just keyword matching, no dimension filtering
+            // User-initiated search - just keyword matching
             userPrompt += `User Query: "${userMessage}"\n\n`;
-            userPrompt += `Task: Find packages that match the user's query based on keyword matching. Score by keyword relevance (70%) and price (30%). Return matches sorted by combined score.`;
+            userPrompt += `Task: Score ALL packages that match the user's query based on keyword matching (70%) and price (30%). Be inclusive - only exclude packages with a CLEAR reason. Return matches sorted by combined score.`;
         }
         
         console.log("[handleDiscovery] System prompt length:", systemPrompt.length);

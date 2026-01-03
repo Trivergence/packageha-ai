@@ -25,28 +25,70 @@ export interface ShopifyResponse {
 
 export async function getActiveProducts(shopUrl: string, token: string): Promise<ShopifyProduct[]> {
     const cleanShop = shopUrl.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
-    // Include images in the response
-    const url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=50&fields=id,title,images,variants`;
+    const allProducts: ShopifyProduct[] = [];
+    let pageInfo: string | null = null;
+    let page = 1;
+    const limit = 250; // Shopify max per page
 
     try {
-        const response = await fetch(url, {
-            method: "GET",
-            headers: {
-                "X-Shopify-Access-Token": token,
-                "Content-Type": "application/json"
+        do {
+            // Build URL with pagination
+            let url = `https://${cleanShop}/admin/api/2024-01/products.json?status=active&limit=${limit}&fields=id,title,images,variants`;
+            if (pageInfo) {
+                url += `&page_info=${pageInfo}`;
             }
-        });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Shopify API Error ${response.status}: ${errorText}`);
-        }
+            console.log(`[getActiveProducts] Fetching page ${page}...`);
+            const response = await fetch(url, {
+                method: "GET",
+                headers: {
+                    "X-Shopify-Access-Token": token,
+                    "Content-Type": "application/json"
+                }
+            });
 
-        const data = await response.json() as ShopifyResponse;
-        return data.products || [];
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Shopify API Error ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json() as ShopifyResponse;
+            const products = data.products || [];
+            allProducts.push(...products);
+
+            // Check for pagination (Link header or check if we got less than limit)
+            const linkHeader = response.headers.get("Link");
+            if (linkHeader && linkHeader.includes('rel="next"')) {
+                // Extract page_info from Link header
+                const nextMatch = linkHeader.match(/<[^>]*page_info=([^&>]+)[^>]*>; rel="next"/);
+                pageInfo = nextMatch ? decodeURIComponent(nextMatch[1]) : null;
+                page++;
+            } else if (products.length < limit) {
+                // No more pages
+                pageInfo = null;
+            } else {
+                // Assume there might be more, but we'll stop after reasonable limit
+                if (page >= 10) { // Safety limit: max 10 pages = 2500 products
+                    console.log("[getActiveProducts] Reached safety limit of 10 pages");
+                    pageInfo = null;
+                } else {
+                    pageInfo = null; // Stop if we can't determine next page
+                }
+            }
+
+            console.log(`[getActiveProducts] Page ${page - 1}: ${products.length} products, Total so far: ${allProducts.length}`);
+        } while (pageInfo);
+
+        console.log(`[getActiveProducts] Total products fetched: ${allProducts.length}`);
+        return allProducts;
 
     } catch (error: any) {
         console.error("[getActiveProducts] Error:", error);
+        // If we got some products before error, return them
+        if (allProducts.length > 0) {
+            console.log(`[getActiveProducts] Returning ${allProducts.length} products despite error`);
+            return allProducts;
+        }
         throw new Error(`Failed to fetch products: ${error.message}`);
     }
 }
