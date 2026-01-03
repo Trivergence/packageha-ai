@@ -1258,6 +1258,131 @@
             </div>
         </div>
         
+        <!-- Design Package Dialog -->
+        <div id="designPackageModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <h2 style="margin: 0; color: #1a1a1a;" data-ar="تصميم غلاف" data-en="Design Package">تصميم غلاف</h2>
+                    <button onclick="closeDesignPackageDialog()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #666; line-height: 1;">&times;</button>
+                </div>
+                
+                <!-- Package Selection Section -->
+                <div id="packageSelectionForm" style="margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;" data-ar="مواصفات الغلاف" data-en="Package Specifications">مواصفات الغلاف</h3>
+                    
+                    <!-- Material -->
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="هل لديك تفضيل للمادة؟" data-en="Do you have a preference for Material?">هل لديك تفضيل للمادة؟</label>
+                        <select id="packageMaterial" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
+                            <option value="Corrugated" data-ar="مموج" data-en="Corrugated">Corrugated</option>
+                            <option value="Folding Carton" data-ar="صندوق قابل للطي" data-en="Folding Carton">Folding Carton</option>
+                            <option value="Rigid Box" data-ar="صندوق صلب" data-en="Rigid Box">Rigid Box</option>
+                            <option value="Paperboard" data-ar="ورق مقوى" data-en="Paperboard">Paperboard</option>
+                            <option value="Kraft" data-ar="كرافت" data-en="Kraft">Kraft</option>
+                            <option value="White Cardboard" data-ar="كرتون أبيض" data-en="White Cardboard">White Cardboard</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Printing/Finish -->
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="أخبرني عن الطباعة/اللمسات النهائية." data-en="Tell me about the Printing/Finish.">أخبرني عن الطباعة/اللمسات النهائية.</label>
+                        
+                        <!-- Printing Type (Radio - mutually exclusive) -->
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #666; font-size: 13px;" data-ar="نوع الطباعة (اختر واحداً)" data-en="Printing Type (Select one)">نوع الطباعة (اختر واحداً)</div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="radio" name="packagePrintType" value="Full color printing" id="printFullColor" style="margin: 0;">
+                                    <span data-ar="طباعة ملونة كاملة" data-en="Full color printing">Full color printing</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="radio" name="packagePrintType" value="Logo only" id="printLogoOnly" style="margin: 0;">
+                                    <span data-ar="الشعار فقط" data-en="Logo only">Logo only</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="radio" name="packagePrintType" value="No printing" id="printNone" style="margin: 0;">
+                                    <span data-ar="بدون طباعة" data-en="No printing">No printing</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Finishing Options (Checkboxes - can select multiple) -->
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #666; font-size: 13px;" data-ar="خيارات اللمسات النهائية (يمكن اختيار عدة خيارات)" data-en="Finishing Options (Select multiple)">خيارات اللمسات النهائية (يمكن اختيار عدة خيارات)</div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="Gold foil" id="finishGoldFoil" style="margin: 0;">
+                                    <span data-ar="رقائق ذهبية" data-en="Gold foil">Gold foil</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="Silver foil" id="finishSilverFoil" style="margin: 0;">
+                                    <span data-ar="رقائق فضية" data-en="Silver foil">Silver foil</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="Matte lamination" id="finishMatte" style="margin: 0;">
+                                    <span data-ar="تغليف غير لامع" data-en="Matte lamination">Matte lamination</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="Glossy lamination" id="finishGlossy" style="margin: 0;">
+                                    <span data-ar="تغليف لامع" data-en="Glossy lamination">Glossy lamination</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="UV coating" id="finishUV" style="margin: 0;">
+                                    <span data-ar="طلاء UV" data-en="UV coating">UV coating</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="Embossing" id="finishEmboss" style="margin: 0;">
+                                    <span data-ar="نقش بارز" data-en="Embossing">Embossing</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.borderColor='#1a1a1a'; this.style.background='#f5f7fa'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.background='white'">
+                                    <input type="checkbox" value="Debossing" id="finishDeboss" style="margin: 0;">
+                                    <span data-ar="نقش غائر" data-en="Debossing">Debossing</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fulfillment Specs Section -->
+                <div id="fulfillmentSpecsForm" style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e8ecf1;">
+                    <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;" data-ar="مواصفات التنفيذ" data-en="Fulfillment Specifications">مواصفات التنفيذ</h3>
+                    
+                    <!-- Timeline -->
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="متى هو الموعد النهائي للتسليم؟" data-en="When is your deadline for delivery?">متى هو الموعد النهائي للتسليم؟</label>
+                        <select id="fulfillmentTimeline" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;">
+                            <option value="" data-ar="اختر..." data-en="Select...">اختر...</option>
+                            <option value="1-2 weeks" data-ar="1-2 أسابيع" data-en="1-2 weeks">1-2 weeks</option>
+                            <option value="2-4 weeks" data-ar="2-4 أسابيع" data-en="2-4 weeks">2-4 weeks</option>
+                            <option value="1-2 months" data-ar="1-2 أشهر" data-en="1-2 months">1-2 months</option>
+                            <option value="2-3 months" data-ar="2-3 أشهر" data-en="2-3 months">2-3 months</option>
+                            <option value="3+ months" data-ar="3+ أشهر" data-en="3+ months">3+ months</option>
+                            <option value="Flexible" data-ar="مرن" data-en="Flexible">Flexible</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Shipping Address -->
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label data-ar="أين يجب أن نسلم الطلب؟ (يرجى تقديم عنوان الشحن أو المدينة/المنطقة)" data-en="Where should we deliver the order? (Please provide shipping address or city/region)">أين يجب أن نسلم الطلب؟ (يرجى تقديم عنوان الشحن أو المدينة/المنطقة)</label>
+                        <textarea id="fulfillmentShippingAddress" data-ar-placeholder="أدخل عنوان الشحن أو المدينة والمنطقة..." data-en-placeholder="Enter shipping address or city/region..." placeholder="Enter shipping address or city/region..." style="width: 100%; min-height: 80px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    
+                    <!-- Special Instructions -->
+                    <div class="input-group">
+                        <label data-ar="أي تعليمات تنفيذ خاصة أو متطلبات؟ (اختياري - اكتب 'لا شيء' للتخطي)" data-en="Any special fulfillment instructions or requirements? (optional - type 'none' to skip)">أي تعليمات تنفيذ خاصة أو متطلبات؟ (اختياري - اكتب 'لا شيء' للتخطي)</label>
+                        <textarea id="fulfillmentSpecialInstructions" data-ar-placeholder="أدخل أي تعليمات خاصة أو اكتب 'لا شيء'..." data-en-placeholder="Enter any special instructions or type 'none'..." placeholder="Enter any special instructions or type 'none'..." style="width: 100%; min-height: 80px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Dialog Actions -->
+                <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="closeDesignPackageDialog()" style="padding: 12px 24px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="إلغاء" data-en="Cancel">إلغاء</button>
+                    <button onclick="submitDesignPackage()" style="padding: 12px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;" data-ar="بدء التصميم" data-en="Start Design">بدء التصميم</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="steps-container" id="stepsContainer">
             <!-- Steps will be dynamically generated -->
         </div>
@@ -4130,6 +4255,81 @@
             const product = demoProducts.find(p => p.id === productId);
             if (!product) return;
             
+            // Store product ID for later use
+            window.currentDesignProductId = productId;
+            
+            // Show the design package dialog
+            showDesignPackageDialog();
+        }
+        
+        function showDesignPackageDialog() {
+            const modal = document.getElementById('designPackageModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                // Reset form
+                document.getElementById('packageMaterial').value = '';
+                document.querySelectorAll('input[name="packagePrintType"]').forEach(radio => radio.checked = false);
+                document.querySelectorAll('input[type="checkbox"][id^="finish"]').forEach(checkbox => checkbox.checked = false);
+                document.getElementById('fulfillmentTimeline').value = '';
+                document.getElementById('fulfillmentShippingAddress').value = '';
+                document.getElementById('fulfillmentSpecialInstructions').value = '';
+            }
+        }
+        
+        function closeDesignPackageDialog() {
+            const modal = document.getElementById('designPackageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function submitDesignPackage() {
+            // Collect form data
+            const packageData = {
+                material: document.getElementById('packageMaterial').value,
+                printType: document.querySelector('input[name="packagePrintType"]:checked')?.value || '',
+                finishing: Array.from(document.querySelectorAll('input[type="checkbox"][id^="finish"]:checked')).map(cb => cb.value),
+                timeline: document.getElementById('fulfillmentTimeline').value,
+                shippingAddress: document.getElementById('fulfillmentShippingAddress').value.trim(),
+                specialInstructions: document.getElementById('fulfillmentSpecialInstructions').value.trim()
+            };
+            
+            // Validate required fields
+            if (!packageData.material) {
+                alert(currentLang === 'ar' ? 'يرجى اختيار المادة' : 'Please select a material');
+                return;
+            }
+            
+            if (!packageData.printType) {
+                alert(currentLang === 'ar' ? 'يرجى اختيار نوع الطباعة' : 'Please select a printing type');
+                return;
+            }
+            
+            if (!packageData.timeline) {
+                alert(currentLang === 'ar' ? 'يرجى اختيار الموعد النهائي' : 'Please select a timeline');
+                return;
+            }
+            
+            if (!packageData.shippingAddress) {
+                alert(currentLang === 'ar' ? 'يرجى إدخال عنوان الشحن' : 'Please enter shipping address');
+                return;
+            }
+            
+            // Close dialog
+            closeDesignPackageDialog();
+            
+            // Get product info (if available)
+            const productId = window.currentDesignProductId;
+            let message = '';
+            
+            if (productId) {
+                const product = demoProducts.find(p => p.id === productId);
+                if (product) {
+                    const productName = currentLang === 'ar' ? product.nameAr : product.nameEn;
+                    message = productName;
+                }
+            }
+            
             // Show the wizard
             const stepsContainer = document.getElementById('stepsContainer');
             if (stepsContainer) {
@@ -4137,21 +4337,34 @@
                 stepsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
-            // Start the design flow with product name
-            const productName = currentLang === 'ar' ? product.nameAr : product.nameEn;
-            startDesignFlowWithProduct(productName);
+            // Add package specs to message
+            if (packageData.material) {
+                message += `\nMaterial: ${packageData.material}`;
+            }
+            if (packageData.printType) {
+                message += `\nPrinting: ${packageData.printType}`;
+            }
+            if (packageData.finishing.length > 0) {
+                message += `\nFinishing: ${packageData.finishing.join(', ')}`;
+            }
+            if (packageData.timeline) {
+                message += `\nTimeline: ${packageData.timeline}`;
+            }
+            if (packageData.shippingAddress) {
+                message += `\nShipping: ${packageData.shippingAddress}`;
+            }
+            if (packageData.specialInstructions && packageData.specialInstructions.toLowerCase() !== 'none') {
+                message += `\nSpecial Instructions: ${packageData.specialInstructions}`;
+            }
+            
+            // Start the design flow with all collected information
+            startDesignFlowWithProduct(message);
         }
         
         async function startDesignFlow() {
-            // Show the wizard
-            const stepsContainer = document.getElementById('stepsContainer');
-            if (stepsContainer) {
-                stepsContainer.classList.add('visible');
-                stepsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            
-            // Initialize the flow with empty message
-            await startDesignFlowWithProduct('');
+            // Show the design package dialog instead of directly starting the wizard
+            window.currentDesignProductId = null; // No specific product
+            showDesignPackageDialog();
         }
         
         async function initializeFlow() {
