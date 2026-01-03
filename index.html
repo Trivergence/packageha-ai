@@ -4425,17 +4425,6 @@
                         : `<div class="photo-placeholder" style="margin-bottom: 8px;">📦</div>`;
                     const productName = isAr ? product.nameAr : product.nameEn;
                     
-                    // Store icons under product description
-                    const host = hostConfig[product.host] || hostConfig.custom;
-                    const storeIcons = `
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px;">
-                            <div class="store-source-icon" style="background: ${host.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; width: 20px; height: 20px; border-radius: 4px;" title="${product.storeName}">
-                                ${host.icon}
-                            </div>
-                            <span style="font-size: 11px; color: #666;">${product.storeName}</span>
-                        </div>
-                    `;
-                    
                     const deleteProductIcon = `
                         <button onclick="deleteProduct(${product.id})" 
                                 style="background: none; border: none; cursor: pointer; padding: 4px; color: #dc3545; font-size: 18px; transition: all 0.2s;"
@@ -4446,12 +4435,24 @@
                         </button>
                     `;
                     
+                    const editProductIcon = `
+                        <button onclick="editProduct(${product.id})" 
+                                style="background: none; border: none; cursor: pointer; padding: 4px; color: #007bff; font-size: 18px; transition: all 0.2s;"
+                                onmouseover="this.style.transform='scale(1.2)'; this.style.color='#0056b3';"
+                                onmouseout="this.style.transform='scale(1)'; this.style.color='#007bff';"
+                                title="${isAr ? 'تعديل المنتج' : 'Edit Product'}">
+                            ✏️
+                        </button>
+                    `;
+                    
                     const productCell = `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;">
-                            <div style="position: absolute; top: -5px; right: -5px;">${deleteProductIcon}</div>
+                            <div style="position: absolute; top: -5px; right: -5px; display: flex; gap: 4px;">
+                                ${editProductIcon}
+                                ${deleteProductIcon}
+                            </div>
                             ${productPhoto}
                             <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${productName}</div>
-                            ${storeIcons}
                         </div>
                     `;
                     
@@ -4469,9 +4470,21 @@
                                 🗑️
                             </button>
                         `;
+                        const editPackageIcon = `
+                            <button onclick="editPackage(${product.id})" 
+                                    style="background: none; border: none; cursor: pointer; padding: 4px; color: #007bff; font-size: 18px; transition: all 0.2s;"
+                                    onmouseover="this.style.transform='scale(1.2)'; this.style.color='#0056b3';"
+                                    onmouseout="this.style.transform='scale(1)'; this.style.color='#007bff';"
+                                    title="${isAr ? 'تعديل الغلاف' : 'Edit Package'}">
+                                ✏️
+                            </button>
+                        `;
                         packageCell = `
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;">
-                                <div style="position: absolute; top: -5px; right: -5px;">${deletePackageIcon}</div>
+                                <div style="position: absolute; top: -5px; right: -5px; display: flex; gap: 4px;">
+                                    ${editPackageIcon}
+                                    ${deletePackageIcon}
+                                </div>
                                 <img src="${product.packagePhoto}" alt="${packageName}" class="package-photo">
                                 <div style="font-weight: 600; color: #1a1a1a; text-align: center;">${packageName}</div>
                             </div>
@@ -4530,6 +4543,112 @@
                     </tr>
                 `;
             }).join('');
+        }
+        
+        function editProduct(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            // Store the product ID being edited
+            window.editingProductId = productId;
+            
+            // Populate form with existing data
+            newProductData = {
+                photo: product.productPhoto || null,
+                description: product.description || product.nameAr || product.nameEn || '',
+                dimensions: product.dimensions || '',
+                weight: product.weight || '',
+                fragility: product.fragility || '',
+                budget: product.budget || '',
+                linkedProducts: product.linkedProducts || []
+            };
+            
+            // Set form fields
+            const descField = document.getElementById('newProductDescription');
+            if (descField) descField.value = newProductData.description;
+            
+            // Parse dimensions if available
+            if (newProductData.dimensions) {
+                const dimsMatch = newProductData.dimensions.match(/Length\s+(\d+(?:\.\d+)?)\s*cm.*Width\s+(\d+(?:\.\d+)?)\s*cm.*Height\s+(\d+(?:\.\d+)?)\s*cm/i);
+                if (dimsMatch) {
+                    const lengthField = document.getElementById('productLength');
+                    const widthField = document.getElementById('productWidth');
+                    const heightField = document.getElementById('productHeight');
+                    if (lengthField) lengthField.value = dimsMatch[1];
+                    if (widthField) widthField.value = dimsMatch[2];
+                    if (heightField) heightField.value = dimsMatch[3];
+                }
+            } else {
+                const lengthField = document.getElementById('productLength');
+                const widthField = document.getElementById('productWidth');
+                const heightField = document.getElementById('productHeight');
+                if (lengthField) lengthField.value = '';
+                if (widthField) widthField.value = '';
+                if (heightField) heightField.value = '';
+            }
+            
+            const weightField = document.getElementById('newProductWeight');
+            if (weightField) weightField.value = newProductData.weight;
+            
+            const fragilityField = document.getElementById('newProductFragility');
+            if (fragilityField) fragilityField.value = newProductData.fragility;
+            
+            const budgetField = document.getElementById('newProductBudget');
+            if (budgetField) budgetField.value = newProductData.budget;
+            
+            // Set photo preview
+            if (newProductData.photo) {
+                const photoImg = document.getElementById('newProductPhotoImg');
+                const photoPreview = document.getElementById('newProductPhotoPreview');
+                const photoPlaceholder = document.getElementById('newProductPhotoPlaceholder');
+                if (photoImg && photoPreview && photoPlaceholder) {
+                    photoImg.src = newProductData.photo;
+                    photoPreview.style.display = 'block';
+                    photoPlaceholder.style.display = 'none';
+                }
+            } else {
+                const photoPreview = document.getElementById('newProductPhotoPreview');
+                const photoPlaceholder = document.getElementById('newProductPhotoPlaceholder');
+                if (photoPreview && photoPlaceholder) {
+                    photoPreview.style.display = 'none';
+                    photoPlaceholder.style.display = 'block';
+                }
+            }
+            
+            // Update linked products table
+            renderLinkedProductsTable();
+            
+            // Show dialog
+            showAddProductDialog();
+            
+            // Update dialog title
+            const dialogTitle = document.querySelector('#addProductModal h2');
+            if (dialogTitle) {
+                dialogTitle.setAttribute('data-ar', 'تعديل منتج');
+                dialogTitle.setAttribute('data-en', 'Edit Product');
+                dialogTitle.textContent = currentLang === 'ar' ? 'تعديل منتج' : 'Edit Product';
+            }
+        }
+        
+        function editPackage(productId) {
+            const product = demoProducts.find(p => p.id === productId);
+            if (!product || !product.hasPackage) {
+                alert(currentLang === 'ar' 
+                    ? 'هذا المنتج لا يحتوي على غلاف للتحرير'
+                    : 'This product does not have a package to edit');
+                return;
+            }
+            
+            // Store the product ID being edited
+            window.currentDesignProductId = productId;
+            window.editingPackageProductId = productId;
+            
+            // Open design package dialog
+            showDesignPackageDialog();
+            
+            // Note: Package specs (material, print type, finishing) are not stored in product object
+            // So we just open the dialog and let user re-select if needed
+            // The package name and photo are already set in the product
         }
         
         function deleteProduct(productId) {
@@ -5660,16 +5779,19 @@ Return ONLY a detailed image description, no other text.`;
             const modal = document.getElementById('addProductModal');
             if (modal) {
                 modal.style.display = 'flex';
-                // Reset form
-                newProductData = {
-                    photo: null,
-                    description: '',
-                    dimensions: '',
-                    weight: '',
-                    fragility: '',
-                    budget: '',
-                    linkedProducts: []
-                };
+                
+                // Only reset if not editing
+                if (!window.editingProductId) {
+                    // Reset form
+                    newProductData = {
+                        photo: null,
+                        description: '',
+                        dimensions: '',
+                        weight: '',
+                        fragility: '',
+                        budget: '',
+                        linkedProducts: []
+                    };
                 const descField = document.getElementById('newProductDescription');
                 if (descField) descField.value = '';
                 
@@ -5709,6 +5831,15 @@ Return ONLY a detailed image description, no other text.`;
             const modal = document.getElementById('addProductModal');
             if (modal) {
                 modal.style.display = 'none';
+                // Clear editing flag
+                delete window.editingProductId;
+                // Reset dialog title
+                const dialogTitle = document.querySelector('#addProductModal h2');
+                if (dialogTitle) {
+                    dialogTitle.setAttribute('data-ar', 'إضافة منتج جديد');
+                    dialogTitle.setAttribute('data-en', 'Add New Product');
+                    dialogTitle.textContent = currentLang === 'ar' ? 'إضافة منتج جديد' : 'Add New Product';
+                }
             }
         }
         
@@ -5907,23 +6038,54 @@ Return ONLY a detailed image description, no other text.`;
             const productNameAr = productName;
             const productNameEn = productName;
             
-            // Add to demo products
+            // Check if editing existing product
+            let productToUpdate;
+            if (window.editingProductId) {
+                productToUpdate = demoProducts.find(p => p.id === window.editingProductId);
+            }
+            
+            // Add to demo products or update existing
             const newProduct = {
-                id: Date.now(),
+                id: productToUpdate ? productToUpdate.id : Date.now(),
                 nameAr: productNameAr,
                 nameEn: productNameEn,
                 productPhoto: newProductData.photo || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop',
-                packageAr: null,
-                packageEn: null,
-                packagePhoto: null,
-                storeId: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeId : 1,
-                storeName: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeName : 'Demo Store',
-                host: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].host : 'custom',
-                stockAmount: 0,
-                hasPackage: false
+                packageAr: productToUpdate ? productToUpdate.packageAr : null,
+                packageEn: productToUpdate ? productToUpdate.packageEn : null,
+                packagePhoto: productToUpdate ? productToUpdate.packagePhoto : null,
+                packageId: productToUpdate ? productToUpdate.packageId : null,
+                packageVariantId: productToUpdate ? productToUpdate.packageVariantId : null,
+                storeId: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeId : (productToUpdate ? productToUpdate.storeId : 1),
+                storeName: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].storeName : (productToUpdate ? productToUpdate.storeName : 'Demo Store'),
+                host: newProductData.linkedProducts.length > 0 ? newProductData.linkedProducts[0].host : (productToUpdate ? productToUpdate.host : 'custom'),
+                stockAmount: productToUpdate ? productToUpdate.stockAmount : 0,
+                hasPackage: productToUpdate ? productToUpdate.hasPackage : false,
+                // Store product details for editing
+                description: newProductData.description,
+                dimensions: newProductData.dimensions,
+                weight: newProductData.weight,
+                fragility: newProductData.fragility,
+                budget: newProductData.budget,
+                linkedProducts: newProductData.linkedProducts
             };
             
-            demoProducts.push(newProduct);
+            if (productToUpdate) {
+                // Update existing product
+                Object.assign(productToUpdate, newProduct);
+                delete window.editingProductId;
+            } else {
+                // Add new product
+                demoProducts.push(newProduct);
+            }
+            
+            // Reset dialog title
+            const dialogTitle = document.querySelector('#addProductModal h2');
+            if (dialogTitle) {
+                dialogTitle.setAttribute('data-ar', 'إضافة منتج جديد');
+                dialogTitle.setAttribute('data-en', 'Add New Product');
+                dialogTitle.textContent = currentLang === 'ar' ? 'إضافة منتج جديد' : 'Add New Product';
+            }
+            
             renderInventoryTable();
             closeAddProductDialog();
         }
