@@ -4601,6 +4601,9 @@
             const matchesHtml = renderMatches(matches);
             
             matchesContainer.innerHTML = sortControls + matchesHtml;
+            
+            // Scroll to matches section
+            matchesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         
         function renderMatches(matches) {
@@ -4671,10 +4674,6 @@
                     }
                 }
             });
-        }
-            
-            // Scroll to matches section
-            matchesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         
         async function selectPackageMatch(index) {
