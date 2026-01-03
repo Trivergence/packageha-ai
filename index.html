@@ -4235,12 +4235,12 @@
             
             // Add Connect Store button
             storesHtml += `
-                <div style="position: relative; display: flex; align-items: stretch;" onclick="event.stopPropagation();">
-                    <button onclick="toggleConnectMenu()" class="connect-store-btn">
+                <div style="position: relative; display: flex; align-items: stretch;">
+                    <button onclick="toggleConnectMenu(); event.stopPropagation();" class="connect-store-btn">
                         <span>+</span>
                         <span data-ar="ربط متجر" data-en="Connect Store">${currentLang === 'ar' ? 'ربط متجر' : 'Connect Store'}</span>
                     </button>
-                    <div id="connectMenu" class="connect-menu">
+                    <div id="connectMenu" class="connect-menu" onclick="event.stopPropagation();">
                         <div class="connect-menu-item" onclick="connectStore('salla')">
                             <div class="connect-menu-item-icon" style="background: #f5f7fa;">🛍️</div>
                             <div class="connect-menu-item-text" data-ar="سلة" data-en="Salla">${currentLang === 'ar' ? 'سلة' : 'Salla'}</div>
@@ -4423,8 +4423,13 @@
         // Close connect menu when clicking outside
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('connectMenu');
-            const btn = document.querySelector('.connect-store-btn');
-            if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+            if (!menu) return;
+            
+            // Check if click is inside the menu or on any connect store button
+            const clickedInsideMenu = menu.contains(e.target);
+            const clickedOnButton = e.target.closest('.connect-store-btn');
+            
+            if (!clickedInsideMenu && !clickedOnButton) {
                 menu.classList.remove('visible');
             }
         });
