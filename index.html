@@ -4401,14 +4401,8 @@
                             </div>
                         `;
                     } else {
-                        stockActionCell = `
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
-                                <div style="font-size: 14px; color: #666;" data-ar="المخزون:" data-en="Stock:">${currentLang === 'ar' ? 'المخزون:' : 'Stock:'} ${stockDisplay}</div>
-                                <button onclick="orderPackageForProduct(${product.id})" class="design-btn" style="width: 100%; max-width: 200px;">
-                                    ${orderBtnText}
-                                </button>
-                            </div>
-                        `;
+                        // Empty cell when no package is designed
+                        stockActionCell = '';
                     }
                 
                 return `
@@ -4435,8 +4429,8 @@
                 return;
             }
             
-            // If package exists, show the wizard to proceed with ordering
-            designPackageForProduct(productId);
+            // Show the order package dialog (not design package dialog)
+            showOrderPackageDialog(productId);
         }
         
         function designPackageForProduct(productId) {
