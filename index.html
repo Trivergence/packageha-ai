@@ -4994,7 +4994,12 @@ Return ONLY a detailed image description, no other text.`;
                     linkedProducts: []
                 };
                 document.getElementById('newProductDescription').value = '';
-                document.getElementById('newProductDimensions').value = '';
+                const lengthField = document.getElementById('productLength');
+                const widthField = document.getElementById('productWidth');
+                const heightField = document.getElementById('productHeight');
+                if (lengthField) lengthField.value = '';
+                if (widthField) widthField.value = '';
+                if (heightField) heightField.value = '';
                 document.getElementById('newProductWeight').value = '';
                 document.getElementById('newProductFragility').value = '';
                 document.getElementById('newProductBudget').value = '';
@@ -5165,7 +5170,19 @@ Return ONLY a detailed image description, no other text.`;
         function saveNewProduct() {
             // Collect form data
             newProductData.description = document.getElementById('newProductDescription').value.trim();
-            newProductData.dimensions = document.getElementById('newProductDimensions').value.trim();
+            
+            // Get dimensions from three separate fields
+            const length = parseFloat(document.getElementById('productLength')?.value || '0');
+            const width = parseFloat(document.getElementById('productWidth')?.value || '0');
+            const height = parseFloat(document.getElementById('productHeight')?.value || '0');
+            
+            // Format dimensions string
+            if (length > 0 && width > 0 && height > 0) {
+                newProductData.dimensions = `Length ${length} cm × Width ${width} cm × Height ${height} cm`;
+            } else {
+                newProductData.dimensions = '';
+            }
+            
             newProductData.weight = document.getElementById('newProductWeight').value.trim();
             newProductData.fragility = document.getElementById('newProductFragility').value;
             newProductData.budget = document.getElementById('newProductBudget').value;
