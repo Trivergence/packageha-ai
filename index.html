@@ -49,30 +49,85 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #FFC107 0%, #FFD54F 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #FFC107 0%, #FFD54F 50%, #FFC107 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 15px;
         }
         
         .container {
             max-width: 1200px;
             margin: 0 auto;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             overflow: hidden;
         }
         
         .header {
-            background: #FFC107;
+            background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
             color: #000;
-            padding: 20px 30px;
+            padding: 25px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         
         .header h1 {
-            font-size: 24px;
-            margin-bottom: 15px;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .lang-toggle {
+            display: flex;
+            gap: 5px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 20px;
+            padding: 5px;
+        }
+        
+        .lang-toggle button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 15px;
+            background: transparent;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .lang-toggle button.active {
+            background: #000;
+            color: #FFC107;
         }
         
         .config-section {
@@ -111,6 +166,11 @@
         
         .steps-container {
             padding: 30px;
+            display: none; /* Hidden by default */
+        }
+        
+        .steps-container.visible {
+            display: block;
         }
         
         .step-section {
@@ -553,7 +613,160 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         
+        /* Inventory Table Styles */
+        .inventory-section {
+            padding: 30px;
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .inventory-section h2 {
+            margin-bottom: 25px;
+            color: #333;
+            font-size: 22px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .inventory-table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            min-width: 600px;
+        }
+        
+        .inventory-table thead {
+            background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
+            color: #000;
+        }
+        
+        .inventory-table th {
+            padding: 15px;
+            text-align: right;
+            font-weight: 700;
+            font-size: 14px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .inventory-table th:last-child,
+        .inventory-table td:last-child {
+            text-align: center;
+        }
+        
+        .inventory-table td {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            background: white;
+        }
+        
+        .inventory-table tbody tr {
+            transition: all 0.2s;
+        }
+        
+        .inventory-table tbody tr:hover {
+            background: #FFF9E6;
+        }
+        
+        .restock-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            display: inline-block;
+        }
+        
+        .restock-available {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .restock-out {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .design-btn {
+            padding: 10px 20px;
+            background: #000;
+            color: #FFC107;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .design-btn:hover {
+            background: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .linked-badge {
+            color: #28a745;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .no-products-message {
+            text-align: center;
+            padding: 50px 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        
+        .no-products-message p {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+        
         @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                border-radius: 16px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .inventory-section {
+                padding: 20px 15px;
+            }
+            
+            .inventory-section h2 {
+                font-size: 18px;
+            }
+            
+            .inventory-table {
+                font-size: 13px;
+            }
+            
+            .inventory-table th,
+            .inventory-table td {
+                padding: 10px 8px;
+            }
+            
             .dimensions-row {
                 grid-template-columns: 1fr;
             }
@@ -565,29 +778,55 @@
             .steps-container {
                 padding: 15px;
             }
+            
+            .design-btn {
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 18px;
+            }
+            
+            .inventory-table {
+                font-size: 11px;
+            }
+            
+            .inventory-table th,
+            .inventory-table td {
+                padding: 8px 5px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>بكجها - تصميم أغلفة المنتجات</h1>
+            <div class="header-content">
+                <h1 data-ar="بكجها - تصميم أغلفة المنتجات" data-en="Packageha - Product Package Design">بكجها - تصميم أغلفة المنتجات</h1>
+                <div class="lang-toggle">
+                    <button onclick="setLanguage('ar')" id="langAr" class="active">العربية</button>
+                    <button onclick="setLanguage('en')" id="langEn">English</button>
+                </div>
+            </div>
             <div class="config-section" style="display: none;">
                 <input type="text" id="apiUrl" placeholder="Worker URL" value="https://packageha-ai.akhodary-006.workers.dev">
             </div>
         </div>
         
         <!-- Inventory Table Section -->
-        <div id="inventorySection" style="padding: 30px; background: white; border-bottom: 2px solid #e0e0e0;">
-            <h2 style="margin-bottom: 20px; color: #333; font-size: 20px; font-weight: 600;">📦 مخزون الأغلفة والمنتجات</h2>
-            <div style="overflow-x: auto;">
-                <table id="inventoryTable" style="width: 100%; border-collapse: collapse; background: white;">
+        <div id="inventorySection" class="inventory-section">
+            <h2 data-ar="📦 مخزون الأغلفة والمنتجات" data-en="📦 Package & Product Inventory">📦 مخزون الأغلفة والمنتجات</h2>
+            <div class="inventory-table-wrapper">
+                <table id="inventoryTable" class="inventory-table">
                     <thead>
-                        <tr style="background: #FFC107; color: #000;">
-                            <th style="padding: 12px; text-align: right; border: 1px solid #ddd; font-weight: 600;">الغلاف</th>
-                            <th style="padding: 12px; text-align: right; border: 1px solid #ddd; font-weight: 600;">المنتجات المرتبطة</th>
-                            <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: 600;">إعادة التخزين</th>
-                            <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: 600;">إجراءات</th>
+                        <tr>
+                            <th data-ar="الغلاف" data-en="Package">الغلاف</th>
+                            <th data-ar="المنتجات المرتبطة" data-en="Associated Products">المنتجات المرتبطة</th>
+                            <th data-ar="إعادة التخزين" data-en="Restock">إعادة التخزين</th>
+                            <th data-ar="إجراءات" data-en="Actions">إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -595,11 +834,9 @@
                     </tbody>
                 </table>
             </div>
-            <div id="noProductsMessage" style="display: none; text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px; margin-top: 20px;">
-                <p style="color: #666; font-size: 16px; margin-bottom: 20px;">لا توجد منتجات في متجرك بعد</p>
-                <button onclick="startDesignFlow()" style="padding: 12px 24px; background: #000; color: #FFC107; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                    تصميم غلاف الآن
-                </button>
+            <div id="noProductsMessage" class="no-products-message" style="display: none;">
+                <p data-ar="لا توجد منتجات في متجرك بعد" data-en="No products in your store yet">لا توجد منتجات في متجرك بعد</p>
+                <button onclick="startDesignFlow()" class="design-btn" data-ar="تصميم غلاف الآن" data-en="Design Package Now">تصميم غلاف الآن</button>
             </div>
         </div>
         
@@ -3064,11 +3301,14 @@
                 const data = await response.json();
                 handleResponse(data, { type: 'salla_product_selection' });
                 
-                // Hide Salla section and show steps
-                document.getElementById('sallaIntegration').style.display = 'none';
+                // Show steps container
+                const stepsContainer = document.getElementById('stepsContainer');
+                if (stepsContainer) {
+                    stepsContainer.classList.add('visible');
+                }
             } catch (error) {
                 console.error('[selectSallaProduct] Error:', error);
-                alert('Error starting package design. Please try again.');
+                alert(currentLang === 'ar' ? 'حدث خطأ. يرجى المحاولة مرة أخرى.' : 'An error occurred. Please try again.');
             }
         }
         
@@ -3107,11 +3347,14 @@
                 const data = await response.json();
                 handleResponse(data, { type: 'image_upload' });
                 
-                // Hide Salla section and show steps
-                document.getElementById('sallaIntegration').style.display = 'none';
+                // Show steps container
+                const stepsContainer = document.getElementById('stepsContainer');
+                if (stepsContainer) {
+                    stepsContainer.classList.add('visible');
+                }
             } catch (error) {
                 console.error('[startWithImage] Error:', error);
-                alert('Error starting package design. Please try again.');
+                alert(currentLang === 'ar' ? 'حدث خطأ. يرجى المحاولة مرة أخرى.' : 'An error occurred. Please try again.');
             }
         }
         
@@ -3127,7 +3370,7 @@
         async function submitTextDescription() {
             const description = document.getElementById('productDescriptionText').value.trim();
             if (!description) {
-                alert('Please enter a product description');
+                alert(currentLang === 'ar' ? 'يرجى إدخال وصف المنتج' : 'Please enter a product description');
                 return;
             }
             
@@ -3148,8 +3391,11 @@
                 const data = await response.json();
                 handleResponse(data, { type: 'text_description' });
                 
-                // Hide Salla section and show steps
-                document.getElementById('sallaIntegration').style.display = 'none';
+                // Show steps container
+                const stepsContainer = document.getElementById('stepsContainer');
+                if (stepsContainer) {
+                    stepsContainer.classList.add('visible');
+                }
             } catch (error) {
                 console.error('[submitTextDescription] Error:', error);
                 alert('Error starting package design. Please try again.');
@@ -3269,20 +3515,47 @@
             }
         }
         
+        // Language Management
+        let currentLang = 'ar';
+        
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.setAttribute('lang', lang);
+            document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+            
+            // Update language toggle buttons
+            document.getElementById('langAr').classList.toggle('active', lang === 'ar');
+            document.getElementById('langEn').classList.toggle('active', lang === 'en');
+            
+            // Update all elements with data-ar and data-en attributes
+            document.querySelectorAll('[data-ar][data-en]').forEach(el => {
+                el.textContent = el.getAttribute(`data-${lang}`);
+            });
+            
+            // Re-render inventory table with new language
+            renderInventoryTable();
+        }
+        
         // Inventory Management
         const demoProducts = [
             {
                 id: 1,
-                name: 'عطر فاخر - زجاجة 200 مل',
-                package: 'صندوق كرتوني مخصص',
-                restock: 'متوفر',
+                nameAr: 'عطر فاخر - زجاجة 200 مل',
+                nameEn: 'Premium Perfume - 200ml Bottle',
+                packageAr: 'صندوق كرتوني مخصص',
+                packageEn: 'Custom Cardboard Box',
+                restockAr: 'متوفر',
+                restockEn: 'Available',
                 hasPackage: true
             },
             {
                 id: 2,
-                name: 'شامبو عضوي - 500 مل',
-                package: null,
-                restock: 'نفد المخزون',
+                nameAr: 'شامبو عضوي - 500 مل',
+                nameEn: 'Organic Shampoo - 500ml',
+                packageAr: null,
+                packageEn: null,
+                restockAr: 'نفد المخزون',
+                restockEn: 'Out of Stock',
                 hasPackage: false
             }
         ];
@@ -3301,20 +3574,30 @@
             
             if (noProductsMsg) noProductsMsg.style.display = 'none';
             
+            const isAr = currentLang === 'ar';
+            const noPackageText = isAr ? 'لا يوجد غلاف' : 'No Package';
+            const linkedText = isAr ? '✓ مرتبط' : '✓ Linked';
+            const designBtnText = isAr ? 'تصميم غلاف الآن' : 'Design Package Now';
+            
             tbody.innerHTML = demoProducts.map(product => {
-                const packageCell = product.package || '<span style="color: #999;">لا يوجد غلاف</span>';
-                const productsCell = product.name;
-                const restockCell = `<span style="color: ${product.restock === 'متوفر' ? '#28a745' : '#dc3545'}; font-weight: 600;">${product.restock}</span>`;
+                const packageText = product.hasPackage 
+                    ? (isAr ? product.packageAr : product.packageEn)
+                    : `<span style="color: #999;">${noPackageText}</span>`;
+                const productName = isAr ? product.nameAr : product.nameEn;
+                const restockText = isAr ? product.restockAr : product.restockEn;
+                const restockClass = product.restockAr === 'متوفر' || product.restockEn === 'Available' 
+                    ? 'restock-available' 
+                    : 'restock-out';
                 const actionCell = product.hasPackage 
-                    ? '<span style="color: #28a745;">✓ مرتبط</span>'
-                    : `<button onclick="designPackageForProduct(${product.id})" style="padding: 8px 16px; background: #000; color: #FFC107; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px;">تصميم غلاف الآن</button>`;
+                    ? `<span class="linked-badge">${linkedText}</span>`
+                    : `<button onclick="designPackageForProduct(${product.id})" class="design-btn">${designBtnText}</button>`;
                 
                 return `
-                    <tr style="border-bottom: 1px solid #e0e0e0;">
-                        <td style="padding: 12px; border: 1px solid #ddd;">${packageCell}</td>
-                        <td style="padding: 12px; border: 1px solid #ddd;">${productsCell}</td>
-                        <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${restockCell}</td>
-                        <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${actionCell}</td>
+                    <tr>
+                        <td>${packageText}</td>
+                        <td>${productName}</td>
+                        <td><span class="restock-badge ${restockClass}">${restockText}</span></td>
+                        <td>${actionCell}</td>
                     </tr>
                 `;
             }).join('');
@@ -3324,52 +3607,58 @@
             const product = demoProducts.find(p => p.id === productId);
             if (!product) return;
             
-            // Scroll to product input section
-            const productInputSection = document.getElementById('productInputSection');
-            if (productInputSection) {
-                productInputSection.style.display = 'block';
-                productInputSection.scrollIntoView({ behavior: 'smooth' });
-                
-                // Pre-fill product name in text input
-                setTimeout(() => {
-                    const textModal = document.getElementById('textInputModal');
-                    const textArea = document.getElementById('productDescriptionText');
-                    if (textModal && textArea) {
-                        textArea.value = product.name;
-                        textModal.style.display = 'flex';
-                    }
-                }, 300);
-            } else {
-                // If Salla not connected, show connect button
-                alert('يرجى ربط متجرك على سلة أولاً');
-                const sallaAuthSection = document.getElementById('sallaAuthSection');
-                if (sallaAuthSection) {
-                    sallaAuthSection.scrollIntoView({ behavior: 'smooth' });
-                }
+            // Show the wizard
+            const stepsContainer = document.getElementById('stepsContainer');
+            if (stepsContainer) {
+                stepsContainer.classList.add('visible');
+                stepsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
+            
+            // Start the design flow with product name
+            const productName = currentLang === 'ar' ? product.nameAr : product.nameEn;
+            startDesignFlowWithProduct(productName);
         }
         
         function startDesignFlow() {
-            const productInputSection = document.getElementById('productInputSection');
-            if (productInputSection) {
-                productInputSection.style.display = 'block';
-                productInputSection.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                // If Salla not connected, show connect button
-                const sallaAuthSection = document.getElementById('sallaAuthSection');
-                if (sallaAuthSection) {
-                    sallaAuthSection.scrollIntoView({ behavior: 'smooth' });
-                }
+            // Show the wizard
+            const stepsContainer = document.getElementById('stepsContainer');
+            if (stepsContainer) {
+                stepsContainer.classList.add('visible');
+                stepsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Initialize the flow
+            initializeFlow();
+        }
+        
+        async function startDesignFlowWithProduct(productName) {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flow: 'direct_sales',
+                        message: productName
+                    })
+                });
+                
+                const data = await response.json();
+                handleResponse(data, { type: 'product_design_start' });
+            } catch (error) {
+                console.error('[startDesignFlowWithProduct] Error:', error);
+                alert(currentLang === 'ar' ? 'حدث خطأ. يرجى المحاولة مرة أخرى.' : 'An error occurred. Please try again.');
             }
         }
         
-        // Initialize
-        initializeFlow();
+        // Initialize - DO NOT auto-initialize flow, only show inventory
         // Check for Salla callback on page load and update redirect URI display
         window.addEventListener('DOMContentLoaded', function() {
             checkSallaCallback();
             updateRedirectUriDisplay();
             renderInventoryTable();
+            setLanguage('ar'); // Set default language
             
             // Update redirect URI when API URL changes
             const apiUrlInput = document.getElementById('apiUrl');
